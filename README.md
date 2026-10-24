@@ -27,6 +27,16 @@
 └───────────────────────────────────────────────────┘
 ```
 
+## 界面
+
+| 设备列表 | 设备详情 |
+| --- | --- |
+| ![设备列表](docs/screenshots/devices.jpg) | ![设备详情](docs/screenshots/device-detail.jpg) |
+
+| 硬件 / 开机统计 / 进程 | 手机端 |
+| --- | --- |
+| ![数据区](docs/screenshots/device-data.jpg) | ![手机](docs/screenshots/mobile.jpg) |
+
 ## 下载安装（普通用户）
 
 到 [Releases](https://github.com/iuuuuuuuu/landeck/releases) 下载：
