@@ -1,8 +1,13 @@
 # LanDeck · 局域网 PC 控制台
 
+[![构建检查](https://github.com/iuuuuuuuu/landeck/actions/workflows/build.yml/badge.svg)](https://github.com/iuuuuuuuu/landeck/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/iuuuuuuuu/landeck)](https://github.com/iuuuuuuuu/landeck/releases)
+[![License](https://img.shields.io/badge/license-MIT-7c5cff.svg)](LICENSE)
+
 > 在手机或另一台电脑上，控制局域网里的 PC：开关机、重启、睡眠、定时任务、音量、媒体播放；
 > 查看硬件、运行状态、开机统计、进程，并能结束进程。
 > **一个 10 MB 的 Go 单文件 Agent + 一份 React 界面**，没有 Electron，没有 Chromium 副本。
+
 
 ```
 ┌── 控制端 ─────────────────────────────────────────┐
@@ -22,7 +27,22 @@
 └───────────────────────────────────────────────────┘
 ```
 
-## 快速开始
+## 下载安装（普通用户）
+
+到 [Releases](https://github.com/iuuuuuuuu/landeck/releases) 下载：
+
+| 系统 | 文件 | 说明 |
+| --- | --- | --- |
+| Windows（被控端） | `landeck-agent-windows-amd64.exe` | 双击即跑，控制台会打印密钥与随机码 |
+| Linux amd64 / arm64 | `landeck-agent-linux-*` | `chmod +x` 后运行 |
+| macOS Intel / Apple Silicon | `landeck-agent-darwin-*` | `chmod +x` 后运行（首次需在「隐私与安全性」放行） |
+| Windows（控制端） | `LanDeck_*_x64-setup.exe` / `.msi` | 图形界面的 App |
+| 任意设备 | 浏览器打开 `http://<被控机IP>:8420` | 零安装，手机也能用 |
+
+控制端 App 打开后点「扫描」→ 选设备 → 输入被控机控制台里的固定密钥或 6 位随机码即可。
+（同一个局域网、被控机放行 8420/8421 端口。）
+
+## 快速开始（从源码）
 
 ```bash
 # 1. 构建前端并嵌进 Agent（产物 web/dist → agent/internal/webui/dist）
