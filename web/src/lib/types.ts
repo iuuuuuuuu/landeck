@@ -150,6 +150,48 @@ export interface MediaInfo {
   updatedAt: number
 }
 
+/** 统计页：一次拿全的总览数据 */
+export interface StatsOverview {
+  generatedAt: string
+  device: {
+    id: string
+    name: string
+    platform: string
+    arch: string
+    agentVersion: string
+    bootTime: string
+    uptimeSec: number
+  }
+  realtime: {
+    cpu: number
+    mem: number
+    memUsed: number
+    memTotal: number
+    rxBps: number
+    txBps: number
+    disks: { mount: string; fs: string; used: number; total: number; percent: number }[]
+    battery: { percent: number; charging: boolean; timeLeftMin: number | null } | null
+    temps: { name: string; c: number }[]
+  }
+  counts: {
+    apps: number
+    processes: number
+    clients: number
+    schedules: number
+  }
+  uptime: UptimeHistory
+  activity: {
+    total: number
+    failed: number
+    actions: { action: string; label: string; total: number; ok: number; failed: number }[]
+    days: { date: string; total: number; failed: number }[]
+    clients: { name: string; total: number; lastSeen: string }[]
+    firstAt: string
+    lastAt: string
+    busiestDay: string
+  }
+}
+
 /** 按应用聚合后的进程组（用户只认应用，不认 PID） */
 export interface AppGroup {
   key: string

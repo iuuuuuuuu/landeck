@@ -30,6 +30,7 @@ import {
 import { AgentClient, ApiError, baseUrl } from '../lib/api'
 import { duration, osLabel } from '../lib/format'
 import { autostartGet, autostartSet } from '../lib/discovery'
+import { useRuntime } from '../lib/runtime'
 import { useAsync } from '../lib/hooks'
 import { useApp, type PairedDevice } from '../store/app'
 import { THEME_LABEL, useTheme, type ThemeMode } from '../store/theme'
@@ -236,10 +237,15 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: ReactNode }[] = [
 function AppearanceCard() {
   const { mode, theme, setMode } = useTheme()
   const toast = useApp((s) => s.toast)
+  const runtime = useRuntime()
+  // 只有桌面端 App 才谈得上「本机自启」：手机 App 没有这个概念，
+  // 浏览器页面也没有原生能力。之前无差别显示，手机上出现了不该有的开关。
+  const desktop = runtime === 'desktop'
   const [auto, setAuto] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
+    if (!desktop) return
     let alive = true
     void autostartGet().then((v) => {
       if (alive) setAuto(v)
@@ -247,7 +253,7 @@ function AppearanceCard() {
     return () => {
       alive = false
     }
-  }, [])
+  }, [desktop])
 
   const toggleAuto = async (next: boolean) => {
     setBusy(true)
@@ -277,21 +283,18 @@ function AppearanceCard() {
         </span>
       </div>
 
-      <div className="mt-4 border-t border-line-soft pt-4">
-        {auto === null ? (
-          <p className="text-[12px] text-faint">
-            开机自启只能在桌面端 App 里设置；浏览器打开的页面没有这个能力。
-          </p>
-        ) : (
+      {/* 仅桌面端：手机 App / 浏览器里根本不显示这一块 */}
+      {desktop && auto !== null && (
+        <div className="mt-4 border-t border-line-soft pt-4">
           <Toggle
             checked={auto}
             disabled={busy}
             onChange={(v) => void toggleAuto(v)}
             label="开机自启"
-            desc="登录系统后自动运行 LanDeck，这样随时都能从手机连上这台电脑。"
+            desc="登录这台电脑后自动启动 LanDeck 控制端。"
           />
-        )}
-      </div>
+        </div>
+      )}
     </Card>
   )
 }

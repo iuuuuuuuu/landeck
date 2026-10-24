@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom'
 import { MobileTabBar } from './MobileTabBar'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
+import { ErrorBoundary } from '../ui/ErrorBoundary'
 
 /**
  * 应用外壳。
@@ -26,7 +27,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.26, ease: 'easeOut' }}
           >
-            {children}
+            <ErrorBoundary key={pathname}>{children}</ErrorBoundary>
           </motion.div>
         </main>
       </div>

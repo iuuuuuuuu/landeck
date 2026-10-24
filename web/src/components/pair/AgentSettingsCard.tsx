@@ -6,6 +6,7 @@ import type { AgentSettings } from '../../lib/types'
 import { useApp, type PairedDevice } from '../../store/app'
 import { Badge, Button, Card, Field, Input, SectionTitle, Skeleton, Toggle } from '../ui'
 import { apiErrorMessage } from './errors'
+import { normalizeSettings } from './normalizeSettings'
 
 /** 设置页第 2 组：被控端（Agent）参数 */
 export function AgentSettingsCard({ device }: { device: PairedDevice }) {
@@ -22,9 +23,10 @@ export function AgentSettingsCard({ device }: { device: PairedDevice }) {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  // 归一化：后端少给字段时用默认值补齐，避免深层字段读取直接白屏
   useEffect(() => {
-    if (data) setDraft(data)
-  }, [data])
+    if (data) setDraft(normalizeSettings(data, device.name))
+  }, [data, device.name])
 
   const patch = (p: Partial<AgentSettings>) => setDraft((d) => (d ? { ...d, ...p } : d))
   const patchFeatures = (p: Partial<AgentSettings['features']>) =>
@@ -49,7 +51,7 @@ export function AgentSettingsCard({ device }: { device: PairedDevice }) {
         locale: draft.locale,
         theme: draft.theme,
       })
-      setDraft(next)
+      setDraft(normalizeSettings(next, device.name))
       reload()
       toast({
         kind: 'ok',

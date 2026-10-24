@@ -93,7 +93,7 @@ Go 侧却按整数解析，`json.Unmarshal` 整体失败 → `collectHardware` �
 - 扫描改为「原生广播 + HTTP 扫段」并行，任一有结果都不影响另一条（旧版广播有结果就直接 return）。
 - 新增 `autostart_get` / `autostart_set` 命令，桌面端可在界面里开关自启。
   Windows 写启动文件夹快捷方式（注册表 Run 键在本机被安全策略拒绝，实测连最小 Rust 程序都拿不到写权限）。
-- 实测（`cargo test` 真跑）：`local_ip = 10.168.1.115`；UDP 广播发现 `公司电脑-M600@10.168.1.115:8420`。
+- 实测（`cargo test` 真跑）：`local_ip` 返回本机私有地址；UDP 广播成功发现同网段的 Agent。
 
 ### 2. 本机不再需要自己配对自己
 `/hello` 新增 `self` 字段（loopback 或本机网卡地址即为真）。发现页把本机标为「本机」，
@@ -126,3 +126,38 @@ y 轴固定 0–24h、6h 刻度，柱高即真实占比；悬浮显示「X 小�
 ### 7. 手机沉浸式状态栏
 Android 侧 `enableEdgeToEdge` + 系统栏透明 + 关闭对比遮罩；网页用 `env(safe-area-inset-*)`
 自行避让（顶栏 `pt-safe`、底栏 `pb-safe`、内容区 `px-safe`）。内容延伸到状态栏下方，不再硬挡一条色块。
+
+## v1.0.3-pre — 2026-10-25（预测试版）
+
+修第三轮反馈。
+
+### 1. macOS 构建缺失 —— 补 CI 流水线
+`.app` / `.dmg` **只能在 macOS 上产出**（Windows 上 `tauri build --bundles dmg` 会直接拒绝，
+只有 msi/nsis 两个可选值）。之前发布里只有 macOS 的 Agent 二进制，没有 macOS 客户端安装包。
+新增 `.github/workflows/release.yml`：打 tag 时用 `macos-latest` runner 构建
+universal dmg（Intel + Apple Silicon），Windows / Linux / Android 各自并行，
+产物汇总成 draft release。详见 `docs/BUILD.md`。
+> CI 无 Apple 证书，产出未签名 dmg，首次打开需 `xattr -dr com.apple.quarantine`。
+
+### 2. 手机上出现「开机自启」「从手机连上」—— 按运行环境收口
+新增 `lib/runtime.ts` 判定 `web / desktop / android / ios`。
+- 「开机自启」开关**只在桌面端 App 里出现**（手机 App 没有这个概念，浏览器也没有原生能力）。
+- 删掉「这样随时都能从手机连上这台电脑」这类只对桌面端成立的描述。
+- 实测：手机 390 宽设置页无「开机自启」、浏览器无「开机自启」、桌面端有。
+
+### 3. 白屏 bug —— 已修（这条是我上一轮改坏的）
+`/settings` 响应若少一层字段，`draft.tls.enabled` 直接抛
+`Cannot read properties of undefined`，整个应用白屏。
+- 新增 `normalizeSettings()`：缺什么补什么，不假设服务端返回完整结构。
+- 新增 `ErrorBoundary`：包住每个路由内容，单块崩了只替换那一块并给出错误信息，不再整页空白。
+
+### 4. 托盘打不开客户端 —— 已修
+- 托盘菜单首项改成「打开 LanDeck」，点击**拉起客户端窗口**而不是跳浏览器。
+- 查找顺序：`LANDECK_CLIENT` 环境变量 → 同目录 → 上级目录 → 注册表 `InstallLocation`
+  → 开始菜单 `.lnk` 目标 → 常见安装路径；全都没有才退回浏览器。
+- 实测：`openClientApp()` 成功拉起进程，窗口标题 `LanDeck`。
+
+### 5. 新增「统计」页
+`GET /stats` 一次返回设备画像（运行时长、CPU/内存/磁盘、应用与进程数、开机历史、操作统计），
+前端不再发 5 个请求自己拼。页面含：总览六项指标、实时资源双环、磁盘占用、操作趋势柱图、
+操作分类、操作来源（哪个客户端用得最多）。

@@ -30,7 +30,7 @@ import (
 	"landeck/internal/tray"
 )
 
-const Version = "1.0.2"
+const Version = "1.0.3"
 
 func main() {
 	log.SetFlags(log.Ltime)
@@ -175,6 +175,7 @@ func runServer() {
 				}
 				return true, nil
 			},
+			OpenApp: openClientApp,
 			OnQuit: func() {
 				select {
 				case shutdown <- struct{}{}:

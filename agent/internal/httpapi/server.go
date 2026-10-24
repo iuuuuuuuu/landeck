@@ -91,6 +91,7 @@ func (s *Server) routes() {
 	m.HandleFunc("PUT /api/v1/settings", s.protect(s.handleSettingsPut))
 
 	m.HandleFunc("GET /api/v1/activity", s.protect(s.handleActivity))
+	m.HandleFunc("GET /api/v1/stats", s.protect(s.handleStats))
 
 	m.HandleFunc("GET /api/v1/apps", s.protect(s.handleApps))
 	m.HandleFunc("POST /api/v1/apps/kill", s.protect(s.handleKillApp))

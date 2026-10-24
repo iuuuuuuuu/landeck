@@ -15,6 +15,7 @@ import type {
   PairResponse,
   Schedule,
   SessionInfo,
+  StatsOverview,
   StatusSnapshot,
   SystemInfo,
   UptimeHistory,
@@ -335,6 +336,10 @@ export class AgentClient {
       method: 'POST',
       body: target,
     })
+  }
+
+  stats(days = 14) {
+    return this.req<StatsOverview>(`/stats?days=${days}`, { timeoutMs: 20000 })
   }
 
   activity(limit = 100, before?: string) {

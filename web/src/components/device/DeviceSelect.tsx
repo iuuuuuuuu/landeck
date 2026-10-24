@@ -20,7 +20,7 @@ export function DeviceSelect({
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value)}
       className={clsx(
-        'h-10 w-full min-w-0 sm:w-64 [color-scheme:dark] [&>option]:bg-surface [&>option]:text-fg',
+        'h-10 w-full min-w-0 sm:w-64 [&>option]:bg-surface [&>option]:text-fg',
         className,
       )}
     >

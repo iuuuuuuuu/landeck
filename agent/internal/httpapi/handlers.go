@@ -907,3 +907,58 @@ func (s *Server) handleKillApp(w http.ResponseWriter, r *http.Request, c *config
 	s.Acts.Add(store_activity("结束应用 "+body.Key, c.Name, true, strconv.Itoa(n)+" 个进程"))
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "killed": n})
 }
+
+// GET /api/v1/stats —— 本机统计总览（给「统计」页用）
+//
+// 一次请求把页面需要的都算好：运行时长、资源水位、开机历史、操作统计、
+// 进程/应用数量、磁盘占用。避免前端发 5 个请求再自己拼。
+func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, c *config.Client) {
+	days := 14
+	if v := r.URL.Query().Get("days"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 90 {
+			days = n
+		}
+	}
+
+	snap := s.Sampler.Snapshot()
+	uptime := metrics.CachedHistory(days)
+	acts := s.Acts.Aggregate(days)
+
+	// 应用与进程数量（走 2s 缓存，不会额外采样）
+	appCount, procCount := 0, 0
+	if apps, err := metrics.ListApps(metrics.AppQuery{Limit: 300}); err == nil {
+		appCount = len(apps)
+		for _, a := range apps {
+			procCount += a.Count
+		}
+	}
+
+	cfg := s.Cfg.Get()
+	out := map[string]any{
+		"generatedAt": time.Now().Format(time.RFC3339),
+		"device": map[string]any{
+			"id": cfg.DeviceID, "name": cfg.DeviceName,
+			"platform": runtime.GOOS, "arch": runtime.GOARCH,
+			"agentVersion": s.Version,
+			"bootTime":     snap.BootTime,
+			"uptimeSec":    snap.UptimeSec,
+		},
+		"realtime": map[string]any{
+			"cpu":  snap.CPU.Percent,
+			"mem":  snap.Mem.Percent,
+			"memUsed": snap.Mem.Used, "memTotal": snap.Mem.Total,
+			"rxBps": snap.Net.RxBps, "txBps": snap.Net.TxBps,
+			"disks": snap.Disks,
+			"battery": snap.Battery,
+			"temps": snap.Temps,
+		},
+		"counts": map[string]any{
+			"apps": appCount, "processes": procCount,
+			"clients": len(cfg.Clients),
+			"schedules": len(s.Sched.List()),
+		},
+		"uptime": uptime,
+		"activity": acts,
+	}
+	writeJSON(w, http.StatusOK, out)
+}

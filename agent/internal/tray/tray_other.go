@@ -7,6 +7,7 @@ type Callbacks struct {
 	Status           func() (title string, code string, paired int, consoleURL string)
 	ToggleAutostart  func() (enabled bool, err error)
 	AutostartEnabled func() bool
+	OpenApp          func() error
 	OnQuit           func()
 }
 

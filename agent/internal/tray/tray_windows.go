@@ -21,7 +21,9 @@ type Callbacks struct {
 	// ToggleAutostart 返回切换后的状态
 	ToggleAutostart func() (enabled bool, err error)
 	AutostartEnabled func() bool
-	OnQuit           func()
+	// OpenApp 打开控制端窗口（桌面 App 已安装则拉起它，否则退回浏览器）
+	OpenApp func() error
+	OnQuit  func()
 }
 
 var (
@@ -53,13 +55,14 @@ func onReady() {
 	systray.SetTitle("")
 	systray.SetTooltip("LanDeck · 局域网 PC 控制台")
 
-	titleItem = systray.AddMenuItem("LanDeck", "设备名")
-	titleItem.Disable()
+	// 第一项做成可点击的主入口：systray 库把左键单击也映射成「弹菜单」，
+	// 没法区分双击图标，所以把最常用的动作放在菜单首项。
+	titleItem = systray.AddMenuItem("打开 LanDeck", "打开控制端窗口")
 	codeItem = systray.AddMenuItem("配对码：读取中…", "点击复制配对码")
 	pairedItem = systray.AddMenuItem("已配对：0 台", "点击打开控制台查看详情")
 	pairedItem.Disable()
 	systray.AddSeparator()
-	openItem = systray.AddMenuItem("打开控制台", "在浏览器里打开本机控制台")
+	openItem = systray.AddMenuItem("打开控制台", "打开 LanDeck 控制端窗口")
 	systray.AddSeparator()
 	autoItem = systray.AddMenuItemCheckbox("开机自启", "登录 Windows 后自动运行", cb.AutostartEnabled())
 	logItem := systray.AddMenuItem("打开数据目录", "查看配置与日志")
@@ -74,8 +77,10 @@ func onReady() {
 			select {
 			case <-tick.C:
 				refresh()
+			case <-titleItem.ClickedCh:
+				openAppOrBrowser()
 			case <-openItem.ClickedCh:
-				openURL(consoleURL())
+				openAppOrBrowser()
 			case <-codeItem.ClickedCh:
 				_, code, _, _ := cb.Status()
 				if code != "" {
@@ -110,6 +115,17 @@ func onReady() {
 }
 
 func onExit() {}
+
+// openAppOrBrowser 优先拉起已安装的桌面客户端；没装才退回浏览器。
+// 用户反馈「点托盘打开控制台跳的是网页，不是客户端」—— 这里改成先找客户端。
+func openAppOrBrowser() {
+	if cb.OpenApp != nil {
+		if err := cb.OpenApp(); err == nil {
+			return
+		}
+	}
+	openURL(consoleURL())
+}
 
 // Supported 表示当前平台是否有托盘实现。
 func Supported() bool { return true }
