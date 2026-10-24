@@ -51,7 +51,7 @@ function useSessionGate(device?: PairedDevice) {
     }
     let cancelled = false
     setState({ loading: true, error: null, auth: false })
-    new AgentClient(d, d.token)
+    AgentClient.fromDevice(d)
       .session()
       .then(() => {
         if (!cancelled) setState({ loading: false, error: null, auth: false })
@@ -133,7 +133,7 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 /** 第 4 组：关于 */
 function AboutCard({ device }: { device: PairedDevice }) {
   const toast = useApp((s) => s.toast)
-  const client = new AgentClient(device, device.token)
+  const client = AgentClient.fromDevice(device)
   const { data, loading, error } = useAsync(() => client.system(), [device.id, device.token])
   const base = baseUrl(device)
 

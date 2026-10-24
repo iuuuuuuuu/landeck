@@ -51,7 +51,7 @@ export function HardwarePanel({
   )
 
   return (
-    <Card>
+    <Card className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-[15px] font-semibold text-fg">硬件信息</h3>
@@ -72,7 +72,11 @@ export function HardwarePanel({
         <Segmented value={tab} onChange={setTab} options={TABS} size="sm" className="min-w-max" />
       </div>
 
-      <div className="mt-4">
+      {/*
+        页签内容区撑满剩余高度：与左侧「实时状态」同高，内容不足时留白在卡片内部，
+        内容超出时在卡片内滚动（lg 断点给上限，避免某一页签把整行撑高）。
+      */}
+      <div className="scroll-area mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5 lg:max-h-[640px]">
         {hw.loading && !hw.data ? (
           <div className="space-y-3">
             {[0, 1, 2, 3].map((i) => (

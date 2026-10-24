@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Button, Card, Modal, SectionTitle, Spinner } from '../ui'
 import { Lock, MonitorOff, Moon, MoonStar, Power, RotateCcw } from 'lucide-react'
@@ -31,6 +31,45 @@ const RISKY: PowerItem[] = [
 
 const DELAY_SEC = 5
 
+/**
+ * 按钮排布：**每个按钮固定占 1 格**，所有按钮宽度完全相等。
+ *
+ * 之前的做法是「每行铺满整行」（3 个各占 1/3、2 个各占 1/2），
+ * 结果首排按钮 103px、第二排 158px —— 行内对齐了，但两排之间不等宽，
+ * 看上去依然乱。现在统一成等宽网格：左边缘对齐、宽度一致，
+ * 行末留空也不拉伸按钮。
+ *
+ * 列数：容器够宽用 3 列（4 个安全操作 = 3+1 行，6 个按钮 = 3+3 行）；
+ * 窄容器（<300px，约 320px 视口下的卡片内容区）退化为 2 列。
+ */
+const WIDE_COLS = 3
+const NARROW_COLS = 2
+const MIN_WIDE = 300
+
+interface Slot {
+  item: PowerItem
+  quiet?: boolean
+}
+
+/** 按容器实际宽度决定列数：卡片在 3 列栅格里只有 ~350px，不能按视口算 */
+function useCols(ref: React.RefObject<HTMLDivElement | null>): number {
+  const [cols, setCols] = useState(WIDE_COLS)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const apply = (w: number) => setCols(w >= MIN_WIDE ? WIDE_COLS : NARROW_COLS)
+    apply(el.getBoundingClientRect().width)
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0
+      if (w > 0) apply(w)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [ref])
+  return cols
+}
+
 export function PowerCard({
   client,
   system,
@@ -50,6 +89,13 @@ export function PowerCard({
   const supported = (i: PowerItem) => !i.cap || !caps || caps[i.cap] !== false
   const safe = SAFE.filter(supported)
   const risky = RISKY.filter(supported)
+  const gridRef = useRef<HTMLDivElement | null>(null)
+  const cols = useCols(gridRef)
+  // 所有按钮同尺寸；安全操作在前，关机/重启在后（颜色弱化）
+  const slots: Slot[] = [
+    ...safe.map((item) => ({ item })),
+    ...risky.map((item) => ({ item, quiet: true })),
+  ]
 
   const exec = async (item: PowerItem) => {
     if (item.action === 'power.shutdown' || item.action === 'power.restart') {
@@ -74,32 +120,22 @@ export function PowerCard({
         icon={<Power size={16} />}
       />
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {safe.map((item) => (
+      <div
+        ref={gridRef}
+        className="mt-4 grid gap-2"
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+      >
+        {slots.map((slot) => (
           <PowerButton
-            key={item.action}
-            item={item}
-            busy={pending === item.action}
+            key={slot.item.action}
+            item={slot.item}
+            quiet={slot.quiet}
+            busy={pending === slot.item.action}
             disabled={powerOff || pending !== null}
-            onClick={() => void exec(item)}
+            onClick={() => void exec(slot.item)}
           />
         ))}
       </div>
-
-      {risky.length > 0 && (
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          {risky.map((item) => (
-            <PowerButton
-              key={item.action}
-              item={item}
-              quiet
-              busy={pending === item.action}
-              disabled={powerOff || pending !== null}
-              onClick={() => void exec(item)}
-            />
-          ))}
-        </div>
-      )}
 
       <p className="mt-auto pt-3 text-[11px] leading-relaxed text-faint">
         关机、重启需二次确认，倒计时内可随时取消。
@@ -152,7 +188,7 @@ function PowerButton({
       disabled={disabled}
       onClick={onClick}
       className={clsx(
-        'group flex h-[68px] flex-col items-center justify-center gap-1.5 rounded-2xl border transition-colors',
+        'group flex h-[68px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-2xl border transition-colors',
         'disabled:pointer-events-none disabled:opacity-40',
         quiet
           ? 'border-line-soft bg-transparent text-muted hover:border-line-strong hover:bg-hover hover:text-fg-soft'
@@ -169,7 +205,9 @@ function PowerButton({
           }
         />
       )}
-      <span className="text-[12.5px] font-medium leading-none">{item.label}</span>
+      <span className="max-w-full truncate px-1 text-[12.5px] font-medium leading-none">
+        {item.label}
+      </span>
     </button>
   )
 }

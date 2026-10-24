@@ -7,6 +7,7 @@ import DeviceDetail from './pages/DeviceDetail'
 import Schedules from './pages/Schedules'
 import Activity from './pages/Activity'
 import Settings from './pages/Settings'
+import Files from './pages/Files'
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/scan" element={<Scan />} />
           <Route path="/devices" element={<Devices />} />
           <Route path="/devices/:id" element={<DeviceDetail />} />
+          <Route path="/files" element={<Files />} />
           <Route path="/schedules" element={<Schedules />} />
           <Route path="/activity" element={<Activity />} />
           <Route path="/settings" element={<Settings />} />

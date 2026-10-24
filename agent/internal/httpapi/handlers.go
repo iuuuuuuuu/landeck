@@ -33,6 +33,7 @@ func (s *Server) features() map[string]bool {
 		"hardware":  true,
 		"shell":     cfg.Features.AllowShell,
 		"processes": cfg.Features.AllowProcessKill,
+		"files":     cfg.Files.Enabled,
 		"battery":   false,
 	}
 }
@@ -59,11 +60,16 @@ func (s *Server) handleHello(w http.ResponseWriter, r *http.Request) {
 	code, exp := s.Auth.Code()
 	node := s.node(len(cfg.Clients) > 0)
 	node.IP = localAddrFor(r)
+	// isSelf：请求来自本机（loopback 或本机网卡地址）时为真。
+	// 前端据此把「自己」标出来并直接免配对进入，不需要用户给自己再配一次。
+	isSelf := isLocalRequest(r)
 	writeJSON(w, http.StatusOK, struct {
 		discovery.Node
 		Pairing map[string]any `json:"pairing"`
+		Self    bool           `json:"self"`
 	}{
 		Node: node,
+		Self: isSelf,
 		Pairing: map[string]any{
 			"fixed":         cfg.FixedKey != "",
 			"random":        cfg.RandomEnabled,
@@ -697,6 +703,7 @@ func settingsPayload(cfg config.Config) map[string]any {
 		},
 		"locale": cfg.Locale,
 		"theme":  cfg.Theme,
+		"files":  cfg.Files,
 	}
 }
 
@@ -719,6 +726,7 @@ func (s *Server) handleSettingsPut(w http.ResponseWriter, r *http.Request, c *co
 			AllowShell       bool `json:"allowShell"`
 			AllowProcessKill bool `json:"allowProcessKill"`
 		} `json:"features"`
+		Files *config.FilesConfig `json:"files"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192)).Decode(&body); err != nil {
 		writeErr(w, http.StatusBadRequest, "bad_request", "请求格式不正确")
@@ -741,6 +749,12 @@ func (s *Server) handleSettingsPut(w http.ResponseWriter, r *http.Request, c *co
 				restart = true
 			}
 			cc.TLS = config.TLSConfig{Enabled: body.TLS.Enabled, Cert: body.TLS.Cert, Key: body.TLS.Key}
+		}
+		if body.Files != nil {
+			cc.Files = *body.Files
+			if cc.Files.Roots == nil {
+				cc.Files.Roots = []string{}
+			}
 		}
 		if body.Features != nil {
 			cc.Features = config.Features{
@@ -841,4 +855,55 @@ func (s *Server) handleKillProcess(w http.ResponseWriter, r *http.Request, c *co
 	}
 	s.Acts.Add(store_activity(label, c.Name, true, "PID "+strconv.Itoa(int(pid))))
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "pid": pid})
+}
+
+// ---------- 按应用聚合 ----------
+
+func (s *Server) handleApps(w http.ResponseWriter, r *http.Request, c *config.Client) {
+	if !s.Cfg.Get().Features.AllowProcessKill {
+		writeErr(w, http.StatusConflict, "disabled", "进程查看已被关闭")
+		return
+	}
+	q := metrics.AppQuery{
+		Sort:  r.URL.Query().Get("sort"),
+		Query: r.URL.Query().Get("q"),
+		Limit: 80,
+	}
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			q.Limit = n
+		}
+	}
+	items, err := metrics.ListApps(q)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items, "total": len(items)})
+}
+
+func (s *Server) handleKillApp(w http.ResponseWriter, r *http.Request, c *config.Client) {
+	if !s.Cfg.Get().Features.AllowProcessKill {
+		writeErr(w, http.StatusConflict, "disabled", "结束进程能力已被关闭")
+		return
+	}
+	var body struct {
+		Key   string `json:"key"`
+		Force bool   `json:"force"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_request", "请求格式不正确")
+		return
+	}
+	if body.Key == "" {
+		writeErr(w, http.StatusBadRequest, "bad_request", "需要 key")
+		return
+	}
+	n, err := metrics.KillApp(body.Key, body.Force)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "failed", err.Error())
+		return
+	}
+	s.Acts.Add(store_activity("结束应用 "+body.Key, c.Name, true, strconv.Itoa(n)+" 个进程"))
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "killed": n})
 }

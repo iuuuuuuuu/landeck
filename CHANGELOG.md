@@ -80,3 +80,49 @@ Go 侧却按整数解析，`json.Unmarshal` 整体失败 → `collectHardware` �
 | 前端产物 | 909 KB（gzip 约 227 KB） |
 | Windows 安装包 | 1.41 MB（NSIS）/ 1.85 MB（MSI） |
 | Agent 常驻内存 | 约 33 MB |
+
+## v1.0.2-pre — 2026-10-24（预测试版）
+
+修第二轮反馈，并新增文件管理与应用级进程。
+
+### 1. 桌面客户端（Tauri 壳）
+- **修：扫描扫不到自己**。根因是 `tauri.conf.json` 缺 `withGlobalTauri`，Tauri v2 默认不注入
+  `window.__TAURI__`，前端拿不到 `invoke` → 原生 UDP 广播没跑；而壳里 `location.hostname`
+  是 `tauri.localhost`，推不出网段 → HTTP 扫段也没跑。**两条路同时失效**。
+  已开 `withGlobalTauri`，并新增 `local_ip` 命令让原生层直接给出本机私有地址。
+- 扫描改为「原生广播 + HTTP 扫段」并行，任一有结果都不影响另一条（旧版广播有结果就直接 return）。
+- 新增 `autostart_get` / `autostart_set` 命令，桌面端可在界面里开关自启。
+  Windows 写启动文件夹快捷方式（注册表 Run 键在本机被安全策略拒绝，实测连最小 Rust 程序都拿不到写权限）。
+- 实测（`cargo test` 真跑）：`local_ip = 10.168.1.115`；UDP 广播发现 `公司电脑-M600@10.168.1.115:8420`。
+
+### 2. 本机不再需要自己配对自己
+`/hello` 新增 `self` 字段（loopback 或本机网卡地址即为真）。发现页把本机标为「本机」，
+按钮是「直接进入」，点击后免令牌入库（`local: true`），API 走同源相对路径。
+实测：全新浏览器 → 扫描 → 点「直接进入」→ 进入详情，store 里 `{local: true, token: ""}`。
+
+### 3. 进程按应用聚合（用户视角）
+新增 `GET /apps`、`POST /apps/kill`：同名进程合并成一个应用，显示总 CPU/内存/进程数/主 PID；
+结束应用时**先子后父**整组结束，返回实际结束个数。系统关键应用（csrss/lsass/…）标记 `protected` 并拒绝。
+实测：`csrss` 返回「这是系统关键进程，已拒绝结束」。
+
+### 4. 文件管理（新功能）
+`GET /files/roots|list|stat|download|preview`、`POST /files/upload|mkdir|rename|delete`。
+- 只允许家目录/桌面/下载/文档/盘符根；系统目录默认拒绝（可开）；`..` 逃逸被 `filepath.Rel` 拦死。
+- 上传走原始字节流（512 MB 上限）+ `.part` 临时文件原子替换；下载支持 Range 续传。
+- 实测全链路：mkdir → upload → preview → download → rename → delete 全部成功；
+  越权访问 `C:\Windows\System32` 与 `..\..\Windows` 均返回 `denied`。
+
+### 5. 开机统计改用 echarts
+手写柱图没有 y 轴参照，14 根柱看着等高。改用 echarts（按需引入 + 懒加载单独 chunk 171 KB gzip），
+y 轴固定 0–24h、6h 刻度，柱高即真实占比；悬浮显示「X 小时 Y 分 / 启动 N 次」。
+首屏 JS 仍 189 KB gzip。
+
+### 6. 详情页布局
+- 「设备信息」默认展开。
+- 电源按钮**全部等宽**（实测 103px × 5，桌面与手机一致）；之前「每行铺满」导致 103/158 混排。
+- 实时状态与硬件信息同高（实测 601/601）。
+- 手机底部导航按导航项数量动态分列（加了「文件」后不再挤到第二行）。
+
+### 7. 手机沉浸式状态栏
+Android 侧 `enableEdgeToEdge` + 系统栏透明 + 关闭对比遮罩；网页用 `env(safe-area-inset-*)`
+自行避让（顶栏 `pt-safe`、底栏 `pb-safe`、内容区 `px-safe`）。内容延伸到状态栏下方，不再硬挡一条色块。

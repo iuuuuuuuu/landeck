@@ -20,6 +20,8 @@ export interface PairedDevice {
   addedAt: number
   lastOkAt?: number
   pinned?: boolean
+  /** 本机自身：不需要令牌，直接访问同源 API */
+  local?: boolean
 }
 
 export interface Toast {

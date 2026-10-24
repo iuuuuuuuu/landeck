@@ -29,7 +29,8 @@ export function DeviceBanner({
   const navigate = useNavigate()
   const [menu, setMenu] = useState(false)
   const [confirm, setConfirm] = useState(false)
-  const [info, setInfo] = useState(false)
+  /** 设备信息默认展开：用户不想每次点开才能看到主机名 / 内核 / 架构 */
+  const [info, setInfo] = useState(true)
 
   useEffect(() => {
     if (!menu) return

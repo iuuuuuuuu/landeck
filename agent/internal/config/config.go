@@ -52,7 +52,8 @@ type Config struct {
 	Locale           string    `json:"locale"`
 	Theme            string    `json:"theme"`
 	CORSOrigins      []string  `json:"corsOrigins"`
-	Features         Features  `json:"features"`
+	Features         Features    `json:"features"`
+	Files            FilesConfig `json:"files"`
 	Clients          []Client  `json:"clients"`
 }
 
@@ -60,6 +61,7 @@ func (c Config) Clone() Config {
 	out := c
 	out.Clients = append([]Client(nil), c.Clients...)
 	out.CORSOrigins = append([]string(nil), c.CORSOrigins...)
+	out.Files.Roots = append([]string(nil), c.Files.Roots...)
 	return out
 }
 
@@ -133,6 +135,12 @@ func (s *Store) repair() {
 		s.c.Clients = []Client{}
 		changed = true
 	}
+	// 老配置文件没有 files 段：整段都是零值。这时按「新功能默认开启」迁移，
+	// 否则升级后文件管理永远是关的，用户会以为是坏的。
+	if s.c.Files.Roots == nil {
+		s.c.Files = FilesConfig{Enabled: true, AllowWrite: true, Roots: []string{}}
+		changed = true
+	}
 	if changed {
 		_ = s.persist()
 	}
@@ -191,6 +199,7 @@ func Default() Config {
 		Theme:         "aurora",
 		CORSOrigins:   []string{},
 		Features:      Features{AllowWol: true, AllowSchedules: true, AllowProcessKill: true},
+		Files:         FilesConfig{Enabled: true, AllowWrite: true, Roots: []string{}},
 		Clients:       []Client{},
 	}
 }
@@ -236,4 +245,12 @@ func MaskKey(k string) string {
 		return "••••"
 	}
 	return "••••-" + k[len(k)-4:]
+}
+
+// FilesConfig 文件管理的开关与范围。
+type FilesConfig struct {
+	Enabled         bool     `json:"enabled"`
+	AllowWrite      bool     `json:"allowWrite"`
+	AllowSystemDirs bool     `json:"allowSystemDirs"`
+	Roots           []string `json:"roots"` // 为空则自动探测（家目录/桌面/下载/文档）
 }

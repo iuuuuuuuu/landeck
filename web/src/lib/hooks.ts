@@ -59,7 +59,7 @@ export function useLive(device?: PairedDevice | null): LiveState {
     if (!device) return
     closedRef.current = false
     retryRef.current = 0
-    const client = new AgentClient(device, device.token)
+    const client = AgentClient.fromDevice(device)
 
     const startPolling = () => {
       if (pollRef.current) return
@@ -191,5 +191,5 @@ export function useTicker(intervalMs = 1000): number {
 }
 
 export function useClient(device?: PairedDevice | null): AgentClient | null {
-  return useMemo(() => (device ? new AgentClient(device, device.token) : null), [device])
+  return useMemo(() => (device ? AgentClient.fromDevice(device) : null), [device])
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ownHint, scanLan } from '../../lib/discovery'
+import { nativeLocalIP, resolveHint, scanLan } from '../../lib/discovery'
 import type { NodeInfo } from '../../lib/types'
 
 export type ScanStatus = 'idle' | 'scanning' | 'done'
@@ -25,7 +25,7 @@ export function useLanScan(): LanScanResult {
   const [total, setTotal] = useState(0)
   const [elapsedMs, setElapsedMs] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const [hasHint] = useState(() => !!ownHint())
+  const [hasHint, setHasHint] = useState(() => !!resolveHint())
 
   const abortRef = useRef<AbortController | null>(null)
   const timerRef = useRef<number | null>(null)
@@ -62,6 +62,9 @@ export function useLanScan(): LanScanResult {
     timerRef.current = window.setInterval(() => {
       setElapsedMs(performance.now() - startedAt.current)
     }, 100)
+
+    // 先问原生层要本机地址（Tauri 下 URL 推不出网段），拿不到就用 URL 推导
+    void nativeLocalIP().then((ip) => setHasHint(!!resolveHint(ip)))
 
     const seen = new Set<string>()
     void scanLan({

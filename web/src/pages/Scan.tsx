@@ -25,6 +25,8 @@ export default function Scan() {
   const { nodes, status, done, total, elapsedMs, error, hasHint, start, stop } = useLanScan()
   const devices = useApp((s) => s.devices)
   const setActive = useApp((s) => s.setActive)
+  const addDevice = useApp((s) => s.addDevice)
+  const toast = useApp((s) => s.toast)
   const navigate = useNavigate()
   const [manual, setManual] = useState<NodeInfo[]>([])
   const [pairTarget, setPairTarget] = useState<NodeInfo | null>(null)
@@ -129,9 +131,30 @@ export default function Scan() {
             <ScanResultCard
               key={node.id}
               node={node}
-              paired={pairedIds.has(node.id)}
+              paired={pairedIds.has(node.id) || !!node.self}
               onPair={() => setPairTarget(node)}
               onEnter={() => {
+                // 本机自己：不需要配对，直接落进 store 并进入详情
+                if (node.self && !pairedIds.has(node.id)) {
+                  addDevice({
+                    id: node.id,
+                    host: node.ip || location.hostname,
+                    port: node.port,
+                    tls: node.tls,
+                    token: '',
+                    clientId: 'self',
+                    name: node.name,
+                    os: node.os,
+                    arch: node.arch,
+                    ver: node.ver,
+                    local: true,
+                  })
+                  toast({
+                    kind: 'ok',
+                    title: '已添加本机',
+                    desc: '这台就是当前设备，无需配对即可管理',
+                  })
+                }
                 setActive(node.id)
                 navigate(`/devices/${node.id}`)
               }}

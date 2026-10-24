@@ -29,11 +29,11 @@ export function TopBar() {
         : '检测中'
 
   return (
-    <header className="sticky top-0 z-20 bg-topbar px-3 py-2 backdrop-blur-xl sm:px-4">
+    <header className="pt-safe sticky top-0 z-20 bg-topbar px-3 pb-2 backdrop-blur-xl sm:px-4">
       <div className="panel panel-edge mx-auto flex h-16 max-w-[1240px] items-center gap-2 px-3 sm:gap-3 sm:px-4">
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[16px] font-semibold tracking-tight text-fg sm:text-[17px]">
-            {detail ? '设备详情' : nav.label}
+            {detail ? '设备' : nav.label}
           </h1>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-muted sm:text-[11.5px]">
             <StatusDot online={online} />

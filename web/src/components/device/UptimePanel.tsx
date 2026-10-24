@@ -1,4 +1,12 @@
-import { Badge, Button, Card, MiniBars, Skeleton, Stat } from '../ui'
+import { Badge, Button, Card, Skeleton, Stat } from '../ui'
+import { lazy, Suspense } from 'react'
+
+// echarts 体积不小（按需引入后仍 ~170KB gzip），单独切成异步 chunk：
+// 首屏不含它，只有打开详情页的「开机统计」时才拉。
+const UptimeBarChart = lazy(() =>
+  import('./UptimeBarChart').then((m) => ({ default: m.UptimeBarChart })),
+)
+import { useThemeStore } from '../../store/theme'
 import { CalendarClock, Clock, RotateCw } from 'lucide-react'
 import type { AgentClient } from '../../lib/api'
 import type { BootEvent } from '../../lib/types'
@@ -6,7 +14,6 @@ import { useAsync } from '../../lib/hooks'
 import { isAuthError } from './apiHelpers'
 import { dateTime, duration, hours } from '../../lib/format'
 
-const DAY_SEC = 86_400
 
 type Tone = 'ok' | 'neutral' | 'accent' | 'danger' | 'cyan'
 
@@ -36,12 +43,14 @@ export function UptimePanel({
     [client?.target.host, client?.target.port, client?.token],
   )
 
+  const theme = useThemeStore((st) => st.theme)
   const days = hist.data?.days ?? []
-  // 值 = 当天在线秒数，配合 max=86400 让柱高等于「一天 24 小时的占比」
+  // 交给 echarts 画：y 轴固定 0–24h，柱高就是真实占比（手写版没有刻度，看着全一样高）
   const bars = days.map((d) => ({
-    label: d.date.slice(8),
-    value: d.onSec,
-    hint: duration(d.onSec),
+    date: d.date,
+    label: d.date.slice(5),
+    onSec: d.onSec,
+    boots: d.boots,
   }))
   const events = [...(hist.data?.boots ?? [])]
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
@@ -96,12 +105,13 @@ export function UptimePanel({
                   按 24 小时刻度
                 </span>
               </div>
-              <MiniBars data={bars} height={72} tone="cyan" max={DAY_SEC} />
-              <div className="mt-1 flex items-center justify-between text-[11px] text-faint">
-                <span>0h</span>
-                <span>12h</span>
-                <span>24h</span>
-              </div>
+              {bars.length > 0 ? (
+                <Suspense fallback={<Skeleton className="h-[200px] w-full" />}>
+                  <UptimeBarChart data={bars} height={200} theme={theme} />
+                </Suspense>
+              ) : (
+                <Skeleton className="h-[200px] w-full" />
+              )}
             </div>
           </div>
 

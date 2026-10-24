@@ -1,6 +1,6 @@
 [package]
 name = "landeck"
-version = "1.0.1"
+version = "1.0.2"
 description = "LanDeck 控制端"
 authors = ["LanDeck"]
 edition = "2021"
@@ -18,6 +18,12 @@ tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 if-addrs = "0.13"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_System_Registry",
+] }
 
 [features]
 default = ["custom-protocol"]

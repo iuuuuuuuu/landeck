@@ -92,6 +92,19 @@ func (s *Server) routes() {
 
 	m.HandleFunc("GET /api/v1/activity", s.protect(s.handleActivity))
 
+	m.HandleFunc("GET /api/v1/apps", s.protect(s.handleApps))
+	m.HandleFunc("POST /api/v1/apps/kill", s.protect(s.handleKillApp))
+
+	m.HandleFunc("GET /api/v1/files/roots", s.protect(s.handleFilesRoots))
+	m.HandleFunc("GET /api/v1/files/list", s.protect(s.handleFilesList))
+	m.HandleFunc("GET /api/v1/files/stat", s.protect(s.handleFilesStat))
+	m.HandleFunc("GET /api/v1/files/download", s.protect(s.handleFilesDownload))
+	m.HandleFunc("GET /api/v1/files/preview", s.protect(s.handleFilesPreview))
+	m.HandleFunc("POST /api/v1/files/upload", s.protect(s.handleFilesUpload))
+	m.HandleFunc("POST /api/v1/files/mkdir", s.protect(s.handleFilesMkdir))
+	m.HandleFunc("POST /api/v1/files/rename", s.protect(s.handleFilesRename))
+	m.HandleFunc("POST /api/v1/files/delete", s.protect(s.handleFilesDelete))
+
 	m.HandleFunc("GET /api/v1/processes", s.protect(s.handleProcesses))
 	m.HandleFunc("POST /api/v1/processes/kill", s.protect(s.handleKillProcess))
 
@@ -266,3 +279,25 @@ func pString(m map[string]any, key, def string) string {
 }
 
 var errBadParams = errors.New("参数不合法")
+
+// isLocalRequest 判断请求是否来自本机：loopback，或源地址等于本机任一网卡地址。
+func isLocalRequest(r *http.Request) bool {
+	host := clientIP(r)
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	if ip.IsLoopback() {
+		return true
+	}
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return false
+	}
+	for _, a := range addrs {
+		if ipnet, ok := a.(*net.IPNet); ok && ipnet.IP.Equal(ip) {
+			return true
+		}
+	}
+	return false
+}

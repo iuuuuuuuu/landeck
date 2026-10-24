@@ -35,7 +35,7 @@ export function LiveStats({ live }: { live: LiveState }) {
 
   if (!status) {
     return (
-      <Card>
+      <Card className="flex h-full flex-col">
         <SectionTitle title="实时状态" desc="CPU / 内存 / 磁盘 / 网络" icon={<Activity size={16} />} />
         {error ? (
           <div className="mt-3.5 flex items-center gap-2 rounded-xl border border-warn/25 bg-warn/10 px-3 py-2 text-[12px] text-warn">
@@ -71,7 +71,7 @@ export function LiveStats({ live }: { live: LiveState }) {
   const memTotal = numOrNull(status.mem?.total)
 
   return (
-    <Card>
+    <Card className="flex h-full flex-col">
       {!connected && (
         <div className="mb-3.5 flex items-center gap-2 rounded-xl border border-warn/30 bg-warn/12 px-3 py-2 text-[12px] text-warn">
           <RefreshCw size={12} className="animate-spin" />

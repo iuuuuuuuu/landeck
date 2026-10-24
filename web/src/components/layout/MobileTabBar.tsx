@@ -7,7 +7,11 @@ export function MobileTabBar() {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 min-[900px]:hidden">
       <div className="pb-safe pointer-events-auto mx-3 mb-1">
-        <div className="panel panel-edge grid grid-cols-5 gap-0.5 p-1.5">
+        {/* 列数跟随导航项数量：写死 5 会在加了「文件」后挤到第二行并遮住内容 */}
+        <div
+          className="panel panel-edge grid gap-0.5 p-1.5"
+          style={{ gridTemplateColumns: `repeat(${NAV_ITEMS.length}, minmax(0, 1fr))` }}
+        >
           {NAV_ITEMS.map((item) => (
             <NavLink key={item.to} to={item.to} className="relative block">
               {({ isActive }) => (

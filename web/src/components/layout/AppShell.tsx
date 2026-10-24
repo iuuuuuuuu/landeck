@@ -19,7 +19,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Sidebar />
       <div className="flex min-h-full flex-col min-[900px]:pl-[272px]">
         <TopBar />
-        <main className="mx-auto w-full max-w-[1240px] flex-1 px-3 pb-32 pt-3 sm:px-4 min-[900px]:pb-8">
+        <main className="px-safe mx-auto w-full max-w-[1240px] flex-1 px-3 pb-32 pt-3 sm:px-4 min-[900px]:pb-8">
           <motion.div
             key={pathname}
             initial={{ opacity: 0, y: 8 }}

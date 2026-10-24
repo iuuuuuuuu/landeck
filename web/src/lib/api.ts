@@ -1,5 +1,8 @@
 import type {
   ActionResult,
+  AppGroup,
+  FileEntry,
+  FileRoot,
   MediaInfo,
   ProcessInfo,
   ActionMeta,
@@ -31,13 +34,24 @@ export interface Target {
   host: string
   port: number
   tls: boolean
+  /** 本机自身：走同源相对路径，不需要令牌 */
+  local?: boolean
 }
 
-export function baseUrl(t: Pick<Target, 'host' | 'port' | 'tls'>): string {
+export function baseUrl(t: Pick<Target, 'host' | 'port' | 'tls'> & { local?: boolean }): string {
+  // 本机：同源相对路径，页面从哪来就打哪去（避免 https/端口推断出错）
+  if (t.local && typeof location !== 'undefined') return '/api/v1'
   return `${t.tls ? 'https' : 'http'}://${t.host}:${t.port}/api/v1`
 }
 
-export function wsUrl(t: Pick<Target, 'host' | 'port' | 'tls'>, token: string): string {
+export function wsUrl(
+  t: Pick<Target, 'host' | 'port' | 'tls'> & { local?: boolean },
+  token: string,
+): string {
+  if (t.local && typeof location !== 'undefined') {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+    return `${proto}://${location.host}/api/v1/ws?token=${encodeURIComponent(token)}`
+  }
   return `${t.tls ? 'wss' : 'ws'}://${t.host}:${t.port}/api/v1/ws?token=${encodeURIComponent(token)}`
 }
 
@@ -121,6 +135,20 @@ export class AgentClient {
   constructor(target: Target, token?: string) {
     this.target = target
     this.token = token
+  }
+
+  /** 从 PairedDevice 构造（自动带上 local 标记） */
+  static fromDevice(d: {
+    host: string
+    port: number
+    tls: boolean
+    token: string
+    local?: boolean
+  }): AgentClient {
+    return new AgentClient(
+      { host: d.host, port: d.port, tls: d.tls, local: d.local },
+      d.local ? undefined : d.token,
+    )
   }
 
   private req<T>(path: string, opts: Omit<RequestOptions, 'token'> = {}) {
@@ -216,6 +244,89 @@ export class AgentClient {
     if (opts.q) params.set('q', opts.q)
     return this.req<{ items: ProcessInfo[]; total: number }>(`/processes?${params}`, {
       timeoutMs: 15000,
+    })
+  }
+
+  apps(opts: { sort?: 'cpu' | 'mem' | 'name' | 'count'; limit?: number; q?: string } = {}) {
+    const params = new URLSearchParams()
+    if (opts.sort) params.set('sort', opts.sort)
+    if (opts.limit) params.set('limit', String(opts.limit))
+    if (opts.q) params.set('q', opts.q)
+    return this.req<{ items: AppGroup[]; total: number }>(`/apps?${params}`, { timeoutMs: 15000 })
+  }
+
+  killApp(key: string, force = true) {
+    return this.req<{ ok: boolean; killed: number }>('/apps/kill', {
+      method: 'POST',
+      body: { key, force },
+    })
+  }
+
+  fileRoots() {
+    return this.req<{ roots: FileRoot[]; allowWrite: boolean }>('/files/roots')
+  }
+
+  files(path: string) {
+    return this.req<{ path: string; items: FileEntry[]; count: number }>(
+      `/files/list?path=${encodeURIComponent(path)}`,
+      { timeoutMs: 15000 },
+    )
+  }
+
+  filePreview(path: string) {
+    return this.req<{ text: string; truncated: boolean }>(
+      `/files/preview?path=${encodeURIComponent(path)}`,
+      { timeoutMs: 15000 },
+    )
+  }
+
+  fileMkdir(parent: string, name: string) {
+    return this.req<FileEntry>('/files/mkdir', { method: 'POST', body: { parent, name } })
+  }
+
+  fileRename(path: string, newName: string) {
+    return this.req<FileEntry>('/files/rename', { method: 'POST', body: { path, newName } })
+  }
+
+  fileDelete(path: string) {
+    return this.req<{ ok: boolean }>('/files/delete', { method: 'POST', body: { path } })
+  }
+
+  fileDownloadUrl(path: string) {
+    const base = baseUrl(this.target)
+    return `${base}/files/download?path=${encodeURIComponent(path)}&token=${encodeURIComponent(this.token ?? '')}`
+  }
+
+  async fileUpload(dir: string, file: File, overwrite = false, onProgress?: (pct: number) => void) {
+    const url = `${baseUrl(this.target)}/files/upload?dir=${encodeURIComponent(dir)}&name=${encodeURIComponent(file.name)}&overwrite=${overwrite ? 1 : 0}`
+    return new Promise<FileEntry>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', url)
+      xhr.setRequestHeader('Authorization', `Bearer ${this.token ?? ''}`)
+      xhr.setRequestHeader('Content-Type', 'application/octet-stream')
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100))
+      }
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText) as FileEntry)
+          } catch {
+            reject(new ApiError('parse', '返回内容无法解析', xhr.status))
+          }
+        } else {
+          let msg = `上传失败（HTTP ${xhr.status}）`
+          try {
+            const body = JSON.parse(xhr.responseText) as { message?: string }
+            if (body.message) msg = body.message
+          } catch {
+            /* 保持默认文案 */
+          }
+          reject(new ApiError('upload', msg, xhr.status))
+        }
+      }
+      xhr.onerror = () => reject(new ApiError('network', '上传失败，请检查网络', 0))
+      xhr.send(file)
     })
   }
 

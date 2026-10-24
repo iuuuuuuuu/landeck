@@ -35,6 +35,8 @@ export interface NodeInfo {
   os: string
   arch: string
   paired: boolean
+  /** 请求来自被控机本机时为真：前端据此免配对直接进入 */
+  self?: boolean
   pairing?: { fixed: boolean; random: boolean; codeExpiresAt: string }
 }
 
@@ -76,6 +78,7 @@ export interface SystemInfo {
     | 'hardware'
     | 'shell'
     | 'processes'
+    | 'files'
     | 'battery',
     boolean
   >
@@ -145,6 +148,36 @@ export interface MediaInfo {
   positionSec: number
   durationSec: number
   updatedAt: number
+}
+
+/** 按应用聚合后的进程组（用户只认应用，不认 PID） */
+export interface AppGroup {
+  key: string
+  name: string
+  pids: number[]
+  mainPid: number
+  count: number
+  cpu: number
+  memMb: number
+  user: string
+  exe: string
+  protected: boolean
+}
+
+export interface FileEntry {
+  name: string
+  path: string
+  dir: boolean
+  size: number
+  modTime: string
+  ext: string
+  hidden: boolean
+}
+
+export interface FileRoot {
+  path: string
+  label: string
+  kind: 'home' | 'drive' | 'custom'
 }
 
 export interface ProcessInfo {
@@ -235,6 +268,12 @@ export interface AgentSettings {
     allowSchedules: boolean
     allowShell: boolean
     allowProcessKill: boolean
+  }
+  files: {
+    enabled: boolean
+    allowWrite: boolean
+    allowSystemDirs: boolean
+    roots: string[]
   }
   locale: string
   theme: string

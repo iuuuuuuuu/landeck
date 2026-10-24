@@ -24,9 +24,15 @@ export function ScanResultCard({
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
           <span className="truncate text-[14px] font-medium text-fg">{node.name}</span>
-          <Badge tone={paired ? 'ok' : 'neutral'} dot className="shrink-0">
-            {paired ? '已配对' : '未配对'}
-          </Badge>
+          {node.self ? (
+            <Badge tone="cyan" dot className="shrink-0">
+              本机
+            </Badge>
+          ) : (
+            <Badge tone={paired ? 'ok' : 'neutral'} dot className="shrink-0">
+              {paired ? '已配对' : '未配对'}
+            </Badge>
+          )}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px] text-muted">
           <span className="num">
@@ -45,13 +51,13 @@ export function ScanResultCard({
         </div>
       </div>
       <Button
-        variant={paired ? 'secondary' : 'primary'}
+        variant={paired || node.self ? 'secondary' : 'primary'}
         size="md"
         className="shrink-0"
-        icon={paired ? <ArrowRight size={15} /> : undefined}
-        onClick={paired ? onEnter : onPair}
+        icon={<ArrowRight size={15} />}
+        onClick={paired || node.self ? onEnter : onPair}
       >
-        {paired ? '进入' : '配对'}
+        {node.self ? '直接进入' : paired ? '进入' : '配对'}
       </Button>
     </Card>
   )

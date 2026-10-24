@@ -311,11 +311,18 @@
     background-clip: content-box;
   }
 
+  /* 沉浸式安全区：内容铺到状态栏/导航栏下，靠这两个类让内容自己避让。
+     竖屏手机状态栏约 24–48px，iOS 刘海更高；用 env() 取系统真实值，
+     拿不到时（桌面浏览器/旧 WebView）退回 0，不影响布局。 */
   .pb-safe {
     padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
   }
   .pt-safe {
-    padding-top: max(env(safe-area-inset-top), 0rem);
+    padding-top: max(env(safe-area-inset-top), 0.25rem);
+  }
+  .px-safe {
+    padding-left: max(env(safe-area-inset-left), 0rem);
+    padding-right: max(env(safe-area-inset-right), 0rem);
   }
 }
 

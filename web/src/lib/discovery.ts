@@ -16,6 +16,25 @@ const COMMON_PORTS: { port: number; tls: boolean }[] = [
   { port: 8443, tls: true },
 ]
 
+interface TauriInvoke {
+  (cmd: string, args?: Record<string, unknown>): Promise<unknown>
+}
+
+function tauriInvoke(): TauriInvoke | null {
+  const w = window as unknown as {
+    __TAURI__?: { core?: { invoke?: TauriInvoke }; invoke?: TauriInvoke }
+    __TAURI_INTERNALS__?: { invoke?: TauriInvoke }
+  }
+  // Tauri v2：withGlobalTauri 打开时是 __TAURI__.core.invoke；
+  // 即使没开，__TAURI_INTERNALS__.invoke 也存在，两条都认。
+  const fn =
+    w.__TAURI__?.core?.invoke ??
+    w.__TAURI__?.invoke ??
+    w.__TAURI_INTERNALS__?.invoke ??
+    null
+  return fn ? fn.bind(w.__TAURI__?.core ?? w.__TAURI_INTERNALS__ ?? w) : null
+}
+
 export interface ScanOptions {
   hintHost?: string
   onNode: (node: NodeInfo) => void
@@ -51,16 +70,29 @@ export function ownHint(): string | undefined {
   return isPrivateV4(h) ? h : undefined
 }
 
-interface TauriInvoke {
-  (cmd: string, args?: Record<string, unknown>): Promise<unknown>
+/**
+ * 推断要扫的网段。
+ * 浏览器里 location.hostname 是被控机 IP，直接可用；
+ * Tauri 壳里是 tauri.localhost（或 localhost），推不出网段 —— 这时用原生层拿到的本机地址。
+ */
+export function resolveHint(nativeHint?: string): string | undefined {
+  const fromUrl = ownHint()
+  if (fromUrl) return fromUrl
+  if (nativeHint && isPrivateV4(nativeHint)) return nativeHint
+  return undefined
 }
 
-function tauriInvoke(): TauriInvoke | null {
-  const w = window as unknown as {
-    __TAURI__?: { core?: { invoke?: TauriInvoke }; invoke?: TauriInvoke }
-    __TAURI_INTERNALS__?: { invoke?: TauriInvoke }
+/** 原生层给的本机地址（Tauri 下才有；浏览器返回 undefined） */
+export async function nativeLocalIP(): Promise<string | undefined> {
+  const invoke = tauriInvoke()
+  if (!invoke) return undefined
+  try {
+    const ip = await invoke('local_ip')
+    if (typeof ip === 'string' && isPrivateV4(ip)) return ip
+  } catch {
+    /* 老版本壳没有这个命令 */
   }
-  return w.__TAURI__?.core?.invoke ?? w.__TAURI__?.invoke ?? w.__TAURI_INTERNALS__?.invoke ?? null
+  return undefined
 }
 
 async function scanNative(invoke: TauriInvoke): Promise<NodeInfo[]> {
@@ -74,51 +106,62 @@ async function scanNative(invoke: TauriInvoke): Promise<NodeInfo[]> {
 }
 
 export async function scanLan(opts: ScanOptions): Promise<NodeInfo[]> {
-  const { hintHost = ownHint(), onNode, onProgress, concurrency = 64, timeoutMs = 620 } = opts
+  const { onNode, onProgress, concurrency = 64, timeoutMs = 620 } = opts
   const found = new Map<string, NodeInfo>()
-
   const emit = (n: NodeInfo) => {
+    if (!n || typeof n.id !== 'string' || !n.id) return
     if (found.has(n.id)) return
     found.set(n.id, n)
     onNode(n)
   }
 
-  // 1) 原生广播
+  // 网段提示：URL 优先，其次问原生层（Tauri 下 hostname 是 tauri.localhost，推不出网段）
+  const hintHost = opts.hintHost ?? resolveHint(await nativeLocalIP())
   const invoke = tauriInvoke()
+
+  // 1) 原生 UDP 广播 + 2) HTTP 扫段，两条路并行跑，谁有结果都不影响另一条。
+  //    早期版本在广播有结果时直接 return，导致「广播收到一半」就漏掉整段扫描。
+  const jobs: Promise<void>[] = []
+
   if (invoke) {
-    const nodes = await scanNative(invoke)
-    nodes.forEach(emit)
-    if (nodes.length > 0) return [...found.values()]
+    jobs.push(
+      (async () => {
+        const nodes = await scanNative(invoke)
+        nodes.forEach(emit)
+      })(),
+    )
   }
 
-  // 2) HTTP 扫段
   const hosts = candidatesFromHint(hintHost)
-  if (hosts.length === 0) return [...found.values()]
-
-  const tasks: { host: string; port: number; tls: boolean }[] = []
-  for (const host of hosts) {
-    for (const p of COMMON_PORTS) tasks.push({ host, ...p })
+  if (hosts.length > 0) {
+    jobs.push(
+      (async () => {
+        const tasks: { host: string; port: number; tls: boolean }[] = []
+        for (const host of hosts) {
+          for (const p of COMMON_PORTS) tasks.push({ host, ...p })
+        }
+        let done = 0
+        let cursor = 0
+        onProgress?.(0, tasks.length)
+        async function worker() {
+          while (cursor < tasks.length) {
+            if (opts.signal?.aborted) return
+            const t = tasks[cursor++]
+            const node = await probeNode(t.host, t.port, t.tls, timeoutMs, opts.signal)
+            done++
+            if (node) emit({ ...node, ip: node.ip || t.host, port: t.port, tls: t.tls })
+            onProgress?.(done, tasks.length)
+          }
+        }
+        await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker))
+      })(),
+    )
+  } else if (!invoke) {
+    // 浏览器里打开的不是内网地址（localhost / 域名），无网段可扫 —— 交给页面提示手动填 IP
+    onProgress?.(0, 0)
   }
 
-  let done = 0
-  let cursor = 0
-  const total = tasks.length
-  onProgress?.(0, total)
-
-  async function worker() {
-    while (cursor < tasks.length) {
-      if (opts.signal?.aborted) return
-      const t = tasks[cursor++]
-      const node = await probeNode(t.host, t.port, t.tls, timeoutMs, opts.signal)
-      done++
-      if (node) {
-        emit({ ...node, ip: node.ip || t.host, port: t.port, tls: t.tls })
-      }
-      onProgress?.(done, total)
-    }
-  }
-
-  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker))
+  await Promise.all(jobs)
   return [...found.values()]
 }
 
