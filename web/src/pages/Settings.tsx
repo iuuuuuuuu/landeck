@@ -25,9 +25,11 @@ import {
   SectionTitle,
   Segmented,
   Skeleton,
+  Toggle,
 } from '../components/ui'
 import { AgentClient, ApiError, baseUrl } from '../lib/api'
 import { duration, osLabel } from '../lib/format'
+import { autostartGet, autostartSet } from '../lib/discovery'
 import { useAsync } from '../lib/hooks'
 import { useApp, type PairedDevice } from '../store/app'
 import { THEME_LABEL, useTheme, type ThemeMode } from '../store/theme'
@@ -230,14 +232,41 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: ReactNode }[] = [
   { value: 'light', label: '浅色', icon: <Sun size={14} /> },
 ]
 
-/** 第 0 组：外观。不依赖设备，未配对 / 离线时也照样能切主题 */
+/** 第 0 组：外观 + 桌面端自启。不依赖设备，未配对 / 离线时也照样能用 */
 function AppearanceCard() {
   const { mode, theme, setMode } = useTheme()
+  const toast = useApp((s) => s.toast)
+  const [auto, setAuto] = useState<boolean | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    void autostartGet().then((v) => {
+      if (alive) setAuto(v)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const toggleAuto = async (next: boolean) => {
+    setBusy(true)
+    const res = await autostartSet(next)
+    setBusy(false)
+    if (!res.ok) {
+      // 系统策略/安全软件拦截时把真实原因给用户，不静默失败
+      toast({ kind: 'error', title: '设置开机自启失败', desc: res.error })
+      return
+    }
+    setAuto(next)
+    toast({ kind: 'ok', title: next ? '已开启开机自启' : '已关闭开机自启' })
+  }
+
   return (
     <Card>
       <SectionTitle
         icon={<Palette size={16} />}
-        title="外观"
+        title="外观与启动"
         desc="「跟随系统」会随操作系统的深浅色设置实时变化；选择记在这个浏览器里，刷新不丢。"
       />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -246,6 +275,22 @@ function AppearanceCard() {
           选择：<span className="text-fg-soft">{THEME_LABEL[mode]}</span>
           <span className="text-faint"> · 当前生效 {theme === 'light' ? '浅色' : '深色'}</span>
         </span>
+      </div>
+
+      <div className="mt-4 border-t border-line-soft pt-4">
+        {auto === null ? (
+          <p className="text-[12px] text-faint">
+            开机自启只能在桌面端 App 里设置；浏览器打开的页面没有这个能力。
+          </p>
+        ) : (
+          <Toggle
+            checked={auto}
+            disabled={busy}
+            onChange={(v) => void toggleAuto(v)}
+            label="开机自启"
+            desc="登录系统后自动运行 LanDeck，这样随时都能从手机连上这台电脑。"
+          />
+        )}
       </div>
     </Card>
   )

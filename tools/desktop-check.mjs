@@ -74,7 +74,15 @@ check('invoke 可用', env.hasInvoke === true, String(env.hasInvoke))
 const ip = await ev(
   `window.__TAURI__.core.invoke('local_ip').catch(e => 'ERR:' + e)`,
 )
-check('local_ip 返回私有地址', /^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(String(ip)), String(ip))
+const ipParts = String(ip).split('.')
+const isDigits = (s) => s.length > 0 && [...s].every((c) => c >= '0' && c <= '9')
+check(
+  'local_ip 返回私有地址',
+  ipParts.length === 4 &&
+    ipParts.every(isDigits) &&
+    (ipParts[0] === '10' || ipParts[0] === '192' || ipParts[0] === '172'),
+  String(ip),
+)
 
 // 3. 原生 UDP 扫描必须发现本机 Agent
 const found = await ev(

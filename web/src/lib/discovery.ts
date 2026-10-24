@@ -169,3 +169,26 @@ export async function scanLan(opts: ScanOptions): Promise<NodeInfo[]> {
 export async function probeTarget(host: string, port = DEFAULT_PORT, tls = false) {
   return probeNode(host, port, tls, 2500)
 }
+
+/** 桌面端自启开关（浏览器里没有，返回 null 表示不支持） */
+export async function autostartGet(): Promise<boolean | null> {
+  const invoke = tauriInvoke()
+  if (!invoke) return null
+  try {
+    const v = await invoke('autostart_get')
+    return typeof v === 'boolean' ? v : null
+  } catch {
+    return null
+  }
+}
+
+export async function autostartSet(enabled: boolean): Promise<{ ok: boolean; error?: string }> {
+  const invoke = tauriInvoke()
+  if (!invoke) return { ok: false, error: '当前环境不支持（需要在桌面端 App 里操作）' }
+  try {
+    await invoke('autostart_set', { enabled })
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
