@@ -13,13 +13,19 @@ import (
 )
 
 type windowsController struct {
-	opts    Options
-	volume  *comVolume
-	caps    Caps
+	opts   Options
+	volume *comVolume
+	media  *smtcHelper
+	caps   Caps
 }
 
 func New(opts Options) Controller {
 	c := &windowsController{opts: opts}
+	dataDir := opts.DataDir
+	if dataDir == "" {
+		dataDir = "."
+	}
+	c.media = newSMTC(dataDir)
 	c.caps = Caps{
 		Sleep:     true,
 		Hibernate: hibernationEnabled(),
@@ -129,16 +135,26 @@ var mediaKeys = map[string]byte{
 }
 
 func (c *windowsController) Media(op string) error {
-	vk, ok := mediaKeys[op]
-	if !ok {
+	if _, ok := mediaKeys[op]; !ok {
 		return ErrUnsupported
 	}
 	if c.opts.DryRun {
 		return nil
 	}
-	procKeybdEvent.Call(uintptr(vk), 0, 0, 0)
-	procKeybdEvent.Call(uintptr(vk), 0, keyeventfKeyup, 0)
-	return nil
+	// 优先走 SMTC：这样播放状态会立刻反映到控制端；没有活动会话时退回媒体键
+	if c.media != nil {
+		if _, err := c.media.call(op); err == nil {
+			return nil
+		}
+	}
+	return c.mediaByKeys(op)
+}
+
+func (c *windowsController) MediaState() (MediaInfo, error) {
+	if c.media == nil {
+		return MediaInfo{}, ErrUnsupported
+	}
+	return c.media.readMediaState()
 }
 
 func (c *windowsController) Volume(op string, value int) (VolumeState, error) {

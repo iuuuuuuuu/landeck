@@ -38,7 +38,7 @@ export function CodeInput({
       <div className="flex items-center justify-center">
         {[0, 1, 2, 3, 4, 5].map((i) => (
           <Fragment key={i}>
-            {i === 3 && <span className="mx-1.5 h-7 w-px shrink-0 bg-white/12" />}
+            {i === 3 && <span className="mx-1.5 h-7 w-px shrink-0 bg-line-strong" />}
             <span
               className={clsx(
                 'grid h-14 w-[13%] min-w-9 max-w-11 place-items-center rounded-xl border text-[24px] transition-colors',
@@ -47,8 +47,8 @@ export function CodeInput({
                   : i === cursor && !disabled
                     ? 'border-accent/60 bg-accent/12 text-fg'
                     : digits[i]
-                      ? 'border-white/14 bg-white/[0.06] text-fg'
-                      : 'border-white/8 bg-white/[0.03] text-faint',
+                      ? 'border-line-strong bg-elevated-2 text-fg'
+                      : 'border-line-soft bg-elevated text-faint',
                 'num',
               )}
             >

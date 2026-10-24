@@ -154,7 +154,7 @@ export function PairingSecurityCard({ device }: { device: PairedDevice }) {
       ) : (
         <div className="mt-4 space-y-3">
           {/* 固定密钥 */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.03] p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft bg-elevated p-3">
             <div className="min-w-0">
               <div className="text-[11.5px] text-muted">固定密钥</div>
               <div className="num mt-1 text-[15px] tracking-[0.14em] text-fg">
@@ -176,7 +176,7 @@ export function PairingSecurityCard({ device }: { device: PairedDevice }) {
           </div>
 
           {/* 随机码 */}
-          <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+          <div className="rounded-xl border border-line-soft bg-elevated p-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[11.5px] text-muted">
@@ -210,7 +210,7 @@ export function PairingSecurityCard({ device }: { device: PairedDevice }) {
                 立即更换
               </Button>
             </div>
-            <div className="mt-3 border-t border-white/[0.06] pt-3">
+            <div className="mt-3 border-t border-line-soft pt-3">
               <Toggle
                 checked={state.randomEnabled}
                 disabled={busy === 'toggle'}
@@ -222,7 +222,7 @@ export function PairingSecurityCard({ device }: { device: PairedDevice }) {
           </div>
 
           {/* requireLocalCode 说明 */}
-          <div className="flex items-start gap-2 rounded-xl border border-white/8 bg-white/[0.02] p-3 text-[11.5px] leading-relaxed text-muted">
+          <div className="flex items-start gap-2 rounded-xl border border-line-soft bg-elevated p-3 text-[11.5px] leading-relaxed text-muted">
             <Info size={14} className="mt-0.5 shrink-0 text-cyan" />
             <p>
               {state.requireLocalCode
@@ -246,7 +246,7 @@ export function PairingSecurityCard({ device }: { device: PairedDevice }) {
             ) : clientsQ.error && !clientsQ.data ? (
               <p className="text-[12px] text-danger">{apiErrorMessage(clientsQ.error, '读取客户端列表失败')}</p>
             ) : clients.length === 0 ? (
-              <p className="rounded-xl border border-white/8 bg-white/[0.02] px-3 py-3 text-[12px] text-muted">
+              <p className="rounded-xl border border-line-soft bg-elevated px-3 py-3 text-[12px] text-muted">
                 还没有客户端。用随机码或固定密钥配对后，这里会列出所有客户端。
               </p>
             ) : (
@@ -254,7 +254,7 @@ export function PairingSecurityCard({ device }: { device: PairedDevice }) {
                 {clients.map((c) => (
                   <li
                     key={c.id}
-                    className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5"
+                    className="flex items-center gap-3 rounded-xl border border-line-soft bg-elevated px-3 py-2.5"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex min-w-0 items-center gap-2">
@@ -343,7 +343,7 @@ export function PairingSecurityCard({ device }: { device: PairedDevice }) {
           </>
         }
       >
-        <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5 text-[12px] leading-relaxed text-muted">
+        <div className="rounded-xl border border-line-soft bg-elevated px-3 py-2.5 text-[12px] leading-relaxed text-muted">
           只会断开这一个客户端，不影响其它设备，也不会让设备关机。
         </div>
       </Modal>

@@ -60,7 +60,7 @@ export function UptimePanel({
           aria-label="刷新开机统计"
           onClick={hist.reload}
           disabled={hist.loading}
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.05] text-muted transition-colors hover:text-fg disabled:opacity-40"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-elevated text-muted transition-colors hover:text-fg disabled:opacity-40"
         >
           <RotateCw size={14} className={hist.loading ? 'animate-spin' : undefined} />
         </button>
@@ -88,7 +88,7 @@ export function UptimePanel({
       ) : (
         <div className="mt-4 grid gap-4 lg:grid-cols-12">
           <div className="lg:col-span-7">
-            <div className="rounded-xl border border-white/8 bg-white/[0.028] px-3 pb-2.5 pt-3">
+            <div className="rounded-xl border border-line bg-elevated px-3 pb-2.5 pt-3">
               <div className="mb-1 flex items-center justify-between text-[11px] text-faint">
                 <span>每日在线时长</span>
                 <span className="inline-flex items-center gap-1">
@@ -130,7 +130,7 @@ export function UptimePanel({
                   return (
                     <li
                       key={`${e.at}-${i}`}
-                      className="flex items-center justify-between gap-3 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-white/[0.04]"
+                      className="flex items-center justify-between gap-3 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-hover"
                     >
                       <div className="flex min-w-0 items-center gap-2">
                         <Badge tone={meta.tone}>{meta.label}</Badge>

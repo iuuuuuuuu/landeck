@@ -173,7 +173,7 @@ export function ScheduleModal({
           <select
             value={action}
             onChange={(e) => setAction(e.target.value as PowerAction)}
-            className="h-11 w-full appearance-none rounded-xl border border-white/10 bg-white/[0.04] px-3.5 text-[14px] text-fg outline-none transition-colors focus:border-accent/55 focus:ring-2 focus:ring-accent/20 [color-scheme:dark] [&>option]:bg-surface"
+            className="h-11 w-full appearance-none rounded-xl border border-line bg-elevated px-3.5 text-[14px] text-fg outline-none transition-colors focus:border-accent/55 focus:ring-2 focus:ring-accent/20 [&>option]:bg-surface"
           >
             {options.map((a) => (
               <option key={a} value={a}>
@@ -208,7 +208,7 @@ export function ScheduleModal({
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="num [color-scheme:dark]"
+              className="num"
             />
           </Field>
           <Field label="重复方式" hint={kind === 'once' ? '按最近一次到达该时间执行' : undefined}>
@@ -236,7 +236,7 @@ export function ScheduleModal({
                       'h-10 w-10 rounded-full border text-[12.5px] font-medium transition-colors',
                       on
                         ? 'border-accent/60 bg-accent/15 text-fg'
-                        : 'border-white/10 bg-white/[0.04] text-muted hover:text-fg-soft',
+                        : 'border-line bg-elevated text-muted hover:text-fg-soft',
                     )}
                   >
                     {d.l}
@@ -247,7 +247,7 @@ export function ScheduleModal({
           </Field>
         )}
 
-        <div className="rounded-xl border border-white/8 bg-white/[0.028] px-3.5 py-3">
+        <div className="rounded-xl border border-line bg-elevated px-3.5 py-3">
           <Toggle
             checked={wake}
             onChange={setWake}

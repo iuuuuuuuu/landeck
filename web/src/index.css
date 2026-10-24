@@ -5,6 +5,10 @@
 /* ============================================================
    LanDeck 设计令牌 — 唯一视觉事实来源
    基调：深空黑 + 极光紫青 + 玻璃质感 + 发丝边
+   浅色：浅薰衣草底 + 白色玻璃 + 细边柔和投影
+
+   规则：组件只允许引用令牌（text-fg / bg-surface / border-line …），
+   不允许写死 white/[0.0x] 或 #hex。换肤只改这里的变量。
    ============================================================ */
 @theme {
   --font-sans:
@@ -33,6 +37,22 @@
   --color-warn: #fbbf24;
   --color-danger: #fb7185;
 
+  /* ---- 语义层：结构 / 描边 / 填充，浅色主题整段覆盖 ---- */
+  --color-line: rgba(255, 255, 255, 0.09);
+  --color-line-soft: rgba(255, 255, 255, 0.06);
+  --color-line-strong: rgba(255, 255, 255, 0.16);
+  --color-elevated: rgba(255, 255, 255, 0.045);
+  --color-elevated-2: rgba(255, 255, 255, 0.09);
+  --color-hover: rgba(255, 255, 255, 0.06);
+  --color-raised: rgba(255, 255, 255, 0.1);
+  --color-selected: rgba(255, 255, 255, 0.07);
+  --color-track: rgba(255, 255, 255, 0.1);
+  --color-glass: rgba(12, 14, 22, 0.78);
+  --color-popover: rgba(9, 11, 18, 0.97);
+  --color-scrim: rgba(3, 4, 8, 0.62);
+  --color-topbar: rgba(6, 7, 12, 0.72);
+
+  --ldk-thumb-border: rgba(124, 92, 255, 0.45);
   --radius-card: 22px;
   --radius-pill: 999px;
 
@@ -65,11 +85,66 @@
   to { opacity: 1; transform: none; }
 }
 
-@layer base {
-  :root {
-    color-scheme: dark;
-  }
+/* ============================================================
+   非颜色类运行时变量（极光 / 玻璃 / 滚动条 / 图表色）
+   深色是默认值，浅色在文件末尾 [data-theme='light'] 整段覆盖
+   ============================================================ */
+:root {
+  color-scheme: dark;
 
+  /* 背景极光 */
+  --ldk-aurora-1: rgba(124, 92, 255, 0.13);
+  --ldk-aurora-2: rgba(34, 211, 238, 0.06);
+  --ldk-bg-top: #080a11;
+  --ldk-bg-mid: #05060a;
+  --ldk-bg-bottom: #04050a;
+  --ldk-grain: 0.035;
+
+  /* 交互反馈 */
+  --ldk-sel-bg: rgba(124, 92, 255, 0.35);
+  --ldk-sel-fg: #ffffff;
+  --ldk-focus: rgba(124, 92, 255, 0.7);
+  --ldk-scroll-thumb: rgba(255, 255, 255, 0.14);
+  --ldk-scroll-thumb-hover: rgba(255, 255, 255, 0.24);
+
+  /* 玻璃面板 */
+  --ldk-panel-bg: rgba(12, 14, 22, 0.78);
+  --ldk-panel-border: rgba(255, 255, 255, 0.065);
+  --ldk-panel-shadow: 0 14px 40px -28px rgba(0, 0, 0, 0.85);
+  --ldk-edge-a: rgba(167, 139, 250, 0.32);
+  --ldk-edge-b: rgba(34, 211, 238, 0.22);
+  --ldk-edge-opacity: 0.55;
+
+  /* 文字渐变 / 滑块拇指 */
+  --ldk-grad-text: linear-gradient(120deg, #c4b5fd, #7c5cff 35%, #22d3ee 100%);
+  --ldk-thumb: #ffffff;
+  --ldk-thumb-shadow: 0 2px 10px rgba(0, 0, 0, 0.55), 0 0 0 4px rgba(124, 92, 255, 0.18);
+  --ldk-thumb-shadow-hover: 0 2px 10px rgba(0, 0, 0, 0.55), 0 0 0 6px rgba(124, 92, 255, 0.26);
+
+  /* 主按钮渐变（白字必须 ≥4.5:1） */
+  --grad-primary-a: #8b6bff;
+  --grad-primary-b: #7c5cff;
+  --grad-primary-c: #22d3ee;
+
+  /* 图表色：Gauge / Sparkline / 柱 / 进度条 / 细条共用 */
+  --tone-accent-a: #7c5cff;
+  --tone-accent-b: #22d3ee;
+  --tone-accent-glow: rgba(124, 92, 255, 0.34);
+  --tone-cyan-a: #22d3ee;
+  --tone-cyan-b: #34d399;
+  --tone-cyan-glow: rgba(34, 211, 238, 0.34);
+  --tone-ok-a: #34d399;
+  --tone-ok-b: #22d3ee;
+  --tone-ok-glow: rgba(52, 211, 153, 0.34);
+  --tone-warn-a: #fbbf24;
+  --tone-warn-b: #fb7185;
+  --tone-warn-glow: rgba(251, 191, 36, 0.34);
+  --tone-danger-a: #fb7185;
+  --tone-danger-b: #e11d48;
+  --tone-danger-glow: rgba(251, 113, 133, 0.34);
+}
+
+@layer base {
   html,
   body,
   #root {
@@ -95,30 +170,35 @@
     inset: 0;
     z-index: -2;
     background:
-      radial-gradient(52rem 34rem at 6% -12%, rgba(124, 92, 255, 0.13), transparent 62%),
-      radial-gradient(40rem 28rem at 100% 0%, rgba(34, 211, 238, 0.06), transparent 66%),
-      linear-gradient(180deg, #080a11 0%, #05060a 55%, #04050a 100%);
+      radial-gradient(52rem 34rem at 6% -12%, var(--ldk-aurora-1), transparent 62%),
+      radial-gradient(40rem 28rem at 100% 0%, var(--ldk-aurora-2), transparent 66%),
+      linear-gradient(
+        180deg,
+        var(--ldk-bg-top) 0%,
+        var(--ldk-bg-mid) 55%,
+        var(--ldk-bg-bottom) 100%
+      );
     pointer-events: none;
   }
 
-  /* 细颗粒噪点，压掉渐变的塑料感 */
+  /* 细颗粒噪点，压掉渐变的塑料感（浅色下几乎不可见） */
   body::after {
     content: '';
     position: fixed;
     inset: 0;
     z-index: -1;
-    opacity: 0.035;
+    opacity: var(--ldk-grain);
     pointer-events: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 
   ::selection {
-    background: rgba(124, 92, 255, 0.35);
-    color: #fff;
+    background: var(--ldk-sel-bg);
+    color: var(--ldk-sel-fg);
   }
 
   :focus-visible {
-    outline: 2px solid rgba(124, 92, 255, 0.7);
+    outline: 2px solid var(--ldk-focus);
     outline-offset: 2px;
     border-radius: 8px;
   }
@@ -146,12 +226,12 @@
   /* 玻璃面板 */
   .panel {
     position: relative;
-    background: rgba(12, 14, 22, 0.78);
-    border: 1px solid rgba(255, 255, 255, 0.065);
+    background: var(--ldk-panel-bg);
+    border: 1px solid var(--ldk-panel-border);
     border-radius: var(--radius-card);
     backdrop-filter: blur(22px) saturate(130%);
     -webkit-backdrop-filter: blur(22px) saturate(130%);
-    box-shadow: 0 14px 40px -28px rgba(0, 0, 0, 0.85);
+    box-shadow: var(--ldk-panel-shadow);
   }
 
   .panel-edge::after {
@@ -160,20 +240,35 @@
     inset: 0 0 auto 0;
     height: 1px;
     border-radius: inherit;
-    background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.32), rgba(34, 211, 238, 0.22), transparent);
-    opacity: 0.55;
+    background: linear-gradient(90deg, transparent, var(--ldk-edge-a), var(--ldk-edge-b), transparent);
+    opacity: var(--ldk-edge-opacity);
     pointer-events: none;
   }
 
   .hairline {
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--color-line);
   }
 
   .grad-text {
-    background: linear-gradient(120deg, #c4b5fd, #7c5cff 35%, #22d3ee 100%);
+    background: var(--ldk-grad-text);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+  }
+
+  /* 主按钮 / 开关拨盘底色：白字，浅色下用更深的紫蓝保证对比度 */
+  .grad-primary {
+    background-image: linear-gradient(
+      135deg,
+      var(--grad-primary-a) 0%,
+      var(--grad-primary-b) 45%,
+      var(--grad-primary-c) 140%
+    );
+  }
+
+  /* 侧栏激活竖条 */
+  .grad-nav {
+    background-image: linear-gradient(180deg, var(--tone-accent-a), var(--tone-cyan-a));
   }
 
   .num {
@@ -189,8 +284,8 @@
     height: 1.5rem;
     padding: 0 0.55rem;
     border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid var(--color-line);
+    background: var(--color-elevated);
     font-size: 0.75rem;
     color: var(--color-fg-soft);
     white-space: nowrap;
@@ -199,20 +294,20 @@
   .scroll-area {
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+    scrollbar-color: var(--ldk-scroll-thumb) transparent;
   }
   .scroll-area::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
   .scroll-area::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.13);
+    background: var(--ldk-scroll-thumb);
     border-radius: 99px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
   .scroll-area::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.22);
+    background: var(--ldk-scroll-thumb-hover);
     background-clip: content-box;
   }
 
@@ -231,7 +326,7 @@
     appearance: none;
     height: 6px;
     border-radius: 999px;
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--color-track);
     background-image: linear-gradient(90deg, var(--slider-a, #7c5cff), var(--slider-b, #22d3ee));
     background-size: var(--pct, 0%) 100%;
     background-repeat: no-repeat;
@@ -244,25 +339,119 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #fff;
-    border: none;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55), 0 0 0 4px rgba(124, 92, 255, 0.18);
+    background: var(--ldk-thumb);
+    border: 1px solid var(--color-line);
+    box-shadow: var(--ldk-thumb-shadow);
     transition: box-shadow 0.2s;
   }
   .ldk-slider:hover::-webkit-slider-thumb {
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55), 0 0 0 6px rgba(124, 92, 255, 0.26);
+    box-shadow: var(--ldk-thumb-shadow-hover);
   }
   .ldk-slider::-moz-range-thumb {
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #fff;
-    border: none;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55), 0 0 0 4px rgba(124, 92, 255, 0.18);
+    background: var(--ldk-thumb);
+    border: 1px solid var(--color-line);
+    box-shadow: var(--ldk-thumb-shadow);
   }
   .ldk-slider::-moz-range-track {
     height: 6px;
     border-radius: 999px;
     background: transparent;
   }
+}
+
+/* ============================================================
+   浅色主题：覆盖同一套变量，组件代码一行都不用改
+   ============================================================ */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --color-ink: #f2f4fb;
+  --color-void: #eaedf7;
+  --color-surface: #ffffff;
+  --color-surface-2: #f7f8fd;
+  --color-surface-3: #eef1f9;
+
+  --color-fg: #111423;
+  --color-fg-soft: #333a4f;
+  --color-muted: #545d75;
+  --color-faint: #5f677d;
+
+  --color-accent: #6a45e8;
+  --color-accent-soft: #6440e0;
+  --color-cyan: #0b7a86;
+  --color-pink: #c72e7a;
+  --color-ok: #0a7f59;
+  --color-warn: #8a5f06;
+  --color-danger: #c62f47;
+
+  --color-line: rgba(19, 22, 35, 0.1);
+  --color-line-soft: rgba(19, 22, 35, 0.07);
+  --color-line-strong: rgba(19, 22, 35, 0.18);
+  --color-elevated: rgba(19, 22, 35, 0.04);
+  --color-elevated-2: rgba(19, 22, 35, 0.075);
+  --color-hover: rgba(19, 22, 35, 0.05);
+  --color-raised: #ffffff;
+  --color-selected: rgba(106, 69, 232, 0.1);
+  --color-track: rgba(19, 22, 35, 0.1);
+  --color-glass: rgba(255, 255, 255, 0.72);
+  --color-popover: rgba(255, 255, 255, 0.98);
+  --color-scrim: rgba(15, 18, 32, 0.34);
+  --color-topbar: rgba(242, 244, 251, 0.72);
+
+  --shadow-lift: 0 24px 60px -28px rgba(24, 28, 48, 0.3);
+  --shadow-glow:
+    0 0 0 1px rgba(106, 69, 232, 0.22), 0 18px 50px -20px rgba(106, 69, 232, 0.3);
+
+  /* 极光：低饱和浅紫 / 浅青晕染，底色是带一点薰衣草的白，不发灰 */
+  --ldk-aurora-1: rgba(140, 108, 255, 0.11);
+  --ldk-aurora-2: rgba(56, 189, 214, 0.1);
+  --ldk-bg-top: #fbfbff;
+  --ldk-bg-mid: #f4f5fd;
+  --ldk-bg-bottom: #eef1fa;
+  --ldk-grain: 0.014;
+
+  --ldk-sel-bg: rgba(106, 69, 232, 0.18);
+  --ldk-sel-fg: #14162a;
+  --ldk-focus: rgba(106, 69, 232, 0.55);
+  --ldk-scroll-thumb: rgba(19, 22, 35, 0.16);
+  --ldk-scroll-thumb-hover: rgba(19, 22, 35, 0.28);
+
+  /* 白色半透明 + 细边 + 柔和投影 */
+  --ldk-panel-bg: rgba(255, 255, 255, 0.72);
+  --ldk-panel-border: rgba(19, 22, 35, 0.08);
+  --ldk-panel-shadow:
+    0 18px 44px -26px rgba(23, 27, 46, 0.26), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  --ldk-edge-a: rgba(140, 108, 255, 0.3);
+  --ldk-edge-b: rgba(11, 122, 134, 0.2);
+  --ldk-edge-opacity: 0.85;
+
+  --ldk-grad-text: linear-gradient(120deg, #7b57f0, #5b39d8 38%, #0b7a86 100%);
+  --ldk-thumb: #ffffff;
+  --ldk-thumb-shadow: 0 2px 8px rgba(23, 27, 46, 0.26), 0 0 0 4px rgba(106, 69, 232, 0.16);
+  --ldk-thumb-shadow-hover: 0 2px 8px rgba(23, 27, 46, 0.32), 0 0 0 6px rgba(106, 69, 232, 0.22);
+
+  --grad-primary-a: #7b57f0;
+  --grad-primary-b: #6a45e8;
+  --grad-primary-c: #2f6bd8;
+
+  /* 图表色整体压暗一档，白底上仍然分得清层次 */
+  --tone-accent-a: #6a45e8;
+  --tone-accent-b: #0b7a86;
+  --tone-accent-glow: rgba(106, 69, 232, 0.26);
+  --tone-cyan-a: #0b7a86;
+  --tone-cyan-b: #0a7f59;
+  --tone-cyan-glow: rgba(11, 122, 134, 0.24);
+  --tone-ok-a: #0a7f59;
+  --tone-ok-b: #0b7a86;
+  --tone-ok-glow: rgba(10, 127, 89, 0.22);
+  --tone-warn-a: #a9730a;
+  --tone-warn-b: #c62f47;
+  --tone-warn-glow: rgba(169, 115, 10, 0.22);
+  --tone-danger-a: #c62f47;
+  --tone-danger-b: #a8182f;
+  --tone-danger-glow: rgba(198, 47, 71, 0.22);
+  --ldk-thumb-border: #6d4bd1;
 }

@@ -7,14 +7,14 @@ type Size = 'sm' | 'md' | 'lg'
 
 const VARIANTS: Record<Variant, string> = {
   primary:
-    'text-white bg-[linear-gradient(135deg,#8b6bff_0%,#7c5cff_45%,#22d3ee_140%)] shadow-[0_10px_30px_-12px_rgba(124,92,255,.75)] hover:brightness-110 border border-white/15',
+    'text-white grad-primary shadow-[0_10px_30px_-12px_rgba(124,92,255,.75)] hover:brightness-110 border border-line-strong',
   secondary:
-    'text-fg-soft bg-white/[0.055] border border-white/10 hover:bg-white/[0.09] hover:text-fg',
-  ghost: 'text-muted hover:text-fg hover:bg-white/[0.06] border border-transparent',
+    'text-fg-soft bg-elevated border border-line hover:bg-elevated-2 hover:text-fg',
+  ghost: 'text-muted hover:text-fg hover:bg-hover border border-transparent',
   danger:
-    'text-white bg-[linear-gradient(135deg,#fb7185,#e11d48)] border border-white/15 shadow-[0_10px_30px_-14px_rgba(244,63,94,.8)] hover:brightness-110',
+    'text-white bg-[linear-gradient(135deg,#fb7185,#e11d48)] border border-line-strong shadow-[0_10px_30px_-14px_rgba(244,63,94,.8)] hover:brightness-110',
   success:
-    'text-[#04120c] bg-[linear-gradient(135deg,#6ee7b7,#34d399)] border border-white/20 hover:brightness-105',
+    'text-[#04120c] bg-[linear-gradient(135deg,#6ee7b7,#34d399)] border border-line-strong hover:brightness-105',
 }
 
 const SIZES: Record<Size, string> = {

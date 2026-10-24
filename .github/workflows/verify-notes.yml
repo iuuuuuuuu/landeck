@@ -1,0 +1,74 @@
+# 决策笔记门禁：目录/分类/文件名、头部与必备节、归档封印。
+#
+# 为什么不用 `npx tsx`：那要每次 CI 联网装包，断网/限流时这一步就红 ——
+# 而红的不是笔记。Node 22.6+ 能原生执行 .ts（类型剥除），所以直接用 `node`。
+#
+# 为什么先数篇数：三个 verify 脚本在**空集合**上都 exit 0。笔记树被删掉、
+# 目录改名、或 find 路径写错，三道门禁会一起变绿 —— 所以先断言「至少一篇」。
+#
+# 为什么基线钉 origin/master：vendored 默认比 HEAD，而 HEAD 与「提交后的工作区」
+# 是同一份内容 —— 已提交的封印改动它看不见。钉一个远端基线才真正冻结；
+# 拿不到基线就**失败关闭**，不许退回 HEAD 静默放行
+# （旧写法用 `github.event.before`，新分支推送时它是全零 sha，脚本会静默跳过）。
+name: Verify Agent Notes
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 归档门禁要和「变更前那个提交」的 manifest 比较，浅克隆里没有它。
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Resolve scripts dir
+        run: |
+          set -euo pipefail
+          if [ -d .agents/notes-scripts ]; then
+            echo "SCRIPTS=.agents/notes-scripts" >> "$GITHUB_ENV"
+          elif ls -d .agents/skills/*/scripts >/dev/null 2>&1; then
+            dir=$(ls -d .agents/skills/*/scripts | head -1)
+            echo "SCRIPTS=$dir" >> "$GITHUB_ENV"
+          else
+            echo "找不到门禁脚本目录（.agents/notes-scripts 或 .agents/skills/*/scripts）" >&2
+            exit 2
+          fi
+          echo "使用脚本目录：$SCRIPTS"
+
+      - name: Assert the corpus is not empty
+        run: |
+          set -euo pipefail
+          count=$(find .agents/notes -name '*.md' | wc -l)
+          echo "笔记文件数：$count"
+          if [ "$count" -eq 0 ]; then
+            echo "笔记树里一篇都没有 —— 三个 verify 脚本在空集合上都会 exit 0，这道门禁就白跑了。" >&2
+            exit 1
+          fi
+
+      - name: Pin archive baseline
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "+refs/heads/master:refs/remotes/origin/master"
+          echo "AGENT_NOTE_ARCHIVE_BASE_REF=refs/remotes/origin/master" >> "$GITHUB_ENV"
+
+      - name: Verify tree / format / archive seals
+        run: |
+          set -euo pipefail
+          node "$SCRIPTS/verify-agent-note-tree.ts"
+          node "$SCRIPTS/verify-agent-note-format.ts"
+          node "$SCRIPTS/verify-archived-agent-notes.ts"

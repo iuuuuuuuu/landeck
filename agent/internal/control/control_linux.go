@@ -257,6 +257,42 @@ func (c *linuxController) after(err error) (VolumeState, error) {
 	return c.VolumeState()
 }
 
+func (c *linuxController) MediaState() (MediaInfo, error) {
+	if !hasBin("playerctl") {
+		return MediaInfo{}, ErrUnsupported
+	}
+	format := "{{status}}|{{title}}|{{artist}}|{{album}}|{{position}}|{{mpris:length}}|{{playerName}}"
+	out, err := run("playerctl", "metadata", "--format", format)
+	if err != nil {
+		// 没有活动播放器时 playerctl 以非零退出，视为"无会话"而不是错误
+		return MediaInfo{Known: true, Active: false}, nil
+	}
+	parts := strings.Split(out, "|")
+	if len(parts) < 7 {
+		return MediaInfo{Known: true, Active: false}, nil
+	}
+	info := MediaInfo{
+		Known: true, Active: true,
+		Status: strings.TrimSpace(parts[0]),
+		Title:  strings.TrimSpace(parts[1]),
+		Artist: strings.TrimSpace(parts[2]),
+		Album:  strings.TrimSpace(parts[3]),
+		App:    strings.TrimSpace(parts[6]),
+	}
+	info.Playing = strings.EqualFold(info.Status, "Playing")
+	if pos, err := strconv.ParseFloat(strings.TrimSpace(parts[4]), 64); err == nil {
+		info.PositionSec = pos
+	}
+	if dur, err := strconv.ParseFloat(strings.TrimSpace(parts[5]), 64); err == nil {
+		info.DurationSec = dur / 1e6 // mpris:length 是微秒
+	}
+	info.UpdatedAt = float64(time.Now().Unix())
+	if info.Title == "" && info.Artist == "" {
+		info.Active = false
+	}
+	return info, nil
+}
+
 func (c *linuxController) Wake(mac string) error { return sendMagicPacket(mac) }
 
 // WakeAlarmAt 用 rtcwake 设置一次性唤醒（需要 root 或 CAP_SYS_TIME）。

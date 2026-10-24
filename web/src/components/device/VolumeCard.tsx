@@ -151,7 +151,7 @@ export function VolumeCard({
         </IconButton>
       </div>
 
-      <div className="mt-auto border-t border-white/6 pt-3.5">
+      <div className="mt-auto border-t border-line-soft pt-3.5">
         <Toggle
           checked={muted}
           onChange={() => void toggleMute()}

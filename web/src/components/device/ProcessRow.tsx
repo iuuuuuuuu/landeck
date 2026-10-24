@@ -22,7 +22,7 @@ export function ProcessRow({
   onKill: () => void
 }) {
   return (
-    <li className="border-b border-white/[0.04] last:border-0">
+    <li className="border-b border-line-soft last:border-0">
       <div
         role="button"
         tabIndex={0}
@@ -33,7 +33,7 @@ export function ProcessRow({
             onToggle()
           }
         }}
-        className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]"
+        className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-hover"
       >
         <span className="num w-12 shrink-0 text-[10.5px] text-faint">{p.pid}</span>
         <span className="min-w-0 flex-1">
@@ -75,7 +75,7 @@ export function ProcessRow({
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
             className="overflow-hidden"
           >
-            <div className="mb-2 ml-[62px] mr-2 space-y-1 rounded-lg bg-white/[0.03] px-2.5 py-2 text-[11.5px]">
+            <div className="mb-2 ml-[62px] mr-2 space-y-1 rounded-lg bg-elevated px-2.5 py-2 text-[11.5px]">
               <Detail label="路径" value={p.exe || '—'} mono />
               <Detail label="启动于" value={dateTime(p.startedAt)} />
               <Detail label="父进程" value={String(p.parent)} mono />

@@ -1,5 +1,6 @@
 import type {
   ActionResult,
+  MediaInfo,
   ProcessInfo,
   ActionMeta,
   ActivityItem,
@@ -144,6 +145,10 @@ export class AgentClient {
 
   uptime(days = 14) {
     return this.req<UptimeHistory>(`/uptime/history?days=${days}`, { timeoutMs: 20000 })
+  }
+
+  mediaState() {
+    return this.req<MediaInfo>('/media', { timeoutMs: 8000 })
   }
 
   volume() {

@@ -132,6 +132,21 @@ export interface HardwareInfo {
   os: { name: string; version: string; installedAt: string }
 }
 
+/** 当前媒体会话（Windows 走 SMTC，Linux 走 MPRIS） */
+export interface MediaInfo {
+  known: boolean
+  active: boolean
+  playing: boolean
+  title: string
+  artist: string
+  album: string
+  app: string
+  status: string
+  positionSec: number
+  durationSec: number
+  updatedAt: number
+}
+
 export interface ProcessInfo {
   pid: number
   parent: number
@@ -240,6 +255,7 @@ export interface ActionMeta {
 
 export type WsFrame =
   | { type: 'status'; data: StatusSnapshot }
+  | { type: 'media'; data: MediaInfo }
   | {
       type: 'event'
       data: { event: string; action: string; ok: boolean; clientName: string; at: string }

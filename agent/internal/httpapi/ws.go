@@ -60,6 +60,9 @@ func (h *hub) ticker() {
 			continue
 		}
 		h.fanout(frame)
+		if media, err := json.Marshal(map[string]any{"type": "media", "data": h.s.mediaState()}); err == nil {
+			h.fanout(media)
+		}
 	}
 }
 

@@ -6,26 +6,21 @@ import type { AgentClient } from '../../lib/api'
 import type { HardwareInfo } from '../../lib/types'
 import { useAsync } from '../../lib/hooks'
 import { isAuthError, isAuthMessage } from './apiHelpers'
-import { bytes } from '../../lib/format'
+import {
+  healthLabel,
+  isBlankHardware,
+  list,
+  numOf,
+  nz,
+  pick,
+  ratio,
+  sizeOf,
+  strList,
+  strOf,
+  vramLabel,
+} from './hardwareFields'
 
 type Tab = 'cpu' | 'mem' | 'gpu' | 'disk' | 'nic' | 'os'
-
-/** 未拿到（或为 0 的未填充字段）一律显示破折号，不渲染假 0 */
-function nz(v: number | undefined | null, unit = ''): string {
-  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? `${v}${unit}` : '—'
-}
-
-function sizeOf(v: number | undefined | null): string {
-  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? bytes(v) : '—'
-}
-
-/** 命中「0 核 / 0 线程」这类组合时整条降级为破折号 */
-function ratio(a: number | undefined | null, b: number | undefined | null): string {
-  const left = nz(a)
-  const right = nz(b)
-  if (left === '—' && right === '—') return '—'
-  return `${left} / ${right}`
-}
 
 const TABS: { value: Tab; label: string }[] = [
   { value: 'cpu', label: 'CPU' },
@@ -67,7 +62,7 @@ export function HardwarePanel({
           aria-label="刷新硬件信息"
           onClick={hw.reload}
           disabled={hw.loading}
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.05] text-muted transition-colors hover:text-fg disabled:opacity-40"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-elevated text-muted transition-colors hover:bg-elevated-2 hover:text-fg disabled:opacity-40"
         >
           <RotateCw size={14} className={hw.loading ? 'animate-spin' : undefined} />
         </button>
@@ -100,7 +95,22 @@ export function HardwarePanel({
             </Button>
           </div>
         ) : !hw.data ? (
-          <p className="py-6 text-center text-[12.5px] text-muted">暂无硬件信息</p>
+          <Empty text="暂无硬件信息" />
+        ) : isBlankHardware(hw.data) ? (
+          <div className="rounded-xl border border-warn/25 bg-warn/10 px-3.5 py-3">
+            <p className="text-[12.5px] text-warn">
+              设备返回了空的硬件数据（采集脚本可能失败或权限不足），六个页签都没有内容可显示。
+            </p>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="mt-2.5 h-8"
+              onClick={hw.reload}
+              icon={<RotateCw size={13} />}
+            >
+              重新采集
+            </Button>
+          </div>
         ) : (
           <Body tab={tab} hw={hw.data} />
         )}
@@ -110,97 +120,144 @@ export function HardwarePanel({
 }
 
 function Body({ tab, hw }: { tab: Tab; hw: HardwareInfo }) {
-  const slots = hw.memory?.slots ?? []
-  const gpus = hw.gpus ?? []
-  const disks = hw.disks ?? []
-  const nics = hw.nics ?? []
+  const cpu = pick(hw, 'cpu')
+  const mem = pick(hw, 'memory', 'mem')
+  const gpus = list(pick(hw, 'gpus', 'gpu'))
+  const disks = list(pick(hw, 'disks', 'disk'))
+  const nics = list(pick(hw, 'nics', 'nic'))
+  const board = pick(hw, 'board', 'motherboard')
+  const os = pick(hw, 'os', 'systeminfo')
+
   if (tab === 'cpu') {
+    const model = strOf(cpu, 'model', 'name', 'brand')
+    const vendor = strOf(cpu, 'vendor', 'manufacturer')
+    const cores = numOf(cpu, 'cores', 'physicalCores')
+    const threads = numOf(cpu, 'threads', 'logicalProcessors')
+    const base = numOf(cpu, 'baseMhz', 'baseMHz', 'maxClockMhz')
+    const cacheKb = numOf(cpu, 'cacheKb', 'cacheKB', 'cache')
+    const socket = strOf(cpu, 'socket', 'socketDesignation')
+    if (!model && !vendor && !cores && !threads) return <Empty text="未读取到处理器信息" />
     return (
-      <Group icon={<Cpu size={13} />} title={hw.cpu?.model || '处理器'}>
-        <Row label="厂商" value={hw.cpu?.vendor || '—'} />
-        <Row label="核心 / 线程" value={ratio(hw.cpu?.cores, hw.cpu?.threads)} />
-        <Row label="基准频率" value={nz(hw.cpu?.baseMhz, ' MHz')} />
-        <Row label="缓存" value={sizeOf(hw.cpu?.cacheKb ? hw.cpu.cacheKb * 1024 : null)} />
-        <Row label="插槽" value={hw.cpu?.socket || '—'} />
+      <Group icon={<Cpu size={13} />} title={model || '处理器'}>
+        <Row label="厂商" value={vendor || '—'} />
+        <Row label="核心 / 线程" value={ratio(cores, threads)} />
+        <Row label="基准频率" value={nz(base, ' MHz')} />
+        <Row label="缓存" value={cacheKb > 0 ? sizeOf(cacheKb * 1024) : '—'} />
+        <Row label="插槽" value={socket || '—'} />
       </Group>
     )
   }
+
   if (tab === 'mem') {
+    const total = numOf(mem, 'totalBytes', 'total', 'sizeBytes')
+    const type = strOf(mem, 'type', 'memoryType')
+    const speed = numOf(mem, 'speedMhz', 'speed')
+    const slots = list(pick(mem, 'slots', 'modules'))
+    if (!(total > 0) && !type && slots.length === 0) return <Empty text="未读取到内存信息" />
     return (
       <div className="space-y-3">
         <Group icon={<MemoryStick size={13} />} title="内存总览">
-          <Row label="总容量" value={sizeOf(hw.memory?.totalBytes)} />
-          <Row label="类型" value={hw.memory?.type || '—'} />
-          <Row label="频率" value={nz(hw.memory?.speedMhz, ' MHz')} />
+          <Row label="总容量" value={sizeOf(total)} />
+          <Row label="类型" value={type || '—'} />
+          <Row label="频率" value={nz(speed, ' MHz')} />
           <Row label="插槽数" value={slots.length > 0 ? String(slots.length) : '—'} />
         </Group>
         {slots.length === 0 ? (
-          <p className="text-[12.5px] text-muted">未读取到内存插槽明细</p>
+          <p className="px-1 text-[12.5px] text-muted">未读取到内存插槽明细</p>
         ) : (
-          slots.map((s) => (
-            <Group key={s.bank} icon={<MemoryStick size={13} />} title={s.bank}>
-              <Row label="容量" value={sizeOf(s.sizeBytes)} />
-              <Row label="频率" value={nz(s.speedMhz, ' MHz')} />
-              <Row label="厂商" value={s.manufacturer || '—'} />
-              <Row label="型号" value={s.partNumber || '—'} />
+          slots.map((s, i) => (
+            <Group
+              key={`${strOf(s, 'bank', 'slot')}-${i}`}
+              icon={<MemoryStick size={13} />}
+              title={strOf(s, 'bank', 'slot', 'locator') || `插槽 ${i + 1}`}
+            >
+              <Row label="容量" value={sizeOf(numOf(s, 'sizeBytes', 'size', 'capacity'))} />
+              <Row label="频率" value={nz(numOf(s, 'speedMhz', 'speed'), ' MHz')} />
+              <Row label="厂商" value={strOf(s, 'manufacturer', 'vendor') || '—'} />
+              <Row label="型号" value={strOf(s, 'partNumber', 'model') || '—'} />
             </Group>
           ))
         )}
       </div>
     )
   }
+
   if (tab === 'gpu') {
-    if (gpus.length === 0) return <Empty text="未检测到独立显卡" />
+    if (gpus.length === 0) return <Empty text="未检测到显卡" />
     return (
       <div className="space-y-3">
         {gpus.map((g, i) => (
-          <Group key={`${g.name}-${i}`} icon={<MonitorCog size={13} />} title={g.name}>
-            <Row label="显存" value={g.vramMb > 0 ? `${(g.vramMb / 1024).toFixed(1)} GB` : '—'} />
-            <Row label="驱动" value={g.driver || '—'} />
+          <Group
+            key={`${strOf(g, 'name')}-${i}`}
+            icon={<MonitorCog size={13} />}
+            title={strOf(g, 'name', 'model') || `显卡 ${i + 1}`}
+          >
+            <Row label="显存" value={vramLabel(numOf(g, 'vramMb', 'vram', 'adapterRamMb'))} />
+            <Row label="驱动" value={strOf(g, 'driver', 'driverVersion') || '—'} />
           </Group>
         ))}
       </div>
     )
   }
+
   if (tab === 'disk') {
     if (disks.length === 0) return <Empty text="未检测到磁盘" />
     return (
       <div className="space-y-3">
         {disks.map((d, i) => (
-          <Group key={`${d.name}-${i}`} icon={<HardDrive size={13} />} title={d.name}>
-            <Row label="类型" value={d.type || '—'} />
-            <Row label="容量" value={sizeOf(d.sizeBytes)} />
-            <Row label="健康" value={d.health || '—'} />
-            <Row label="序列号" value={d.serial || '—'} mono />
+          <Group
+            key={`${strOf(d, 'name', 'model')}-${i}`}
+            icon={<HardDrive size={13} />}
+            title={strOf(d, 'name', 'model', 'friendlyName') || `磁盘 ${i + 1}`}
+          >
+            <Row label="类型" value={strOf(d, 'type', 'mediaType', 'busType') || '—'} />
+            <Row label="容量" value={sizeOf(numOf(d, 'sizeBytes', 'size'))} />
+            <Row label="健康" value={healthLabel(strOf(d, 'health', 'status'))} />
+            <Row label="序列号" value={strOf(d, 'serial', 'serialNumber') || '—'} mono />
           </Group>
         ))}
       </div>
     )
   }
+
   if (tab === 'nic') {
     if (nics.length === 0) return <Empty text="未检测到网卡" />
     return (
       <div className="space-y-3">
-        {nics.map((n, i) => (
-          <Group key={`${n.mac}-${i}`} icon={<Network size={13} />} title={n.name}>
-            <Row label="速率" value={nz(n.speedMbps, ' Mbps')} />
-            <Row label="MAC" value={n.mac || '—'} mono />
-            <Row label="IPv4" value={n.ipv4?.length ? n.ipv4.join('、') : '—'} mono />
-          </Group>
-        ))}
+        {nics.map((n, i) => {
+          const ips = strList(n, 'ipv4', 'addresses')
+          return (
+            <Group
+              key={`${strOf(n, 'mac')}-${i}`}
+              icon={<Network size={13} />}
+              title={strOf(n, 'name', 'iface') || `网卡 ${i + 1}`}
+            >
+              <Row label="速率" value={nz(numOf(n, 'speedMbps', 'speed'), ' Mbps')} />
+              <Row label="MAC" value={strOf(n, 'mac', 'macAddress') || '—'} mono />
+              <Row label="IPv4" value={ips.length ? ips.join('、') : '—'} mono />
+            </Group>
+          )
+        })}
       </div>
     )
   }
+
+  const osName = strOf(os, 'name', 'caption')
+  const installedAt = strOf(os, 'installedAt', 'installDate')
+  const boardModel = strOf(board, 'model', 'product')
+  if (!osName && !boardModel && !strOf(board, 'manufacturer')) {
+    return <Empty text="未读取到系统信息" />
+  }
   return (
     <div className="space-y-3">
-      <Group icon={<MonitorCog size={13} />} title={hw.os?.name || '系统'}>
-        <Row label="版本" value={hw.os?.version || '—'} />
-        <Row label="安装时间" value={hw.os?.installedAt || '—'} />
+      <Group icon={<MonitorCog size={13} />} title={osName || '系统'}>
+        <Row label="版本" value={strOf(os, 'version') || '—'} />
+        <Row label="安装时间" value={installedAt || '—'} />
       </Group>
       <Group icon={<CircuitBoard size={13} />} title="主板">
-        <Row label="厂商" value={hw.board?.manufacturer || '—'} />
-        <Row label="型号" value={hw.board?.model || '—'} />
-        <Row label="BIOS" value={hw.board?.bios || '—'} />
+        <Row label="厂商" value={strOf(board, 'manufacturer') || '—'} />
+        <Row label="型号" value={boardModel || '—'} />
+        <Row label="BIOS" value={strOf(board, 'bios', 'biosVersion') || '—'} />
       </Group>
     </div>
   )
@@ -216,10 +273,12 @@ function Group({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.028] px-3 py-2.5">
+    <div className="rounded-xl border border-line bg-elevated px-3 py-2.5">
       <div className="mb-2 flex items-center gap-1.5 text-[11.5px] text-accent-soft">
         {icon}
-        <span className="truncate font-medium text-fg-soft">{title}</span>
+        <span className="truncate font-medium text-fg-soft" title={title}>
+          {title}
+        </span>
       </div>
       <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">{children}</div>
     </div>
@@ -246,4 +305,3 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
 function Empty({ text }: { text: string }) {
   return <p className="py-6 text-center text-[12.5px] text-muted">{text}</p>
 }
-

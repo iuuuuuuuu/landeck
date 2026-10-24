@@ -13,7 +13,7 @@ export function MobileTabBar() {
               {({ isActive }) => (
                 <span className="relative flex h-14 flex-col items-center justify-center gap-1 rounded-xl">
                   {isActive && (
-                    <span className="absolute inset-0 rounded-xl bg-white/[0.07] ring-1 ring-white/10" />
+                    <span className="absolute inset-0 rounded-xl bg-selected ring-1 ring-line" />
                   )}
                   <item.icon
                     size={19}

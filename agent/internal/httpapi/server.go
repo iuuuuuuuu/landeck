@@ -71,6 +71,7 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /api/v1/power", s.protect(s.handleAction))
 	m.HandleFunc("GET /api/v1/volume", s.protect(s.handleVolumeGet))
 	m.HandleFunc("POST /api/v1/volume", s.protect(s.handleAction))
+	m.HandleFunc("GET /api/v1/media", s.protect(s.handleMediaGet))
 	m.HandleFunc("POST /api/v1/media", s.protect(s.handleAction))
 
 	m.HandleFunc("GET /api/v1/schedules", s.protect(s.handleSchedulesList))

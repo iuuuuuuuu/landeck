@@ -13,7 +13,7 @@ const TONES: Record<Tone, string> = {
   danger: 'border-danger/30 bg-danger/12 text-danger',
   accent: 'border-accent/35 bg-accent/15 text-accent-soft',
   cyan: 'border-cyan/30 bg-cyan/12 text-cyan',
-  neutral: 'border-white/10 bg-white/5 text-fg-soft',
+  neutral: 'border-line bg-elevated text-fg-soft',
 }
 
 export function Badge({
@@ -53,15 +53,15 @@ export function ProgressBar({
   className?: string
 }) {
   const grad: Record<string, string> = {
-    accent: 'linear-gradient(90deg,#7c5cff,#a78bfa)',
-    cyan: 'linear-gradient(90deg,#22d3ee,#7c5cff)',
-    ok: 'linear-gradient(90deg,#34d399,#22d3ee)',
-    warn: 'linear-gradient(90deg,#fbbf24,#fb7185)',
-    danger: 'linear-gradient(90deg,#fb7185,#e11d48)',
+    accent: 'linear-gradient(90deg,var(--tone-accent-a),var(--tone-accent-b))',
+    cyan: 'linear-gradient(90deg,var(--tone-cyan-a),var(--tone-accent-a))',
+    ok: 'linear-gradient(90deg,var(--tone-ok-a),var(--tone-ok-b))',
+    warn: 'linear-gradient(90deg,var(--tone-warn-a),var(--tone-warn-b))',
+    danger: 'linear-gradient(90deg,var(--tone-danger-a),var(--tone-danger-b))',
   }
   return (
     <div
-      className={clsx('w-full overflow-hidden rounded-full bg-white/8', className)}
+      className={clsx('w-full overflow-hidden rounded-full bg-track', className)}
       style={{ height }}
       role="progressbar"
       aria-valuenow={Math.round(value)}
@@ -95,7 +95,7 @@ export function EmptyState({
   return (
     <div className={clsx('flex flex-col items-center justify-center px-6 py-14 text-center', className)}>
       {icon && (
-        <div className="mb-4 grid h-16 w-16 place-items-center rounded-[20px] border border-white/10 bg-white/[0.04] text-accent-soft">
+        <div className="mb-4 grid h-16 w-16 place-items-center rounded-[20px] border border-line bg-elevated text-accent-soft">
           {icon}
         </div>
       )}
@@ -109,10 +109,10 @@ export function EmptyState({
 export function Skeleton({ className }: { className?: string }) {
   return (
     <div
-      className={clsx('animate-pulse rounded-xl bg-white/[0.06]', className)}
+      className={clsx('animate-pulse rounded-xl bg-elevated', className)}
       style={{
         backgroundImage:
-          'linear-gradient(90deg, rgba(255,255,255,.04) 25%, rgba(255,255,255,.09) 37%, rgba(255,255,255,.04) 63%)',
+          'linear-gradient(90deg, var(--color-elevated) 25%, var(--color-elevated-2) 37%, var(--color-elevated) 63%)',
         backgroundSize: '200% 100%',
         animation: 'shimmer 1.6s linear infinite',
       }}
@@ -156,7 +156,7 @@ export function Modal({
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center sm:p-6">
           <motion.div
-            className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            className="absolute inset-0 bg-scrim backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -180,7 +180,7 @@ export function Modal({
               <button
                 onClick={onClose}
                 aria-label="关闭"
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-white/8 hover:text-fg"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-hover hover:text-fg"
               >
                 <X size={16} />
               </button>

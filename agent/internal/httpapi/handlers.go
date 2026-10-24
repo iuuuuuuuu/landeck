@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"log"
 	"errors"
 	"fmt"
 	"net/http"
@@ -501,6 +502,30 @@ func (s *Server) handleVolumeGet(w http.ResponseWriter, r *http.Request, c *conf
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"level": st.Level, "muted": st.Muted, "known": st.Known})
+}
+
+// GET /api/v1/media —— 当前播放内容与状态（Windows 走 SMTC，Linux 走 MPRIS）
+func (s *Server) handleMediaGet(w http.ResponseWriter, r *http.Request, c *config.Client) {
+	writeJSON(w, http.StatusOK, s.mediaState())
+}
+
+func (s *Server) mediaState() control.MediaInfo {
+	info, err := s.Ctrl.MediaState()
+	if err != nil {
+		log.Printf("媒体状态读取失败: %v", err)
+		return control.MediaInfo{Known: false}
+	}
+	// 估算当前播放位置：SMTC 给的是"上一次更新的位置"，播放中要按流逝时间外推
+	if info.Active && info.Playing && info.UpdatedAt > 0 {
+		elapsed := float64(time.Now().Unix()) - info.UpdatedAt
+		if elapsed > 0 && elapsed < 600 {
+			info.PositionSec += elapsed
+			if info.DurationSec > 0 && info.PositionSec > info.DurationSec {
+				info.PositionSec = info.DurationSec
+			}
+		}
+	}
+	return info
 }
 
 // ---------- 定时任务 ----------

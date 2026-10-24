@@ -53,10 +53,12 @@ type winHardware struct {
 		InterfaceType string `json:"InterfaceType"`
 		MediaType    string  `json:"MediaType"`
 	} `json:"disk"`
+	// 注意：Get-PhysicalDisk 的 MediaType / BusType 经 ConvertTo-Json 是字符串
+	// （"SSD"/"HDD"/"Unspecified"、"NVMe"/"SATA"/"USB"），不是数字枚举。
 	PD []struct {
 		FriendlyName string  `json:"FriendlyName"`
-		MediaType    int     `json:"MediaType"`
-		BusType      int     `json:"BusType"`
+		MediaType    string  `json:"MediaType"`
+		BusType      string  `json:"BusType"`
 		Size         float64 `json:"Size"`
 		SerialNumber string  `json:"SerialNumber"`
 	} `json:"pd"`
@@ -159,16 +161,22 @@ func collectHardware() (Hardware, error) {
 	}
 	if len(w.PD) > 0 {
 		for _, d := range w.PD {
-			ness := "SSD"
-			switch d.MediaType {
-			case 3:
-				ness = "HDD"
-			case 5:
-				ness = "SCM"
+			kind := strings.TrimSpace(d.MediaType)
+			switch strings.ToLower(kind) {
+			case "hdd":
+				kind = "HDD"
+			case "ssd":
+				kind = "SSD"
+			case "scm":
+				kind = "SCM"
+			default:
+				kind = "固定磁盘"
 			}
-			if d.BusType == 17 {
-				ness = "NVMe " + ness
+			bus := strings.TrimSpace(d.BusType)
+			if bus != "" && !strings.EqualFold(bus, "Unspecified") {
+				kind = bus + " " + kind
 			}
+			ness := kind
 			hw.Disks = append(hw.Disks, HwDisk{
 				Name:      strings.TrimSpace(d.FriendlyName),
 				Type:      ness,

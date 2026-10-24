@@ -37,14 +37,14 @@ export function Toggle({
         className={clsx(
           'relative h-6 w-11 shrink-0 rounded-full border transition-colors duration-200',
           checked
-            ? 'border-accent/60 bg-[linear-gradient(135deg,#8b6bff,#22d3ee)]'
-            : 'border-white/12 bg-white/8',
+            ? 'border-accent/60 grad-primary'
+            : 'border-line-strong bg-track',
         )}
       >
         <motion.span
           layout
           transition={{ type: 'spring', stiffness: 600, damping: 34 }}
-          className="absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white shadow-md"
+          className="absolute top-[3px] h-[18px] w-[18px] rounded-full border border-line-strong bg-white shadow-md"
           style={{ left: checked ? 22 : 3 }}
         />
       </button>
@@ -73,7 +73,11 @@ export function Slider({
 }) {
   const pct = ((value - min) / (max - min)) * 100
   const pair =
-    tone === 'cyan' ? ['#22d3ee', '#7c5cff'] : tone === 'warn' ? ['#fbbf24', '#fb7185'] : ['#7c5cff', '#22d3ee']
+    tone === 'cyan'
+      ? ['var(--tone-cyan-a)', 'var(--tone-accent-a)']
+      : tone === 'warn'
+        ? ['var(--tone-warn-a)', 'var(--tone-warn-b)']
+        : ['var(--tone-accent-a)', 'var(--tone-accent-b)']
   return (
     <input
       type="range"
@@ -137,9 +141,9 @@ export function Input({
     <div className="relative">
       <input
         className={clsx(
-          'h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3.5 text-[14px] text-fg',
+          'h-11 w-full rounded-xl border border-line bg-elevated px-3.5 text-[14px] text-fg',
           'placeholder:text-faint outline-none transition-colors',
-          'focus:border-accent/55 focus:bg-white/[0.06] focus:ring-2 focus:ring-accent/20',
+          'focus:border-accent/55 focus:bg-elevated-2 focus:ring-2 focus:ring-accent/20',
           mono && 'font-mono tracking-[0.14em]',
           suffix && 'pr-12',
           className,
@@ -161,7 +165,7 @@ export function Select({
   return (
     <select
       className={clsx(
-        'h-11 w-full appearance-none rounded-xl border border-white/10 bg-white/[0.04] px-3.5 text-[14px] text-fg',
+        'h-11 w-full appearance-none rounded-xl border border-line bg-elevated px-3.5 text-[14px] text-fg',
         'outline-none transition-colors focus:border-accent/55 focus:ring-2 focus:ring-accent/20',
         className,
       )}
@@ -189,7 +193,7 @@ export function Segmented<T extends string>({
   return (
     <div
       className={clsx(
-        'relative inline-flex items-center gap-1 rounded-xl border border-white/8 bg-white/[0.035] p-1',
+        'relative inline-flex items-center gap-1 rounded-xl border border-line-soft bg-elevated p-1',
         className,
       )}
     >
@@ -210,7 +214,7 @@ export function Segmented<T extends string>({
               <motion.span
                 layoutId={`seg-${id}`}
                 transition={{ type: 'spring', stiffness: 500, damping: 38 }}
-                className="absolute inset-0 -z-10 rounded-[9px] border border-white/12 bg-white/10"
+                className="absolute inset-0 -z-10 rounded-[9px] border border-line-strong bg-raised"
               />
             )}
             {o.icon}

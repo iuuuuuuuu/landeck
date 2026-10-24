@@ -114,7 +114,7 @@ export default function DeviceDetail() {
           onAuthError={markAuthLost}
         />
         <VolumeCard client={client} onAuthError={markAuthLost} />
-        <MediaCard client={client} onAuthError={markAuthLost} />
+        <MediaCard client={client} media={live.media} onAuthError={markAuthLost} />
       </div>
 
       <div key={device.id} className="grid gap-3 lg:grid-cols-12">

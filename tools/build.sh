@@ -42,7 +42,11 @@ build() {
 go build -trimpath -ldflags "$LDFLAGS" -o bin/landeck-agent.exe .
 echo "   本地开发二进制 bin/landeck-agent.exe 已刷新"
 
-build windows amd64 landeck-agent-windows-amd64.exe
+# Windows 主发行版是 GUI（托盘，无黑框）；再留一个 console 版便于排障
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$LDFLAGS -H windowsgui" -o dist/landeck-agent-windows-amd64.exe .
+echo "   landeck-agent-windows-amd64.exe  (GUI/tray)  $(awk -v b=$(wc -c < dist/landeck-agent-windows-amd64.exe) 'BEGIN{printf "%.2f", b/1048576}') MB"
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$LDFLAGS" -o dist/landeck-agent-windows-amd64-console.exe .
+echo "   landeck-agent-windows-amd64-console.exe  $(awk -v b=$(wc -c < dist/landeck-agent-windows-amd64-console.exe) 'BEGIN{printf "%.2f", b/1048576}') MB"
 build linux   amd64 landeck-agent-linux-amd64
 build linux   arm64 landeck-agent-linux-arm64
 build darwin  arm64 landeck-agent-darwin-arm64

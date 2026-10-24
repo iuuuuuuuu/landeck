@@ -27,7 +27,20 @@
 └───────────────────────────────────────────────────┘
 ```
 
+## 桌面形态
+
+Windows 版 Agent 是**托盘程序**（`-H windowsgui`，双击不弹黑框）：
+
+- 托盘菜单：打开控制台 / 复制配对码 / 已配对台数 / **开机自启**（勾选即注册登录启动任务）/ 打开数据目录 / 退出
+- 首次运行会自动打开浏览器里的控制台，屏幕上直接能看到 6 位随机码
+- 日志写到 `data/agent.log`（超过 2 MB 自动轮转）
+- 需要看控制台输出的排障场景，用同包的 `landeck-agent-windows-amd64-console.exe`
+
+界面支持**深色 / 浅色 / 跟随系统**三套主题，顶栏一键切换，设置页也能选，选择会记住。
+
 ## 界面
+
+浅色 / 深色两套主题，跟随系统或手动切换。
 
 | 设备列表 | 设备详情 |
 | --- | --- |
@@ -36,6 +49,10 @@
 | 硬件 / 开机统计 / 进程 | 手机端 |
 | --- | --- |
 | ![数据区](docs/screenshots/device-data.jpg) | ![手机](docs/screenshots/mobile.jpg) |
+
+| 浅色主题 · 设备列表 | 浅色主题 · 设备详情 |
+| --- | --- |
+| ![浅色列表](docs/screenshots/devices-light.jpg) | ![浅色详情](docs/screenshots/detail-light.jpg) |
 
 ## 下载安装（普通用户）
 
@@ -47,6 +64,7 @@
 | Linux amd64 / arm64 | `landeck-agent-linux-*` | `chmod +x` 后运行 |
 | macOS Intel / Apple Silicon | `landeck-agent-darwin-*` | `chmod +x` 后运行（首次需在「隐私与安全性」放行） |
 | Windows（控制端） | `LanDeck_*_x64-setup.exe` / `.msi` | 图形界面的 App |
+| Android | `LanDeck-1.0.1-android.apk` | 直连安装（自签名，安装时需允许「未知来源」） |
 | 任意设备 | 浏览器打开 `http://<被控机IP>:8420` | 零安装，手机也能用 |
 
 控制端 App 打开后点「扫描」→ 选设备 → 输入被控机控制台里的固定密钥或 6 位随机码即可。

@@ -17,14 +17,14 @@ function ThinMeter({ label, value, cyan }: { label: string; value?: number; cyan
   return (
     <div className="flex items-center gap-2">
       <span className="w-7 shrink-0 text-[10.5px] text-faint">{label}</span>
-      <div className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/8">
+      <div className="h-[3px] flex-1 overflow-hidden rounded-full bg-track">
         <div
           className="h-full rounded-full transition-[width] duration-700"
           style={{
             width: `${v ?? 0}%`,
             background: cyan
-              ? 'linear-gradient(90deg,#22d3ee,#7c5cff)'
-              : 'linear-gradient(90deg,#7c5cff,#a78bfa)',
+              ? 'linear-gradient(90deg,var(--tone-cyan-a),var(--tone-accent-a))'
+              : 'linear-gradient(90deg,var(--tone-accent-a),var(--tone-accent-b))',
           }}
         />
       </div>
@@ -86,7 +86,7 @@ export function DeviceGridCard({
       <Card
         padded={false}
         className={clsx(
-          'relative p-4 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-white/[0.18]',
+          'relative p-4 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-line-strong',
           online === false && 'opacity-70 saturate-50',
         )}
       >
@@ -115,7 +115,7 @@ export function DeviceGridCard({
           <ThinMeter label="内存" value={probe?.online ? probe.mem : undefined} cyan />
         </div>
 
-        <div className="mt-3 flex items-center justify-end gap-1 border-t border-white/[0.06] pt-2.5 text-[12px] font-medium text-accent-soft">
+        <div className="mt-3 flex items-center justify-end gap-1 border-t border-line-soft pt-2.5 text-[12px] font-medium text-accent-soft">
           控制设备
           <ArrowRight
             size={13}
@@ -132,7 +132,7 @@ export function DeviceGridCard({
               e.stopPropagation()
               setMenu((o) => !o)
             }}
-            className="grid h-10 w-10 place-items-center rounded-xl text-faint transition-colors hover:bg-white/8 hover:text-fg"
+            className="grid h-10 w-10 place-items-center rounded-xl text-faint transition-colors hover:bg-hover hover:text-fg"
           >
             <EllipsisVertical size={18} />
           </button>
@@ -145,7 +145,7 @@ export function DeviceGridCard({
                   setMenu(false)
                   onRename()
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[12.5px] text-fg-soft transition-colors hover:bg-white/[0.06] hover:text-fg"
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[12.5px] text-fg-soft transition-colors hover:bg-hover hover:text-fg"
               >
                 <Pencil size={14} />
                 重命名

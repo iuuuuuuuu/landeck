@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Activity, ArrowDown, ArrowUp, RefreshCw } from 'lucide-react'
 import { Badge, Card, Gauge, MeterRow, SectionTitle, Skeleton, Sparkline } from '../ui'
 import { useTicker, type LiveState } from '../../lib/hooks'
-import { bps, dateTime, duration, gbFromMb } from '../../lib/format'
+import { bps, bytes, dateTime, duration } from '../../lib/format'
 
 type Tone = 'accent' | 'cyan' | 'warn' | 'danger' | 'ok'
 
@@ -113,7 +113,7 @@ export function LiveStats({ live }: { live: LiveState }) {
           <div className="num -mt-1 text-[11px] text-faint">
             {memUsed === null || memTotal === null
               ? '—'
-              : `${gbFromMb(memUsed)} / ${gbFromMb(memTotal)}`}
+              : `${bytes(memUsed)} / ${bytes(memTotal)}`}
           </div>
         </div>
       </div>
@@ -123,7 +123,7 @@ export function LiveStats({ live }: { live: LiveState }) {
         <MiniSeries title="内存趋势" tone={toneOf(memPct ?? 0)} data={memSeries} suffix="%" />
       </div>
 
-      <div className="mt-4 space-y-2.5 border-t border-white/6 pt-3.5">
+      <div className="mt-4 space-y-2.5 border-t border-line-soft pt-3.5">
         <div className="flex items-center justify-between text-[11.5px] uppercase tracking-[0.08em] text-faint">
           <span>磁盘</span>
           <span className="num normal-case tracking-normal">
@@ -147,8 +147,8 @@ export function LiveStats({ live }: { live: LiveState }) {
         ))}
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-white/6 pt-3.5">
-        <div className="rounded-xl border border-white/8 bg-white/[0.035] px-3 py-2.5">
+      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-line-soft pt-3.5">
+        <div className="rounded-xl border border-line bg-elevated px-3 py-2.5">
           <div className="flex items-center gap-1.5 text-[11px] text-faint">
             <ArrowDown size={12} className="text-cyan" />
             下行
@@ -157,7 +157,7 @@ export function LiveStats({ live }: { live: LiveState }) {
             {net ? bps(net.rxBps ?? 0) : '—'}
           </div>
         </div>
-        <div className="rounded-xl border border-white/8 bg-white/[0.035] px-3 py-2.5">
+        <div className="rounded-xl border border-line bg-elevated px-3 py-2.5">
           <div className="flex items-center gap-1.5 text-[11px] text-faint">
             <ArrowUp size={12} className="text-accent-soft" />
             上行
@@ -210,7 +210,7 @@ function MiniSeries({
 }) {
   const last = data.length > 0 ? data[data.length - 1] : null
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.028] px-3 pb-2 pt-2.5">
+    <div className="rounded-xl border border-line bg-elevated px-3 pb-2 pt-2.5">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[11.5px] text-faint">{title}</span>
         <span className="num text-[12px] text-fg-soft">
@@ -220,7 +220,7 @@ function MiniSeries({
       {data.length >= 2 ? (
         <Sparkline data={data} height={44} tone={tone} className="mt-1.5" strokeWidth={1.6} />
       ) : (
-        <div className="mt-1.5 grid h-[44px] place-items-center rounded-lg bg-white/[0.03] text-[11px] text-faint">
+        <div className="mt-1.5 grid h-[44px] place-items-center rounded-lg bg-elevated text-[11px] text-faint">
           采样中
         </div>
       )}

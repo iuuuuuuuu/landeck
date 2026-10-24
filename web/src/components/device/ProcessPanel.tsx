@@ -127,7 +127,7 @@ export function ProcessPanel({
     return (
       <Card>
         <div className="flex items-center gap-2.5 opacity-60">
-          <span className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-muted">
+          <span className="grid h-9 w-9 place-items-center rounded-xl border border-line bg-elevated text-muted">
             <ListTree size={16} />
           </span>
           <div>
@@ -191,7 +191,7 @@ export function ProcessPanel({
           <EmptyState title="没有匹配的进程" desc="换个关键词，或清空搜索条件再试。" />
         ) : (
           <>
-            <div className="flex items-center gap-2 border-b border-white/6 px-2 pb-1.5 text-[10.5px] text-faint">
+            <div className="flex items-center gap-2 border-b border-line-soft px-2 pb-1.5 text-[10.5px] text-faint">
               <span className="w-12 shrink-0">PID</span>
               <span className="min-w-0 flex-1">进程 / 用户</span>
               <span className="w-10 shrink-0 text-right">CPU</span>
@@ -245,7 +245,7 @@ export function ProcessPanel({
           </>
         }
       >
-        <div className="rounded-xl border border-white/8 bg-white/[0.028] px-3.5 py-3">
+        <div className="rounded-xl border border-line bg-elevated px-3.5 py-3">
           <Toggle
             checked={force}
             onChange={setForce}

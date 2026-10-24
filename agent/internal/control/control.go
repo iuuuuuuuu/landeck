@@ -51,6 +51,21 @@ type Caps struct {
 	Media     bool `json:"media"`
 }
 
+// MediaInfo 是当前媒体会话快照（Windows 走 SMTC，Linux 走 MPRIS，macOS 走 nowplaying-cli）。
+type MediaInfo struct {
+	Known       bool    `json:"known"`
+	Active      bool    `json:"active"`
+	Playing     bool    `json:"playing"`
+	Title       string  `json:"title"`
+	Artist      string  `json:"artist"`
+	Album       string  `json:"album"`
+	App         string  `json:"app"`
+	Status      string  `json:"status"`
+	PositionSec float64 `json:"positionSec"`
+	DurationSec float64 `json:"durationSec"`
+	UpdatedAt   float64 `json:"updatedAt"`
+}
+
 type VolumeState struct {
 	Level int  `json:"level"`
 	Muted bool `json:"muted"`
@@ -62,6 +77,8 @@ type Controller interface {
 	Volume(op string, value int) (VolumeState, error)
 	VolumeState() (VolumeState, error)
 	Media(op string) error
+	// MediaState 返回当前播放内容与状态；拿不到时 Known=false
+	MediaState() (MediaInfo, error)
 	Wake(mac string) error
 	Caps() Caps
 	// DryRun 为真时电源/媒体动作只记录不执行（自检与首次配网用）
@@ -70,7 +87,8 @@ type Controller interface {
 
 // Options 是所有平台实现的公共开关
 type Options struct {
-	DryRun bool
+	DryRun  bool
+	DataDir string
 }
 
 func normalizeMAC(mac string) (net.HardwareAddr, error) {

@@ -195,6 +195,40 @@ func (c *darwinController) Volume(op string, value int) (VolumeState, error) {
 	return c.VolumeState()
 }
 
+func (c *darwinController) MediaState() (MediaInfo, error) {
+	if c.mediaBin != "nowplaying-cli" {
+		// 没有 nowplaying-cli 时拿不到可靠状态，宁可不报
+		return MediaInfo{Known: false}, nil
+	}
+	out, err := run("nowplaying-cli", "get", "title", "artist", "album", "playbackRate")
+	if err != nil {
+		return MediaInfo{Known: true, Active: false}, nil
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) < 4 {
+		return MediaInfo{Known: true, Active: false}, nil
+	}
+	info := MediaInfo{
+		Known: true, Active: true,
+		Title:  strings.TrimSpace(lines[0]),
+		Artist: strings.TrimSpace(lines[1]),
+		Album:  strings.TrimSpace(lines[2]),
+		App:    "系统媒体",
+	}
+	if rate, err := strconv.ParseFloat(strings.TrimSpace(lines[3]), 64); err == nil {
+		info.Playing = rate > 0
+	}
+	info.Status = "Paused"
+	if info.Playing {
+		info.Status = "Playing"
+	}
+	info.UpdatedAt = float64(time.Now().Unix())
+	if info.Title == "null" || info.Title == "" {
+		info.Active = false
+	}
+	return info, nil
+}
+
 func (c *darwinController) Wake(mac string) error { return sendMagicPacket(mac) }
 
 // WakeAlarmAt 用 pmset 安排一次性唤醒。

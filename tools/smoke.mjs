@@ -145,6 +145,7 @@ check('详情页出现电源操作', text.includes('关机') && text.includes('�
 check('详情页出现音量', text.includes('音量'))
 check('详情页出现实时状态', text.includes('CPU') || text.includes('内存'))
 check('详情页出现进程面板', text.includes('进程'))
+check('详情页出现媒体卡', text.includes('媒体'))
 const hasPercent = await evalJs("document.body.innerText.split('%').length - 1")
 check('详情页出现百分比数值', hasPercent > 0, `count=${hasPercent}`)
 const wsLive = await evalJs(`(() => !/正在尝试恢复推送|实时数据重连中/.test(document.body.innerText))()`)
@@ -171,6 +172,42 @@ const cancelled = await evalJs(`(() => {
   return true
 })()`)
 check('确认框可取消', cancelled === true)
+
+// 2.5 硬件信息必须真的有数据（用户报过"硬件全是空白"）
+const hw = await (
+  await fetch(`${BASE}/api/v1/hardware`, { headers: { Authorization: `Bearer ${pair.token}` } })
+).json()
+check('硬件接口返回 CPU 型号', !!hw.cpu && !!hw.cpu.model, String(hw.cpu && hw.cpu.model).slice(0, 24))
+check('硬件接口返回内存容量', !!hw.memory && hw.memory.totalBytes > 0)
+await visit(`#/devices/${device.id}`, 2200)
+const hwTab = await evalJs(`(() => {
+  const b = [...document.querySelectorAll('button')].find((x) => (x.innerText || '').trim() === '内存')
+  if (!b) return 'no-tab'
+  b.click(); return 'ok'
+})()`)
+await sleep(700)
+const hwText = await evalJs('document.body.innerText')
+check(
+  '硬件面板渲染出真实数据（非空白）',
+  hwTab === 'ok' && (hwText.includes('DDR') || hwText.includes('GB') || hwText.includes('MHz')),
+  hwTab,
+)
+
+// 2.6 主题切换（浅色主题）
+const readThemeLabel = `(() => {
+  const b = [...document.querySelectorAll('button')].find((x) => /主题/.test(x.getAttribute('aria-label') || x.title || ''))
+  return b ? (b.getAttribute('aria-label') || b.title || '') : 'none'
+})()`
+const themeBefore = await evalJs(readThemeLabel)
+await evalJs(`(() => {
+  const b = [...document.querySelectorAll('button')].find((x) => /主题/.test(x.getAttribute('aria-label') || x.title || ''))
+  if (b) b.click()
+  return !!b
+})()`)
+await sleep(600)
+const themeAfter = await evalJs(readThemeLabel)
+const themeAttr = await evalJs(`document.documentElement.getAttribute('data-theme') || 'none'`)
+check('主题可切换', themeBefore !== themeAfter, `${themeBefore} -> ${themeAfter} (data-theme=${themeAttr})`)
 
 // 3. 定时任务
 text = await visit('#/schedules')
@@ -214,7 +251,14 @@ for (const [name, hash] of [
 }
 
 // 8. 控制台干净
-check('无未捕获异常', pageErrors.length === 0, pageErrors.slice(0, 2).join(' | '))
+// Edge 自带扩展在 headless 里会抛 "Receiving end does not exist"，与本项目无关；
+// 只忽略这一条已知噪声，其余一律判失败。
+const ENV_NOISE = /Receiving end does not exist|Could not establish connection/
+const realErrors = pageErrors.filter((e) => !ENV_NOISE.test(e))
+if (pageErrors.length !== realErrors.length) {
+  console.log(`(忽略 ${pageErrors.length - realErrors.length} 条浏览器扩展噪声)`)
+}
+check('无未捕获异常', realErrors.length === 0, realErrors.slice(0, 2).join(' | '))
 check('无 console.error', consoleErrors.length === 0, consoleErrors.slice(0, 2).join(' | '))
 
 const failed = results.filter((r) => !r.ok)

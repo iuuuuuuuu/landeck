@@ -155,8 +155,8 @@ function PowerButton({
         'group flex h-[68px] flex-col items-center justify-center gap-1.5 rounded-2xl border transition-colors',
         'disabled:pointer-events-none disabled:opacity-40',
         quiet
-          ? 'border-white/[0.07] bg-transparent text-muted hover:border-white/12 hover:bg-white/[0.05] hover:text-fg-soft'
-          : 'border-white/10 bg-white/[0.05] text-fg-soft hover:bg-white/[0.09] hover:text-fg',
+          ? 'border-line-soft bg-transparent text-muted hover:border-line-strong hover:bg-hover hover:text-fg-soft'
+          : 'border-line bg-elevated text-fg-soft hover:bg-elevated-2 hover:text-fg',
       )}
     >
       {busy ? (

@@ -105,7 +105,7 @@ export default function Devices() {
               onChange={(e) => setQ(e.target.value)}
               placeholder="搜索名称或 IP"
               aria-label="搜索设备"
-              className="h-10 w-full rounded-xl border border-white/10 bg-white/[0.04] pl-9 pr-3 text-[13px] text-fg outline-none transition-colors placeholder:text-faint focus:border-accent/55 focus:bg-white/[0.06]"
+              className="h-10 w-full rounded-xl border border-line bg-elevated pl-9 pr-3 text-[13px] text-fg outline-none transition-colors placeholder:text-faint focus:border-accent/55 focus:bg-elevated-2"
             />
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-2">
@@ -212,7 +212,7 @@ export default function Devices() {
           </>
         }
       >
-        <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5 text-[12px] leading-relaxed text-muted">
+        <div className="rounded-xl border border-line-soft bg-elevated px-3 py-2.5 text-[12px] leading-relaxed text-muted">
           设备本身不会关机或重启；如需一并吊销服务端令牌，请配对后到被控端「设置 → 配对与安全」里删除该客户端。
         </div>
       </Modal>

@@ -1,13 +1,14 @@
 {
   "name": "landeck-app",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "LanDeck 控制端（Tauri v2 壳，复用 web/ 的 SPA）",
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
     "android": "tauri android build",
-    "icon": "tauri icon"
+    "icon": "tauri icon",
+    "tauri": "tauri"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.1"

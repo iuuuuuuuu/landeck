@@ -19,7 +19,7 @@ export function Card({
       className={clsx(
         'panel panel-edge',
         padded && 'p-5',
-        glow && 'shadow-[0_0_0_1px_rgba(124,92,255,.28),0_24px_60px_-30px_rgba(124,92,255,.55)]',
+        glow && 'shadow-glow',
         className,
       )}
     >
@@ -45,7 +45,7 @@ export function SectionTitle({
     <div className={clsx('flex items-start justify-between gap-3', className)}>
       <div className="flex items-start gap-3 min-w-0">
         {icon && (
-          <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.05] text-accent-soft">
+          <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-elevated text-accent-soft">
             {icon}
           </span>
         )}
@@ -109,15 +109,15 @@ export function DeviceAvatar({
   const glyph = os === 'darwin' ? '⌘' : os === 'linux' ? '❯' : '⊞'
   const ring =
     os === 'darwin'
-      ? 'from-[#8e8e93]/30 to-white/5 text-white'
+      ? 'from-[#8e8e93]/30 to-elevated text-fg'
       : os === 'linux'
-        ? 'from-[#fbbf24]/25 to-white/5 text-warn'
-        : 'from-[#22d3ee]/25 to-white/5 text-cyan'
+        ? 'from-[#fbbf24]/25 to-elevated text-warn'
+        : 'from-[#22d3ee]/25 to-elevated text-cyan'
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <div
         className={clsx(
-          'grid h-full w-full place-items-center rounded-[14px] border border-white/10 bg-gradient-to-br',
+          'grid h-full w-full place-items-center rounded-[14px] border border-line bg-gradient-to-br',
           ring,
         )}
         style={{ fontSize: size * 0.42 }}

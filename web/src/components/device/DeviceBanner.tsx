@@ -122,7 +122,7 @@ export function DeviceBanner({
         </div>
       </div>
 
-      <div className="border-t border-white/[0.06]">
+      <div className="border-t border-line-soft">
         <div className="flex items-center justify-between px-3">
           <button
             type="button"

@@ -156,10 +156,21 @@ await evaluate(`
   )});
   true;
 `)
+// 显式锁定深色（headless Edge 默认 prefers-color-scheme: light）
+await evaluate(`localStorage.setItem('landeck.theme.v1', JSON.stringify({ state: { mode: 'dark' }, version: 1 }))`)
 await send('Page.navigate', { url: `${BASE}/` })
 await sleep(1800)
 
 await shot('devices', { hash: '#/devices' })
+// 浅色主题：写 localStorage 后整页重载
+await evaluate(`localStorage.setItem('landeck.theme.v1', JSON.stringify({ state: { mode: 'light' }, version: 1 }))`)
+await send('Page.navigate', { url: `${BASE}/` })
+await sleep(1800)
+await shot('devices-light', { hash: '#/devices' })
+await shot('detail-light', { hash: `#/devices/${device.id}`, wait: 2600 })
+await evaluate(`localStorage.setItem('landeck.theme.v1', JSON.stringify({ state: { mode: 'dark' }, version: 1 }))`)
+await send('Page.navigate', { url: `${BASE}/` })
+await sleep(1600)
 await shot('detail', { hash: `#/devices/${device.id}`, wait: 2600 })
 await shot('detail-full', { hash: `#/devices/${device.id}`, wait: 2200, scroll: 900 })
 await shot('schedules', { hash: '#/schedules', wait: 1800 })

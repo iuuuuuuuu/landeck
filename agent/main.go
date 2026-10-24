@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"os/exec"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -26,9 +27,10 @@ import (
 	"landeck/internal/metrics"
 	"landeck/internal/scheduler"
 	"landeck/internal/store"
+	"landeck/internal/tray"
 )
 
-const Version = "1.0.0"
+const Version = "1.0.1"
 
 func main() {
 	log.SetFlags(log.Ltime)
@@ -75,7 +77,16 @@ func runServer() {
 	flag.BoolVar(&o.dryRun, "dry-run", false, "演练模式：不真正关机/发送媒体键（用于调试）")
 	flag.BoolVar(&o.noMDNS, "no-mdns", false, "关闭 mDNS 广播")
 	flag.BoolVar(&o.quiet, "quiet", false, "少打日志")
+	noTray := flag.Bool("no-tray", false, "不启动托盘（纯命令行/服务模式）")
 	flag.Parse()
+
+	useTray := tray.Supported() && !*noTray
+	if useTray || o.quiet {
+		// GUI 构建没有控制台，日志只留文件
+		if err := redirectLogToFile(o.dataDir); err == nil {
+			log.SetFlags(log.LstdFlags)
+		}
+	}
 
 	cfgStore, err := config.Open(o.dataDir)
 	if err != nil {
@@ -87,7 +98,7 @@ func runServer() {
 	cfg := cfgStore.Get()
 
 	authMgr := auth.New(cfgStore)
-	ctrl := control.New(control.Options{DryRun: o.dryRun})
+	ctrl := control.New(control.Options{DryRun: o.dryRun, DataDir: o.dataDir})
 	sampler := metrics.NewSampler()
 	acts := store.NewActivityStore(o.dataDir)
 
@@ -137,9 +148,52 @@ func runServer() {
 	// 随手把配对信息写到数据目录，方便没有屏幕时用文件取码
 	writePairingFile(cfgStore, authMgr)
 
+	shutdown := make(chan struct{}, 1)
+
+	if useTray {
+		tray.SetConsoleURL(fmt.Sprintf("http://127.0.0.1:%d/", effectivePort(cfg)))
+		tray.SetDataDir(o.dataDir)
+		tray.Start(tray.Callbacks{
+			Status: func() (string, string, int, string) {
+				c := cfgStore.Get()
+				code, _ := authMgr.Code()
+				if !c.RandomEnabled {
+					code = ""
+				}
+				return c.DeviceName, groupCode(code), len(c.Clients), ""
+			},
+			AutostartEnabled: autostartSelfEnabled,
+			ToggleAutostart: func() (bool, error) {
+				if autostartSelfEnabled() {
+					if err := autostartSelfRemove(); err != nil {
+						return false, err
+					}
+					return false, nil
+				}
+				if err := autostartSelfInstall(); err != nil {
+					return false, err
+				}
+				return true, nil
+			},
+			OnQuit: func() {
+				select {
+				case shutdown <- struct{}{}:
+				default:
+				}
+			},
+		})
+		if len(cfg.Clients) == 0 {
+			// 首次运行：直接把控制台页面打开，用户能立刻看到配对码
+			go openBrowser(fmt.Sprintf("http://127.0.0.1:%d/", effectivePort(cfg)))
+		}
+	}
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-	<-stop
+	select {
+	case <-stop:
+	case <-shutdown:
+	}
 	log.Println("正在退出…")
 	sched.Stop()
 	if ann != nil {
@@ -258,6 +312,46 @@ func localIP() string {
 		return "127.0.0.1"
 	}
 	return addrs
+}
+
+// groupCode 把 6 位随机码分组成 3+3，便于口述。
+func groupCode(code string) string {
+	if len(code) != 6 {
+		return code
+	}
+	return code[:3] + " " + code[3:]
+}
+
+// redirectLogToFile 把日志写进 data/agent.log（超过 2MB 轮转一次）。
+func redirectLogToFile(dir string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	path := filepath.Join(dir, "agent.log")
+	if st, err := os.Stat(path); err == nil && st.Size() > 2<<20 {
+		_ = os.Rename(path, filepath.Join(dir, "agent.log.1"))
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return err
+	}
+	log.SetOutput(f)
+	return nil
+}
+
+func openBrowser(url string) {
+	var err error
+	switch runtime.GOOS {
+	case "windows":
+		err = exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = exec.Command("xdg-open", url).Start()
+	}
+	if err != nil {
+		log.Printf("打开浏览器失败: %v", err)
+	}
 }
 
 func writePairingFile(st *config.Store, a *auth.Manager) {

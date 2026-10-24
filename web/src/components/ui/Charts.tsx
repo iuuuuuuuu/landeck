@@ -1,12 +1,22 @@
 import clsx from 'clsx'
 import { useId } from 'react'
 
+/* 图表色来自 index.css 的 --tone-* 令牌：浅色主题自动换成压暗一档的色阶 */
 const TONE_STOPS: Record<string, [string, string]> = {
-  accent: ['#7c5cff', '#22d3ee'],
-  cyan: ['#22d3ee', '#34d399'],
-  warn: ['#fbbf24', '#fb7185'],
-  danger: ['#fb7185', '#e11d48'],
-  ok: ['#34d399', '#22d3ee'],
+  accent: ['var(--tone-accent-a)', 'var(--tone-accent-b)'],
+  cyan: ['var(--tone-cyan-a)', 'var(--tone-cyan-b)'],
+  warn: ['var(--tone-warn-a)', 'var(--tone-warn-b)'],
+  danger: ['var(--tone-danger-a)', 'var(--tone-danger-b)'],
+  ok: ['var(--tone-ok-a)', 'var(--tone-ok-b)'],
+}
+
+/** 同色系柔光，浅色下自动变淡，避免在浅底上糊成一团 */
+const TONE_GLOW: Record<string, string> = {
+  accent: 'var(--tone-accent-glow)',
+  cyan: 'var(--tone-cyan-glow)',
+  warn: 'var(--tone-warn-glow)',
+  danger: 'var(--tone-danger-glow)',
+  ok: 'var(--tone-ok-glow)',
 }
 
 /** 环形仪表：0-100，240° 弧，中心大字 */
@@ -49,7 +59,7 @@ export function Gauge({
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="rgba(255,255,255,.075)"
+          stroke="var(--color-track)"
           strokeWidth={thickness}
           strokeLinecap="round"
           strokeDasharray={`${dash} ${c}`}
@@ -65,7 +75,7 @@ export function Gauge({
           strokeDasharray={`${(dash * v) / 100} ${c}`}
           style={{
             transition: 'stroke-dasharray .7s cubic-bezier(.22,1,.36,1)',
-            filter: `drop-shadow(0 0 10px ${a}55)`,
+            filter: `drop-shadow(0 0 10px ${TONE_GLOW[tone]})`,
           }}
         />
       </svg>
@@ -194,19 +204,23 @@ export function MiniBars({
       {data.map((d) => {
         const pct = (d.value / max) * 100
         const barColor =
-          tone === 'ok' ? '#34d399' : tone === 'cyan' ? '#22d3ee' : '#8b6bff'
+          tone === 'ok'
+            ? 'var(--tone-ok-a)'
+            : tone === 'cyan'
+              ? 'var(--tone-cyan-a)'
+              : 'var(--tone-accent-a)'
         return (
           <div key={d.label} className="group relative flex h-full flex-1 flex-col justify-end">
             <div
               className="w-full rounded-[5px] transition-all duration-500"
               style={{
                 height: `${Math.max(3, pct)}%`,
-                background: d.value > 0 ? barColor : 'rgba(255,255,255,.08)',
+                background: d.value > 0 ? barColor : 'var(--color-track)',
                 opacity: d.value > 0 ? 1 : 0.6,
               }}
             />
             <span className="mt-1.5 truncate text-center text-[9.5px] text-faint">{d.label}</span>
-            <div className="pointer-events-none absolute -top-7 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-md border border-white/10 bg-ink/95 px-2 py-1 text-[10px] text-fg opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+            <div className="pointer-events-none absolute -top-7 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-md border border-line bg-popover px-2 py-1 text-[10px] text-fg opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
               {d.hint ?? (format ? format(d.value) : d.value)}
             </div>
           </div>
@@ -234,19 +248,19 @@ export function MeterRow({
         <span className="truncate text-[12.5px] text-fg-soft">{label}</span>
         <span className="num shrink-0 text-[11.5px] text-muted">{sub}</span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-white/8">
+      <div className="h-1.5 overflow-hidden rounded-full bg-track">
         <div
           className="h-full rounded-full transition-all duration-700"
           style={{
             width: `${Math.max(1, Math.min(100, percent))}%`,
             background:
               tone === 'warn'
-                ? 'linear-gradient(90deg,#fbbf24,#fb7185)'
+                ? 'linear-gradient(90deg,var(--tone-warn-a),var(--tone-warn-b))'
                 : tone === 'danger'
-                  ? 'linear-gradient(90deg,#fb7185,#e11d48)'
+                  ? 'linear-gradient(90deg,var(--tone-danger-a),var(--tone-danger-b))'
                   : tone === 'ok'
-                    ? 'linear-gradient(90deg,#34d399,#22d3ee)'
-                    : 'linear-gradient(90deg,#7c5cff,#22d3ee)',
+                    ? 'linear-gradient(90deg,var(--tone-ok-a),var(--tone-ok-b))'
+                    : 'linear-gradient(90deg,var(--tone-accent-a),var(--tone-accent-b))',
           }}
         />
       </div>

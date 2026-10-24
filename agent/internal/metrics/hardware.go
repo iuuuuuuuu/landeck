@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -92,10 +93,15 @@ func HardwareCached() Hardware {
 	hwMu.Unlock()
 
 	h, err := collectHardware()
-	if err != nil && hwCache != nil {
+	if err != nil {
+		// 采集失败绝不缓存零值：否则会连续 10 分钟给前端一片空白
 		hwMu.Lock()
-		cached := *hwCache
+		var cached Hardware
+		if hwCache != nil {
+			cached = *hwCache
+		}
 		hwMu.Unlock()
+		log.Printf("硬件信息采集失败: %v", err)
 		return cached
 	}
 	hwMu.Lock()

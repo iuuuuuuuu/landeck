@@ -133,7 +133,7 @@ export function PairDialog({
             void submit()
           }}
         >
-          <div className="flex items-center gap-2.5 rounded-xl border border-white/8 bg-white/[0.03] p-3">
+          <div className="flex items-center gap-2.5 rounded-xl border border-line-soft bg-elevated p-3">
             <DeviceAvatar os={node.os} size={36} />
             <div className="min-w-0 flex-1">
               <div className="truncate text-[13.5px] font-medium text-fg">{node.name}</div>

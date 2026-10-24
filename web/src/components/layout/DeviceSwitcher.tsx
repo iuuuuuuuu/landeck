@@ -35,11 +35,11 @@ export function DeviceSwitcher() {
   // 0 台或 1 台设备时不做下拉，只显示名称，减少顶栏噪音
   if (devices.length <= 1) {
     return (
-      <div className="flex h-10 max-w-[46vw] items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-2.5 min-[900px]:max-w-[240px]">
+      <div className="flex h-10 max-w-[46vw] items-center gap-2 rounded-xl border border-line-soft bg-elevated px-2.5 min-[900px]:max-w-[240px]">
         {active ? (
           <DeviceAvatar os={active.os} size={22} />
         ) : (
-          <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-lg border border-white/10 text-[11px] text-faint">
+          <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-lg border border-line text-[11px] text-faint">
             ?
           </span>
         )}
@@ -64,12 +64,12 @@ export function DeviceSwitcher() {
         aria-expanded={open}
         aria-label="切换当前设备"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-10 max-w-[46vw] items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-2.5 transition-colors hover:bg-white/[0.07] min-[900px]:max-w-[240px]"
+        className="flex h-10 max-w-[46vw] items-center gap-2 rounded-xl border border-line bg-elevated px-2.5 transition-colors hover:bg-elevated-2 min-[900px]:max-w-[240px]"
       >
         {active ? (
           <DeviceAvatar os={active.os} size={22} />
         ) : (
-          <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-lg border border-white/10 text-[11px] text-faint">
+          <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-lg border border-line text-[11px] text-faint">
             ?
           </span>
         )}
@@ -107,7 +107,7 @@ export function DeviceSwitcher() {
                   onClick={() => pick(d.id)}
                   className={clsx(
                     'flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors',
-                    d.id === active?.id ? 'bg-white/[0.07]' : 'hover:bg-white/[0.05]',
+                    d.id === active?.id ? 'bg-selected' : 'hover:bg-hover',
                   )}
                 >
                   <DeviceAvatar os={d.os} size={26} />
@@ -121,14 +121,14 @@ export function DeviceSwitcher() {
                 </button>
               ))}
             </div>
-            <div className="my-1 h-px bg-white/8" />
+            <div className="my-1 h-px bg-line" />
             <button
               type="button"
               onClick={() => {
                 setOpen(false)
                 navigate('/scan')
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-[12.5px] text-fg-soft transition-colors hover:bg-white/[0.05]"
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-[12.5px] text-fg-soft transition-colors hover:bg-hover"
             >
               <Radar size={14} className="text-accent-soft" />
               扫描局域网

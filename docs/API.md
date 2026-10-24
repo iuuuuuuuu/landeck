@@ -156,6 +156,23 @@ GET /uptime/history?days=14
 数据来源：Windows 事件日志（6005/6006/1074/42/107）、Linux `last -x` / `journalctl`、macOS `last reboot`；
 落盘 `data/boots.jsonl`。
 
+## 5.4 媒体状态
+
+```http
+GET /media
+{ "known":true, "active":true, "playing":true,
+  "title":"Never Gonna Give You Up", "artist":"Rick Astley", "album":"Whenever You Need Somebody",
+  "app":"Spotify", "status":"Playing",
+  "positionSec":42.7, "durationSec":213.0, "updatedAt":1792840431.05 }
+```
+
+* Windows 走 SMTC（`GlobalSystemMediaTransportControlsSessionManager`），Linux 走 MPRIS（playerctl），
+  macOS 走 `nowplaying-cli`（未安装时 `known=false`）。
+* `positionSec` 由服务端按 `updatedAt` 外推，客户端可再按本地时钟续推。
+* `active=false` 表示当前没有媒体会话；`known=false` 表示该平台读不到状态（但仍可下发控制指令）。
+* 媒体控制与状态走同一条 SMTC 会话：`media.play_pause` 之后 1–2 秒内 `GET /media` 会反映真实状态；
+  个别播放器不接受 SMTC 指令（返回 false）时自动回退成发送系统媒体键。
+
 ## 5.5 进程
 
 ```http
@@ -226,6 +243,7 @@ WS /api/v1/ws?token=ldk_…
 
 ```jsonc
 { "type":"status", "data":{...同 /status...} }
+{ "type":"media",  "data":{...同 /media...} }
 { "type":"event",  "data":{ "event":"action", "action":"power.shutdown", "ok":true, "clientName":"…", "at":"…" } }
 { "type":"pairing","data":{ "code":"284 913", "expiresAt":"…" } }
 ```

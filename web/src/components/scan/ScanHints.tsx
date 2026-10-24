@@ -37,7 +37,7 @@ export function ScanHints({ noHint }: { noHint?: boolean }) {
       <ul className="mt-3.5 space-y-3">
         {TIPS.map((t) => (
           <li key={t.title} className="flex gap-2.5">
-            <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-accent-soft">
+            <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg border border-line bg-elevated text-accent-soft">
               {t.icon}
             </span>
             <div className="min-w-0">

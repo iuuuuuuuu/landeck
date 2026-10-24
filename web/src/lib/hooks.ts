@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AgentClient } from '../lib/api'
-import type { StatusSnapshot, WsFrame } from '../lib/types'
+import { AgentClient } from './api'
+import type { MediaInfo, StatusSnapshot, WsFrame } from './types'
 import type { PairedDevice } from '../store/app'
 
 export interface Sample {
@@ -13,6 +13,7 @@ export interface Sample {
 
 export interface LiveState {
   status: StatusSnapshot | null
+  media: MediaInfo | null
   connected: boolean
   error: string | null
   samples: Sample[]
@@ -24,6 +25,7 @@ const MAX_SAMPLES = 240
 /** 实时状态：优先 WS 推送，连续失败退化为 2.5s 轮询。 */
 export function useLive(device?: PairedDevice | null): LiveState {
   const [status, setStatus] = useState<StatusSnapshot | null>(null)
+  const [media, setMedia] = useState<MediaInfo | null>(null)
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [samples, setSamples] = useState<Sample[]>([])
@@ -49,6 +51,7 @@ export function useLive(device?: PairedDevice | null): LiveState {
 
   useEffect(() => {
     setStatus(null)
+    setMedia(null)
     setSamples([])
     setLastAt(null)
     setConnected(false)
@@ -63,6 +66,7 @@ export function useLive(device?: PairedDevice | null): LiveState {
       const tick = async () => {
         try {
           push(await client.status())
+          setMedia(await client.mediaState())
         } catch (e) {
           setConnected(false)
           setError((e as Error).message)
@@ -95,6 +99,7 @@ export function useLive(device?: PairedDevice | null): LiveState {
         try {
           const frame = JSON.parse(ev.data as string) as WsFrame
           if (frame.type === 'status') push(frame.data)
+          if (frame.type === 'media') setMedia(frame.data)
         } catch {
           /* 忽略心跳帧 */
         }
@@ -128,7 +133,7 @@ export function useLive(device?: PairedDevice | null): LiveState {
     }
   }, [device?.id, device?.token, device?.host, device?.port, device?.tls, push])
 
-  return { status, connected, error, samples, lastAt }
+  return { status, media, connected, error, samples, lastAt }
 }
 
 export interface AsyncState<T> {

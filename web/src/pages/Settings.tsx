@@ -1,14 +1,36 @@
-import { Copy, Info, KeyRound, Radar, Save, ShieldAlert, UserRound } from 'lucide-react'
+import {
+  Copy,
+  Info,
+  KeyRound,
+  Monitor,
+  Moon,
+  Palette,
+  Radar,
+  Save,
+  ShieldAlert,
+  Sun,
+  UserRound,
+} from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AgentSettingsCard } from '../components/pair/AgentSettingsCard'
 import { apiErrorMessage } from '../components/pair/errors'
 import { PairingSecurityCard } from '../components/pair/PairingSecurityCard'
-import { Button, Card, EmptyState, Field, Input, SectionTitle, Skeleton } from '../components/ui'
+import {
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  SectionTitle,
+  Segmented,
+  Skeleton,
+} from '../components/ui'
 import { AgentClient, ApiError, baseUrl } from '../lib/api'
 import { duration, osLabel } from '../lib/format'
 import { useAsync } from '../lib/hooks'
 import { useApp, type PairedDevice } from '../store/app'
+import { THEME_LABEL, useTheme, type ThemeMode } from '../store/theme'
 
 /** 进入设置页前的会话检查：未配对 / 401 / 离线在这里统一拦成整页提示 */
 function useSessionGate(device?: PairedDevice) {
@@ -146,7 +168,7 @@ function AboutCard({ device }: { device: PairedDevice }) {
         <p className="mt-4 text-[12px] text-danger">{apiErrorMessage(error, '读取 Agent 信息失败')}</p>
       ) : data ? (
         <>
-          <div className="mt-3 divide-y divide-white/[0.06]">
+          <div className="mt-3 divide-y divide-line-soft">
             <Row label="Agent 版本" value={<span className="num">{data.agentVersion}</span>} />
             <Row label="设备" value={`${data.hostname} · ${osLabel(data.platform)}`} />
             <Row label="系统" value={data.os} />
@@ -156,7 +178,7 @@ function AboutCard({ device }: { device: PairedDevice }) {
             />
           </div>
 
-          <div className="mt-3 rounded-xl border border-white/8 bg-white/[0.03] p-3">
+          <div className="mt-3 rounded-xl border border-line-soft bg-elevated p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11.5px] text-muted">API 契约入口</span>
               <Button size="sm" variant="ghost" icon={<Copy size={13} />} onClick={() => void copy()}>
@@ -168,7 +190,7 @@ function AboutCard({ device }: { device: PairedDevice }) {
               {['GET /hello', 'POST /pair', 'GET /system', 'GET /status', 'WS /ws'].map((p) => (
                 <span
                   key={p}
-                  className="num rounded-md border border-white/8 bg-white/[0.04] px-1.5 py-0.5 text-[10.5px] text-muted"
+                  className="num rounded-md border border-line-soft bg-elevated px-1.5 py-0.5 text-[10.5px] text-muted"
                 >
                   {p}
                 </span>
@@ -179,8 +201,8 @@ function AboutCard({ device }: { device: PairedDevice }) {
             </p>
           </div>
 
-          <div className="mt-3 overflow-hidden rounded-xl border border-white/8">
-            <div className="grid grid-cols-[64px_52px_minmax(0,1fr)] gap-2 border-b border-white/[0.06] bg-white/[0.03] px-3 py-2 text-[10.5px] uppercase tracking-[0.08em] text-faint">
+          <div className="mt-3 overflow-hidden rounded-xl border border-line-soft">
+            <div className="grid grid-cols-[64px_52px_minmax(0,1fr)] gap-2 border-b border-line-soft bg-elevated px-3 py-2 text-[10.5px] uppercase tracking-[0.08em] text-faint">
               <span>端口</span>
               <span>协议</span>
               <span>用途</span>
@@ -202,7 +224,34 @@ function AboutCard({ device }: { device: PairedDevice }) {
   )
 }
 
-/** 设置页：身份 / 被控端 / 配对安全 / 关于 四组 */
+const THEME_OPTIONS: { value: ThemeMode; label: string; icon: ReactNode }[] = [
+  { value: 'system', label: '跟随系统', icon: <Monitor size={14} /> },
+  { value: 'dark', label: '深色', icon: <Moon size={14} /> },
+  { value: 'light', label: '浅色', icon: <Sun size={14} /> },
+]
+
+/** 第 0 组：外观。不依赖设备，未配对 / 离线时也照样能切主题 */
+function AppearanceCard() {
+  const { mode, theme, setMode } = useTheme()
+  return (
+    <Card>
+      <SectionTitle
+        icon={<Palette size={16} />}
+        title="外观"
+        desc="「跟随系统」会随操作系统的深浅色设置实时变化；选择记在这个浏览器里，刷新不丢。"
+      />
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <Segmented value={mode} onChange={setMode} options={THEME_OPTIONS} />
+        <span className="text-[12px] text-muted">
+          选择：<span className="text-fg-soft">{THEME_LABEL[mode]}</span>
+          <span className="text-faint"> · 当前生效 {theme === 'light' ? '浅色' : '深色'}</span>
+        </span>
+      </div>
+    </Card>
+  )
+}
+
+/** 设置页：外观 / 身份 / 被控端 / 配对安全 / 关于 */
 export default function Settings() {
   const devices = useApp((s) => s.devices)
   const activeId = useApp((s) => s.activeId)
@@ -210,67 +259,57 @@ export default function Settings() {
   const gate = useSessionGate(device)
   const navigate = useNavigate()
 
-  if (!device) {
-    return (
-      <Card>
-        <EmptyState
-          icon={<KeyRound size={26} />}
-          title="先配对一台设备"
-          desc="设置项都作用在某台被控机的 Agent 上。先扫描局域网，用随机码或固定密钥完成配对。"
-          action={
-            <Button
-              variant="primary"
-              icon={<Radar size={16} />}
-              onClick={() => navigate('/scan')}
-            >
-              扫描局域网
-            </Button>
-          }
-        />
-      </Card>
-    )
-  }
-
-  if (gate.loading) {
-    return (
-      <div className="mx-auto w-full max-w-[900px] space-y-3">
-        <Skeleton className="h-28 w-full" />
-        <Skeleton className="h-64 w-full" />
-        <Skeleton className="h-72 w-full" />
-      </div>
-    )
-  }
-
-  if (gate.error) {
-    return (
-      <Card>
-        <EmptyState
-          icon={<ShieldAlert size={26} />}
-          title={gate.auth ? '先配对一台设备' : '设备当前不可达'}
-          desc={
-            gate.auth
-              ? '令牌已失效或没有访问权限，重新配对后就能修改设置。'
-              : `${device.name}：${gate.error}。确认它已开机、Agent 在运行，并和本机在同一局域网。`
-          }
-          action={
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button onClick={gate.retry}>重试</Button>
-              <Button variant="primary" onClick={() => navigate('/scan')}>
-                {gate.auth ? '重新配对' : '扫描局域网'}
-              </Button>
-            </div>
-          }
-        />
-      </Card>
-    )
-  }
-
   return (
     <div className="mx-auto w-full max-w-[900px] space-y-3">
-      <IdentityCard />
-      <AgentSettingsCard device={device} />
-      <PairingSecurityCard device={device} />
-      <AboutCard device={device} />
+      <AppearanceCard />
+
+      {!device ? (
+        <Card>
+          <EmptyState
+            icon={<KeyRound size={26} />}
+            title="先配对一台设备"
+            desc="设置项都作用在某台被控机的 Agent 上。先扫描局域网，用随机码或固定密钥完成配对。"
+            action={
+              <Button variant="primary" icon={<Radar size={16} />} onClick={() => navigate('/scan')}>
+                扫描局域网
+              </Button>
+            }
+          />
+        </Card>
+      ) : gate.loading ? (
+        <>
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-72 w-full" />
+        </>
+      ) : gate.error ? (
+        <Card>
+          <EmptyState
+            icon={<ShieldAlert size={26} />}
+            title={gate.auth ? '先配对一台设备' : '设备当前不可达'}
+            desc={
+              gate.auth
+                ? '令牌已失效或没有访问权限，重新配对后就能修改设置。'
+                : `${device.name}：${gate.error}。确认它已开机、Agent 在运行，并和本机在同一局域网。`
+            }
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button onClick={gate.retry}>重试</Button>
+                <Button variant="primary" onClick={() => navigate('/scan')}>
+                  {gate.auth ? '重新配对' : '扫描局域网'}
+                </Button>
+              </div>
+            }
+          />
+        </Card>
+      ) : (
+        <>
+          <IdentityCard />
+          <AgentSettingsCard device={device} />
+          <PairingSecurityCard device={device} />
+          <AboutCard device={device} />
+        </>
+      )}
     </div>
   )
 }

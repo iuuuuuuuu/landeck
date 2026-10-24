@@ -5,6 +5,7 @@ import { Button } from '../ui'
 import { DeviceSwitcher } from './DeviceSwitcher'
 import { findNav } from './nav'
 import { StatusDot } from './StatusDot'
+import { ThemeToggle } from './ThemeToggle'
 import { useDeviceProbe } from './useDeviceProbe'
 
 /** 顶栏：当前页标题 + 在线状态点 + 设备切换器 + 扫描入口（玻璃面板） */
@@ -28,7 +29,7 @@ export function TopBar() {
         : '检测中'
 
   return (
-    <header className="sticky top-0 z-20 bg-[rgba(6,7,12,.72)] px-3 py-2 backdrop-blur-xl sm:px-4">
+    <header className="sticky top-0 z-20 bg-topbar px-3 py-2 backdrop-blur-xl sm:px-4">
       <div className="panel panel-edge mx-auto flex h-16 max-w-[1240px] items-center gap-2 px-3 sm:gap-3 sm:px-4">
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[16px] font-semibold tracking-tight text-fg sm:text-[17px]">
@@ -43,6 +44,7 @@ export function TopBar() {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          <ThemeToggle />
           <DeviceSwitcher />
           {!pathname.startsWith('/scan') && (
             <Button

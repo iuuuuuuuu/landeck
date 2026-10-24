@@ -18,7 +18,7 @@ export function ScanResultCard({
   return (
     <Card
       padded={false}
-      className="flex items-center gap-3 p-3.5 transition-colors duration-150 hover:border-white/[0.16]"
+      className="flex items-center gap-3 p-3.5 transition-colors duration-150 hover:border-line-strong"
     >
       <DeviceAvatar os={node.os} size={42} online={paired ? true : undefined} />
       <div className="min-w-0 flex-1">

@@ -108,7 +108,7 @@ export function AgentSettingsCard({ device }: { device: PairedDevice }) {
             </Field>
           </div>
 
-          <div className="divide-y divide-white/[0.06] rounded-xl border border-white/8 bg-white/[0.02] px-3">
+          <div className="divide-y divide-line-soft rounded-xl border border-line-soft bg-elevated px-3">
             <div className="py-3">
               <Toggle
                 checked={draft.tls.enabled}
