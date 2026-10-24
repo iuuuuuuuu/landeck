@@ -1,0 +1,13 @@
+{
+  "name": "landeck",
+  "private": true,
+  "version": "1.0.0",
+  "description": "LanDeck — 局域网 PC 控制台（Agent + Web UI + App）",
+  "scripts": {
+    "verify-agent-note-tree": "node .agents/skills/agent-notes/scripts/verify-agent-note-tree.ts",
+    "verify-agent-note-format": "node .agents/skills/agent-notes/scripts/verify-agent-note-format.ts",
+    "verify-archived": "node .agents/skills/agent-notes/scripts/verify-archived-agent-notes.ts",
+    "verify-notes": "npm run verify-agent-note-tree && npm run verify-agent-note-format && npm run verify-archived",
+    "verify": "npm run verify-notes"
+  }
+}

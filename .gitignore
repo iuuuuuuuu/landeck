@@ -1,0 +1,36 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# builds
+web/dist/
+agent/bin/
+agent/dist/
+app/src-tauri/target/
+app/dist/
+bin/
+*.exe
+*.msi
+*.dmg
+*.AppImage
+*.deb
+*.apk
+*.aab
+
+# runtime state (per-machine, never commit)
+data/
+*.log
+*.pid
+
+# local env
+.env
+.env.local
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# notes board artifacts
+.agents/notes/board.html
+.agents/notes/demo.html
