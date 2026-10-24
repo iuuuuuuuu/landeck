@@ -56,6 +56,56 @@ interface MaskedSource {
 }
 
 /** Normalize BOM/CRLF, then mask fenced code and HTML comment regions. */
+/**
+ * 判断某个位置的反引号是否被反斜杠转义。
+ *
+ * @param {string} line 行文本。
+ * @param {number} index 反引号位置。
+ * @returns {boolean} 是否被转义（前面有奇数个反斜杠）。
+ */
+function isEscaped(line: string, index: number): boolean {
+  let backslashes = 0;
+  let i = index - 1;
+  while (i >= 0 && line[i] === "\\") { backslashes += 1; i -= 1; }
+  return backslashes % 2 === 1;
+}
+
+/**
+ * 把行内代码抹成**等长空格**，保留其余字符的位置。
+ *
+ * 为什么必须等长：后面要用 indexOf 比较 HTML 注释开头与结尾的先后关系，
+ * 长度一变，同一行的相对顺序判断就可能翻车。
+ *
+ * 未闭合的反引号按字面处理（与 Markdown 一致），不吞掉本行其余内容；
+ * 被转义的反引号也不当作围栏开始。
+ *
+ * @param {string} line 单行文本。
+ * @returns {string} 等长的遮蔽结果。
+ */
+function blankInlineCode(line: string): string {
+  let out = "";
+  let i = 0;
+  while (i < line.length) {
+    if (line[i] !== "`") { out += line[i]; i += 1; continue; }
+    if (isEscaped(line, i)) { out += "`"; i += 1; continue; }
+    let ticks = 0;
+    while (line[i + ticks] === "`") ticks += 1;
+    const fence = "`".repeat(ticks);
+    let close = -1;
+    let probe = i + ticks;
+    while (probe < line.length) {
+      const at = line.indexOf(fence, probe);
+      if (at === -1) break;
+      if (!isEscaped(line, at)) { close = at; break; }
+      probe = at + ticks;
+    }
+    if (close === -1) { out += line.slice(i, i + ticks); i += ticks; continue; }
+    out += " ".repeat(close + ticks - i);
+    i = close + ticks;
+  }
+  return out;
+}
+
 function maskSource(raw: string): MaskedSource {
   const normalized = raw.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
   const lines = normalized.split("\n");
@@ -78,8 +128,12 @@ function maskSource(raw: string): MaskedSource {
     // Fence interiors are opaque: a `<!--` in a HTML/JSX sample must not
     // leak the comment mask past the closing fence.
     if (inFence) continue;
-    const openIdx = inComment ? -1 : l.indexOf("<!--");
-    const closeIdx = l.indexOf("-->");
+    // 行内代码里的注释标记是展示语法，不该改变状态机。
+    const scan = blankInlineCode(l);
+    const openIdx = inComment ? -1 : scan.indexOf("<!--");
+    // 已经在注释里时反引号没有 Markdown 语义：必须用原始行找结尾标记，
+    // 否则恰好写在行内代码里的结尾标记会被抹掉，注释一路吃到文末。
+    const closeIdx = (inComment ? l : scan).indexOf("-->");
     if (inComment) {
       commented[i] = true;
       if (closeIdx !== -1) inComment = false;
