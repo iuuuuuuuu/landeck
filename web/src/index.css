@@ -1,0 +1,268 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/outfit';
+
+/* ============================================================
+   LanDeck 设计令牌 — 唯一视觉事实来源
+   基调：深空黑 + 极光紫青 + 玻璃质感 + 发丝边
+   ============================================================ */
+@theme {
+  --font-sans:
+    'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  --font-display:
+    'Outfit Variable', 'Inter Variable', ui-sans-serif, system-ui, 'PingFang SC', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+
+  --color-ink: #06070c;
+  --color-void: #04050a;
+  --color-surface: #0b0d15;
+  --color-surface-2: #101322;
+  --color-surface-3: #171b2c;
+
+  --color-fg: #edeff8;
+  --color-fg-soft: #c4cadc;
+  --color-muted: #9aa2b8;
+  --color-faint: #7b839c;
+
+  --color-accent: #7c5cff;
+  --color-accent-soft: #a78bfa;
+  --color-cyan: #22d3ee;
+  --color-pink: #f472b6;
+  --color-ok: #34d399;
+  --color-warn: #fbbf24;
+  --color-danger: #fb7185;
+
+  --radius-card: 22px;
+  --radius-pill: 999px;
+
+  --shadow-lift: 0 24px 60px -24px rgba(0, 0, 0, 0.85);
+  --shadow-glow:
+    0 0 0 1px rgba(124, 92, 255, 0.35), 0 18px 50px -18px rgba(124, 92, 255, 0.55);
+
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-sweep: sweep 2.6s linear infinite;
+  --animate-breathe: breathe 4s ease-in-out infinite;
+  --animate-shimmer: shimmer 2.2s linear infinite;
+  --animate-rise: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes breathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-ink);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior: none;
+  }
+
+  /* 极光背景：三层径向光晕 */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background:
+      radial-gradient(52rem 34rem at 6% -12%, rgba(124, 92, 255, 0.13), transparent 62%),
+      radial-gradient(40rem 28rem at 100% 0%, rgba(34, 211, 238, 0.06), transparent 66%),
+      linear-gradient(180deg, #080a11 0%, #05060a 55%, #04050a 100%);
+    pointer-events: none;
+  }
+
+  /* 细颗粒噪点，压掉渐变的塑料感 */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    opacity: 0.035;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  ::selection {
+    background: rgba(124, 92, 255, 0.35);
+    color: #fff;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgba(124, 92, 255, 0.7);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+    margin: 0;
+  }
+
+  input, textarea, button, select {
+    font: inherit;
+    color: inherit;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  /* 玻璃面板 */
+  .panel {
+    position: relative;
+    background: rgba(12, 14, 22, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.065);
+    border-radius: var(--radius-card);
+    backdrop-filter: blur(22px) saturate(130%);
+    -webkit-backdrop-filter: blur(22px) saturate(130%);
+    box-shadow: 0 14px 40px -28px rgba(0, 0, 0, 0.85);
+  }
+
+  .panel-edge::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    border-radius: inherit;
+    background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.32), rgba(34, 211, 238, 0.22), transparent);
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  .hairline {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .grad-text {
+    background: linear-gradient(120deg, #c4b5fd, #7c5cff 35%, #22d3ee 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .num {
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    height: 1.5rem;
+    padding: 0 0.55rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    background: rgba(255, 255, 255, 0.045);
+    font-size: 0.75rem;
+    color: var(--color-fg-soft);
+    white-space: nowrap;
+  }
+
+  .scroll-area {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+  }
+  .scroll-area::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scroll-area::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.13);
+    border-radius: 99px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  .scroll-area::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
+    background-clip: content-box;
+  }
+
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+  .pt-safe {
+    padding-top: max(env(safe-area-inset-top), 0rem);
+  }
+}
+
+/* ---- Range slider（原生控件美化，跨 WebKit/Gecko） ---- */
+@layer components {
+  .ldk-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.1);
+    background-image: linear-gradient(90deg, var(--slider-a, #7c5cff), var(--slider-b, #22d3ee));
+    background-size: var(--pct, 0%) 100%;
+    background-repeat: no-repeat;
+    outline: none;
+    cursor: pointer;
+  }
+  .ldk-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    border: none;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55), 0 0 0 4px rgba(124, 92, 255, 0.18);
+    transition: box-shadow 0.2s;
+  }
+  .ldk-slider:hover::-webkit-slider-thumb {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55), 0 0 0 6px rgba(124, 92, 255, 0.26);
+  }
+  .ldk-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    border: none;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55), 0 0 0 4px rgba(124, 92, 255, 0.18);
+  }
+  .ldk-slider::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: transparent;
+  }
+}

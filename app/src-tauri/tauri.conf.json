@@ -1,0 +1,59 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "LanDeck",
+  "version": "1.0.0",
+  "identifier": "dev.landeck.app",
+  "build": {
+    "beforeDevCommand": "pnpm --dir ../web dev",
+    "devUrl": "http://localhost:5199",
+    "beforeBuildCommand": "pnpm --dir ../web build",
+    "frontendDist": "../../web/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "LanDeck",
+        "label": "main",
+        "width": 1180,
+        "height": 780,
+        "minWidth": 380,
+        "minHeight": 560,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "decorations": true,
+        "transparent": false,
+        "theme": "Dark",
+        "backgroundColor": "#06070C"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://*:8420 https://*:8443 ws://*:8420 wss://*:8443; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "shortDescription": "局域网 PC 控制台",
+    "longDescription": "LanDeck —— 在手机/电脑上开关机、调音量、切歌、看运行状态与进程。",
+    "category": "Utility",
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0"
+        ]
+      }
+    },
+    "android": {
+      "minSdkVersion": 24
+    }
+  }
+}

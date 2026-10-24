@@ -4,6 +4,9 @@ node_modules/
 
 # builds
 web/dist/
+# 前端产物由 tools/build.sh 生成后拷入；只保留占位页，避免 900 KB 生成物进仓库
+agent/internal/webui/dist/*
+!agent/internal/webui/dist/.gitkeep
 agent/bin/
 agent/dist/
 app/src-tauri/target/
@@ -34,3 +37,6 @@ Thumbs.db
 # notes board artifacts
 .agents/notes/board.html
 .agents/notes/demo.html
+
+# local QA artifacts
+.tmp/

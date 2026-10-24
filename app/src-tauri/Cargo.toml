@@ -1,0 +1,31 @@
+[package]
+name = "landeck"
+version = "1.0.0"
+description = "LanDeck 控制端"
+authors = ["LanDeck"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "landeck_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+if-addrs = "0.13"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+opt-level = "z"    # 体积优先
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

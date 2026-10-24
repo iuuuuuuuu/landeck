@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"LanDeck 控制端默认权限：只用核心能力（窗口/事件），网络请求走 WebView 自身","local":true,"windows":["main"],"permissions":["core:default"]}}
