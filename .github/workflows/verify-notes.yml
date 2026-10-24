@@ -39,16 +39,25 @@ jobs:
       - name: Resolve scripts dir
         run: |
           set -euo pipefail
-          if [ -d .agents/notes-scripts ]; then
-            echo "SCRIPTS=.agents/notes-scripts" >> "$GITHUB_ENV"
-          elif ls -d .agents/skills/*/scripts >/dev/null 2>&1; then
-            dir=$(ls -d .agents/skills/*/scripts | head -1)
-            echo "SCRIPTS=$dir" >> "$GITHUB_ENV"
-          else
-            echo "找不到门禁脚本目录（.agents/notes-scripts 或 .agents/skills/*/scripts）" >&2
+          # 只按「目录存在」挑是不够的：实测有仓库的 .agents/notes-scripts/ 里只有
+          # 归档脚本（本地分叉），选中它就会在 verify-agent-note-tree.ts 上 MODULE_NOT_FOUND。
+          # 判据是「四个脚本齐了才算一套」。
+          need="agent-note-tree.ts verify-agent-note-tree.ts verify-agent-note-format.ts verify-archived-agent-notes.ts"
+          complete() {
+            for f in $need; do [ -f "$1/$f" ] || return 1; done
+          }
+          picked=""
+          for dir in .agents/skills/*/scripts .agents/notes-scripts; do
+            [ -d "$dir" ] || continue
+            if complete "$dir"; then picked="$dir"; break; fi
+          done
+          if [ -z "$picked" ]; then
+            echo "找不到**完整**的门禁脚本目录（需要：$need）" >&2
+            echo "只含部分脚本的目录（例如只有归档脚本）不足以跑整套门禁。" >&2
             exit 2
           fi
-          echo "使用脚本目录：$SCRIPTS"
+          echo "SCRIPTS=$picked" >> "$GITHUB_ENV"
+          echo "使用脚本目录：$picked"
 
       - name: Assert the corpus is not empty
         run: |
