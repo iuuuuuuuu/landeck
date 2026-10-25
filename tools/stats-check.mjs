@@ -47,7 +47,10 @@ ws.onmessage = (e) => {
   const m = JSON.parse(e.data)
   if (m.id && pend.has(m.id)) { pend.get(m.id)(m.result); pend.delete(m.id); return }
   if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') {
-    errors.push(m.params.args.map((a) => a.value ?? a.description ?? '').join(' '))
+    const text = m.params.args.map((a) => a.value ?? a.description ?? '').join(' ')
+    // 扩展噪声（Edge 自带 / 装的翻译插件）来自 chrome-extension://，与应用无关
+    if (/Receiving end does not exist|Could not establish connection|Immersive Translate|chrome-extension:\/\//.test(text)) return
+    errors.push(text)
   }
 }
 const send = (m, p = {}) => new Promise((res) => { const i = ++id; pend.set(i, res); ws.send(JSON.stringify({ id: i, method: m, params: p })) })

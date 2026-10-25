@@ -325,6 +325,9 @@ fn agent_start_impl(app: &tauri::AppHandle, port: u16) -> Result<bool, String> {
     cmd.arg("--data").arg(&data);
     // 客户端自己就是控制台；被控端再弹一个浏览器会让人以为装错了
     cmd.arg("--no-open");
+    // 关键：客户端自己已经有托盘图标了，被控端再挂一个就是两个图标。
+    // 用户明确要求「一个就够了」，所以由客户端启动的被控端一律不建托盘。
+    cmd.arg("--no-tray");
     if port != 8420 {
         cmd.arg("--port").arg(port.to_string());
     }
@@ -350,6 +353,45 @@ fn platform() -> String {
 ///
 /// 安卓上必须挑 Wi-Fi 那块网卡：蜂窝（rmnet，10.x）和 VPN（tun）也有私有地址，
 /// 谁先被遍历到就返回谁的话，前端会去扫运营商内网段，同网段的 PC 一台都扫不到。
+/// 本机正在运行的 Agent 的 id（用于把它从扫描结果里排掉）。
+///
+/// 为什么不放前端 fetch：安卓 WebView 里对 http://<私网IP>:8420 的请求可能被
+/// 混合内容/明文策略拦下，挂到超时才返回，整轮扫描被拖慢；而且每个候选端口都要试一遍。
+/// 原生侧直接发一次 UDP 探测 + 解析回包，最快也最稳。
+#[tauri::command]
+fn self_agent_id() -> Option<String> {
+    let preferred = preferred_lan_iface();
+    let ip = preferred.map(|(_, ip, _)| ip);
+    let bind = SocketAddrV4::new(scan_bind_ip(ip), 0);
+    let socket = UdpSocket::bind(bind).ok()?;
+    let _ = socket.set_broadcast(true);
+    let _ = socket.set_read_timeout(Some(Duration::from_millis(400)));
+
+    // 先问 loopback，再问本机网卡地址：哪个有回包就取它的 id
+    let mut targets = vec![SocketAddrV4::new(Ipv4Addr::LOCALHOST, DISCOVERY_PORT)];
+    if let Some(ip) = ip {
+        targets.push(SocketAddrV4::new(ip, DISCOVERY_PORT));
+    }
+    let probe = b"LANDECK_DISCOVER_V1";
+    let mut buf = [0u8; 2048];
+    for t in targets {
+        let _ = socket.send_to(probe, t);
+    }
+    let deadline = Instant::now() + Duration::from_millis(600);
+    while Instant::now() < deadline {
+        if let Ok((n, _)) = socket.recv_from(&mut buf) {
+            if let Ok(v) = serde_json::from_slice::<serde_json::Value>(&buf[..n]) {
+                if let Some(id) = v.get("id").and_then(|x| x.as_str()) {
+                    if !id.is_empty() {
+                        return Some(id.to_string());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 #[tauri::command]
 fn local_ip() -> Option<String> {
     if let Some((_, ip, _)) = preferred_lan_iface() {
@@ -582,6 +624,7 @@ pub fn run() {
             scan_lan,
             platform,
             local_ip,
+            self_agent_id,
             autostart_get,
             autostart_set,
             theme_get,

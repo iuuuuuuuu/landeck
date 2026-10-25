@@ -16,6 +16,7 @@ echarts.use([BarChart, GridComponent, TooltipComponent, MarkLineComponent, Canva
  * 又会变成「都差不多高」。
  */
 export function UptimeBarChart({
+  monthly = false,
   data,
   height = 190,
   theme,
@@ -23,6 +24,7 @@ export function UptimeBarChart({
   data: { date: string; label: string; onSec: number; boots: number }[]
   height?: number
   theme: 'dark' | 'light'
+  monthly?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const chartRef = useRef<echarts.ECharts | null>(null)
@@ -80,20 +82,35 @@ export function UptimeBarChart({
         axisTick: { show: false },
         axisLabel: { color: labelColor, fontSize: 10.5 },
       },
-      yAxis: {
-        type: 'value',
-        min: 0,
-        max: 24, // 固定 24 小时，柱高才是真实占比
-        interval: 6,
-        axisLine: { show: false },
-        axisTick: { show: false },
-        splitLine: { lineStyle: { color: dark ? 'rgba(255,255,255,0.06)' : 'rgba(19,22,35,0.06)' } },
-        axisLabel: {
-          color: labelColor,
-          fontSize: 10.5,
-          formatter: (v: number) => `${v}h`,
-        },
-      },
+      // 按天视图固定 24 小时（柱高才是当天占比）；按月视图累计值远超 24h，
+      // 若仍固定 24 会把柱子全部截平 —— 所以按月时交给 echarts 自适应，刻度按天显示。
+      yAxis: monthly
+        ? {
+            type: 'value',
+            min: 0,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            splitLine: { lineStyle: { color: dark ? 'rgba(255,255,255,0.06)' : 'rgba(19,22,35,0.06)' } },
+            axisLabel: {
+              color: labelColor,
+              fontSize: 10.5,
+              formatter: (v: number) => `${Math.round(v / 24)}d`,
+            },
+          }
+        : {
+            type: 'value',
+            min: 0,
+            max: 24,
+            interval: 6,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            splitLine: { lineStyle: { color: dark ? 'rgba(255,255,255,0.06)' : 'rgba(19,22,35,0.06)' } },
+            axisLabel: {
+              color: labelColor,
+              fontSize: 10.5,
+              formatter: (v: number) => `${v}h`,
+            },
+          },
       series: [
         {
           type: 'bar',

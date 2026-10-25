@@ -5,10 +5,8 @@ import Scan from './pages/Scan'
 import Devices from './pages/Devices'
 import LocalDevice from './pages/LocalDevice'
 import DeviceDetail from './pages/DeviceDetail'
-import Schedules from './pages/Schedules'
 import Activity from './pages/Activity'
 import Settings from './pages/Settings'
-import Files from './pages/Files'
 import Stats from './pages/Stats'
 import { useLocalIdentity } from './lib/useLocalIdentity'
 import { useLastRoute } from './lib/useLastRoute'
@@ -25,9 +23,10 @@ export default function App() {
           <Route path="/local" element={<LocalDevice />} />
           <Route path="/devices" element={<Devices />} />
           <Route path="/devices/:id" element={<DeviceDetail />} />
-          <Route path="/files" element={<Files />} />
+          {/* 文件 / 定时已收进设备详情页：旧链接重定向，避免书签 404 */}
+          <Route path="/files" element={<Navigate to="/devices" replace />} />
+          <Route path="/schedules" element={<Navigate to="/devices" replace />} />
           <Route path="/stats" element={<Stats />} />
-          <Route path="/schedules" element={<Schedules />} />
           <Route path="/activity" element={<Activity />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/devices" replace />} />

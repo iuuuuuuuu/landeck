@@ -220,7 +220,8 @@ func (s *Server) handleHardware(w http.ResponseWriter, r *http.Request, c *confi
 }
 
 func (s *Server) handleUptime(w http.ResponseWriter, r *http.Request, c *config.Client) {
-	days := 14
+	// 默认给 90 天：按月聚合需要足够跨度（用户要求「按照月统计」）
+	days := 90
 	if v := r.URL.Query().Get("days"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			days = n
@@ -913,7 +914,8 @@ func (s *Server) handleKillApp(w http.ResponseWriter, r *http.Request, c *config
 // 一次请求把页面需要的都算好：运行时长、资源水位、开机历史、操作统计、
 // 进程/应用数量、磁盘占用。避免前端发 5 个请求再自己拼。
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, c *config.Client) {
-	days := 14
+	// 默认给 90 天：按月聚合需要足够跨度（用户要求「按照月统计」）
+	days := 90
 	if v := r.URL.Query().Get("days"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 90 {
 			days = n
