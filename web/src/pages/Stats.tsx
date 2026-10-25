@@ -1,42 +1,50 @@
-import { useNavigate } from 'react-router-dom'
-import { BarChart3, Radar } from 'lucide-react'
-import { Button, Card, EmptyState } from '../components/ui'
+import { BarChart3 } from 'lucide-react'
+import { Button, Card } from '../components/ui'
 import { DeviceSelect } from '../components/device/DeviceSelect'
 import { StatsPanel } from '../components/device/StatsPanel'
-import { useAsync, useClient } from '../lib/hooks'
+import { useMemo } from 'react'
+import { AgentClient } from '../lib/api'
+import { DEFAULT_PORT } from '../lib/discovery'
+import { useAsync } from '../lib/hooks'
 import { useApp } from '../store/app'
 
 /** 统计页：当前设备的整体画像。数据来自 /stats 一次聚合，不用前端拼五个请求。 */
+/** 本机伪设备：统计页也能看当前这台机器，不必先配对 */
+const LOCAL_DEVICE = {
+  id: '__local__',
+  host: '127.0.0.1',
+  port: DEFAULT_PORT,
+  tls: false,
+  token: '',
+  clientId: 'local',
+  name: '本机（这台电脑）',
+  os: 'windows',
+  arch: 'amd64',
+  ver: '',
+  addedAt: 0,
+  local: true,
+}
+
 export default function Stats() {
   const devices = useApp((s) => s.devices)
   const activeId = useApp((s) => s.activeId)
   const setActive = useApp((s) => s.setActive)
-  const device = devices.find((d) => d.id === activeId) ?? devices[0]
-  const client = useClient(device)
-  const navigate = useNavigate()
 
-  const stats = useAsync(client ? () => client.stats(14) : null, [
-    device?.id,
-    device?.host,
-    device?.port,
-  ])
+  // 本机永远排在第一位；没有配对设备时也能用
+  const options = useMemo(() => [LOCAL_DEVICE, ...devices], [devices])
+  const selectedId = activeId && options.some((d) => d.id === activeId) ? activeId : LOCAL_DEVICE.id
+  const device = options.find((d) => d.id === selectedId) ?? LOCAL_DEVICE
 
-  if (!device) {
-    return (
-      <Card>
-        <EmptyState
-          icon={<Radar size={26} />}
-          title="还没有可统计的设备"
-          desc="先扫描并配对一台设备，这里会显示它的运行时长、资源水位与操作统计。"
-          action={
-            <Button variant="primary" onClick={() => navigate('/scan')}>
-              去发现设备
-            </Button>
-          }
-        />
-      </Card>
-    )
-  }
+  const client = useMemo(
+    () =>
+      new AgentClient(
+        { host: device.host, port: device.port, tls: device.tls, local: device.local },
+        device.token,
+      ),
+    [device.id, device.host, device.port, device.tls, device.token],
+  )
+
+  const stats = useAsync(() => client.stats(14), [device.id, device.host, device.port])
 
   return (
     <div className="space-y-3">
@@ -51,7 +59,7 @@ export default function Stats() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <DeviceSelect devices={devices} value={device.id} onChange={setActive} />
+          <DeviceSelect devices={options} value={device.id} onChange={setActive} />
           <Button
             size="sm"
             variant="secondary"

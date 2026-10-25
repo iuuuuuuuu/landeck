@@ -20,13 +20,17 @@ export function TopBar() {
   const nav = findNav(pathname)
   const detail = /^\/devices\/[^/]+/.test(pathname)
 
-  const stateText = !active
-    ? '未配对设备'
-    : online === true
-      ? '在线'
-      : online === false
-        ? '离线'
-        : '检测中'
+  // 本机页不依赖配对：别在那里显示「未配对设备」，那是另一回事
+  const isLocal = pathname.startsWith('/local')
+  const stateText = isLocal
+    ? '本机设备'
+    : !active
+      ? '未配对设备'
+      : online === true
+        ? '在线'
+        : online === false
+          ? '离线'
+          : '检测中'
 
   return (
     <header className="pt-safe sticky top-0 z-20 bg-topbar px-3 pb-2 backdrop-blur-xl sm:px-4">
@@ -36,7 +40,7 @@ export function TopBar() {
             {detail ? '设备' : nav.label}
           </h1>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-muted sm:text-[11.5px]">
-            <StatusDot online={online} />
+            <StatusDot online={isLocal ? true : online} />
             <span className="shrink-0">{stateText}</span>
             <span className="hidden shrink-0 text-faint sm:inline">·</span>
             <span className="hidden truncate text-faint sm:inline">{nav.desc}</span>
@@ -45,7 +49,7 @@ export function TopBar() {
 
         <div className="flex shrink-0 items-center gap-2">
           <ThemeToggle />
-          <DeviceSwitcher />
+          {!isLocal && <DeviceSwitcher />}
           {!pathname.startsWith('/scan') && (
             <Button
               variant="secondary"

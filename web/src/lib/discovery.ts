@@ -113,14 +113,21 @@ export async function scanLan(opts: ScanOptions): Promise<NodeInfo[]> {
     // 本机（运行 Agent 的这台机器）不放进「局域网设备」列表：
     // 它由「本机」页单独承载，混在待配对列表里只会让用户困惑。
     if (n.self) return
+    if (n.ip && (selfIPs.has(n.ip) || n.ip === '127.0.0.1' || n.ip === '::1')) return
     if (found.has(n.id)) return
     found.set(n.id, n)
     onNode(n)
   }
 
   // 网段提示：URL 优先，其次问原生层（Tauri 下 hostname 是 tauri.localhost，推不出网段）
-  const hintHost = opts.hintHost ?? resolveHint(await nativeLocalIP())
+  const localIP = await nativeLocalIP()
+  const hintHost = opts.hintHost ?? resolveHint(localIP)
   const invoke = tauriInvoke()
+  // 本机地址：URL 主机名 / 原生 IP 都算。用于把「自己」排除出待配对列表 ——
+  // 原生 UDP 帧里没有 self 字段，只能比 IP。
+  const selfIPs = new Set<string>()
+  if (localIP) selfIPs.add(localIP)
+  if (typeof location !== 'undefined' && location.hostname) selfIPs.add(location.hostname)
 
   // 1) 原生 UDP 广播 + 2) HTTP 扫段，两条路并行跑，谁有结果都不影响另一条。
   //    早期版本在广播有结果时直接 return，导致「广播收到一半」就漏掉整段扫描。
@@ -216,5 +223,29 @@ export async function themeSet(mode: string): Promise<void> {
     await invoke('theme_set', { mode })
   } catch {
     /* 写失败不影响本次会话的显示 */
+  }
+}
+
+/** 桌面端：本机端口上有没有被控端在应答（浏览器返回 null） */
+export async function agentStatus(port: number): Promise<boolean | null> {
+  const invoke = tauriInvoke()
+  if (!invoke) return null
+  try {
+    const v = await invoke('agent_status', { port })
+    return typeof v === 'boolean' ? v : null
+  } catch {
+    return null
+  }
+}
+
+/** 桌面端：启动随安装包附带的被控端 */
+export async function agentStart(port: number): Promise<{ ok: boolean; error?: string }> {
+  const invoke = tauriInvoke()
+  if (!invoke) return { ok: false, error: '只有桌面端 App 能启动本机被控端' }
+  try {
+    const ok = await invoke('agent_start', { port })
+    return { ok: ok === true }
+  } catch (e) {
+    return { ok: false, error: String(e) }
   }
 }

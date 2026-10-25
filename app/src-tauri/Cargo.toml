@@ -1,6 +1,6 @@
 [package]
 name = "landeck"
-version = "1.0.5"
+version = "1.0.6"
 description = "LanDeck 控制端"
 authors = ["LanDeck"]
 edition = "2021"
@@ -14,7 +14,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 if-addrs = "0.13"
