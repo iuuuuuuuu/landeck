@@ -94,6 +94,7 @@ fn scan_lan() -> Vec<Node> {
 }
 
 /// 本机被控端状态：端口上有没有人应答。
+#[cfg(desktop)]
 #[tauri::command]
 fn agent_status(port: u16) -> bool {
     use std::net::{SocketAddr, TcpStream};
@@ -107,11 +108,26 @@ fn agent_status(port: u16) -> bool {
 /// 为什么把 agent 打进客户端安装包：用户在一台新电脑上只装了客户端，
 /// 打开「本机」页看到的却是「设备离线」—— 因为那台机器根本没有被控端。
 /// 与其让他再去下载第二个安装包，不如随客户端带一份，一键启用。
+#[cfg(desktop)]
 #[tauri::command]
 fn agent_start(app: tauri::AppHandle, port: u16) -> Result<bool, String> {
     agent_start_impl(&app, port)
 }
 
+/// 移动端：没有本地被控端可拉起
+#[cfg(mobile)]
+#[tauri::command]
+fn agent_status(_port: u16) -> bool {
+    false
+}
+
+#[cfg(mobile)]
+#[tauri::command]
+fn agent_start(_app: tauri::AppHandle, _port: u16) -> Result<bool, String> {
+    Err("手机上不能启动本机被控端".into())
+}
+
+#[cfg(desktop)]
 fn agent_start_impl(app: &tauri::AppHandle, port: u16) -> Result<bool, String> {
     use std::process::Command;
     use tauri::Manager;
@@ -233,6 +249,7 @@ fn autostart_set(enabled: bool) -> Result<bool, String> {
     Ok(autostart::is_enabled())
 }
 
+#[cfg(desktop)]
 /// 托盘图标：装在任务栏通知区，关掉窗口后也能重新叫出来。
 ///
 /// 为什么需要：用户反馈「装完之后没有托盘」—— 桌面客户端之前确实没有，
@@ -278,6 +295,7 @@ fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
+#[cfg(desktop)]
 fn show_main(app: &tauri::AppHandle) {
     use tauri::Manager;
     if let Some(win) = app.get_webview_window("main") {
@@ -287,6 +305,7 @@ fn show_main(app: &tauri::AppHandle) {
     }
 }
 
+#[cfg(desktop)]
 fn show_main_at(app: &tauri::AppHandle, path: &str) {
     use tauri::Manager;
     show_main(app);
@@ -301,9 +320,12 @@ fn show_main_at(app: &tauri::AppHandle, path: &str) {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            #[cfg(desktop)]
             setup_tray(app)?;
             // 随客户端自动启动本机被控端：用户装完就能在本机页看到数据，
             // 不必再去点一次「启动」。失败不影响客户端本身。
+            #[cfg(desktop)]
+            {
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 match agent_start_impl(&handle, 8420) {
@@ -312,6 +334,7 @@ pub fn run() {
                     Err(e) => eprintln!("[LanDeck] 启动本机被控端失败：{e}"),
                 }
             });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

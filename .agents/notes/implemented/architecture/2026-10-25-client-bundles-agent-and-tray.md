@@ -43,6 +43,17 @@ Status: implemented
   改成按本机 IP 比对（`local_ip` + `location.hostname` + loopback 字面量）。放弃 `self` 单一路径。
 - **统计页只统计已配对设备**：本机没配对就看不到自己的数据，与"本机页能看到"自相矛盾。放弃。
 
+## 追加：移动端与 CI 的两个坑（第一次打 tag 时暴露）
+
+1. **Android 编译失败**：`tauri::menu` / `tauri::tray` 在移动端不存在，`WebviewWindow::unminimize`
+   也没有。托盘与"拉起被控端"都是桌面端语义，必须用 `#[cfg(desktop)]` 圈起来，
+   移动端给同名的桩实现（`agent_status` 恒 false、`agent_start` 直接返回"手机上不能启动"）。
+2. **macOS 打包失败**：`go: command not found` —— desktop job 里没有 Go，
+   而"准备被控端"这步要现编二进制。加 `actions/setup-go`，版本对齐 `go.mod` 的 1.26。
+
+教训：**把"临时编出来的二进制"引入打包流程后，每个需要它的 job 都要补对应工具链**，
+否则只有在那个平台的 job 才会红，本地永远看不到。
+
 ## Consequences
 
 收益：新电脑上装客户端即可用（被控端随之启动）；托盘稳定存在；本机页自助发现"没 Agent"并一键修复。
