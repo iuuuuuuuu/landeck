@@ -79,6 +79,8 @@ jobs:
           - os: ubuntu-22.04
             args: ''
     runs-on: ${{ matrix.os }}
+    env:
+      HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -108,10 +110,21 @@ jobs:
           pnpm --dir web install --frozen-lockfile
           pnpm --dir app install --frozen-lockfile
 
-      - name: 构建
+      # 分成两步：Tauri 只要看到 APPLE_CERTIFICATE 这个变量存在就当作「要签名」，
+      # 而未配置的 GitHub secret 会展开成空字符串（变量仍在）—— 实测会导致：
+      #   failed to import the signing certificate as a PKCS#12 (.p12) file
+      # 所以只有真配了证书才注入这些变量。
+      - name: 构建（未签名）
+        if: env.HAS_APPLE_CERT != 'true'
+        working-directory: app
+        run: |
+          echo "未配置 Apple 证书，产出未签名包（macOS 用户首次打开需去隔离）"
+          pnpm exec tauri build ${{ matrix.args }}
+
+      - name: 构建（签名 + 公证）
+        if: env.HAS_APPLE_CERT == 'true'
         working-directory: app
         env:
-          # 有证书就签名+公证，没有就产出未签名包（macOS 用户需手动去隔离）
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -152,17 +165,20 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: 安装 Android SDK / NDK
+      # 用 runner 预装的 SDK，只补 NDK。
+      # 自己再下一份并设 ANDROID_HOME 会与 runner 的 ANDROID_SDK_ROOT 冲突：
+      #   Several environment variables ... contain different paths to the SDK
+      - name: 安装 NDK
         run: |
-          ANDROID_SDK_ROOT="$HOME/android-sdk"
-          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
-          curl -sSLo cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          unzip -q cmdline.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
-          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
-          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "ndk;27.0.12077973" > /dev/null
-          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
-          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          echo "使用 SDK: $SDK"
+          SDKMGR="$(command -v sdkmanager || echo "$SDK/cmdline-tools/latest/bin/sdkmanager")"
+          yes | "$SDKMGR" --licenses > /dev/null 2>&1 || true
+          "$SDKMGR" "ndk;27.0.12077973" > /dev/null
+          NDK="$SDK/ndk/27.0.12077973"
+          test -d "$NDK" || { echo "NDK 没装上：$NDK" >&2; exit 1; }
+          echo "NDK_HOME=$NDK" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$NDK" >> "$GITHUB_ENV"
 
       - uses: dtolnay/rust-toolchain@stable
         with:
