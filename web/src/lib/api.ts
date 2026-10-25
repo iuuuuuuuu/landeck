@@ -40,8 +40,9 @@ export interface Target {
 }
 
 export function baseUrl(t: Pick<Target, 'host' | 'port' | 'tls'> & { local?: boolean }): string {
-  // 本机：同源相对路径，页面从哪来就打哪去（避免 https/端口推断出错）
-  if (t.local && typeof location !== 'undefined') return '/api/v1'
+  // 本机：固定打 127.0.0.1。不能用相对路径 —— Tauri 壳里 location.origin 是
+  // tauri.localhost，相对路径会指向 WebView 自己而不是 Agent。
+  if (t.local) return `http://127.0.0.1:${t.port}/api/v1`
   return `${t.tls ? 'https' : 'http'}://${t.host}:${t.port}/api/v1`
 }
 
@@ -49,9 +50,8 @@ export function wsUrl(
   t: Pick<Target, 'host' | 'port' | 'tls'> & { local?: boolean },
   token: string,
 ): string {
-  if (t.local && typeof location !== 'undefined') {
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-    return `${proto}://${location.host}/api/v1/ws?token=${encodeURIComponent(token)}`
+  if (t.local) {
+    return `ws://127.0.0.1:${t.port}/api/v1/ws?token=${encodeURIComponent(token)}`
   }
   return `${t.tls ? 'wss' : 'ws'}://${t.host}:${t.port}/api/v1/ws?token=${encodeURIComponent(token)}`
 }

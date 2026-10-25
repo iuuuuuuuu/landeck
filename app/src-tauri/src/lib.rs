@@ -3,6 +3,7 @@
 //! 其余逻辑全部在 web/ 里复用，保证和浏览器入口完全一致。
 
 mod autostart;
+mod prefs;
 
 use serde::Serialize;
 use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
@@ -131,6 +132,25 @@ fn local_ip() -> Option<String> {
 }
 
 /// 开机自启：Windows 写 HKCU\...\Run，macOS 写 LaunchAgent，Linux 写 XDG autostart。
+/// 读主题偏好（system | dark | light）
+#[tauri::command]
+fn theme_get(app: tauri::AppHandle) -> String {
+    prefs::load(&app).theme
+}
+
+/// 写主题偏好。桌面端持久化到磁盘，不依赖 WebView 的 localStorage。
+#[tauri::command]
+fn theme_set(app: tauri::AppHandle, mode: String) -> Result<String, String> {
+    let mode = match mode.as_str() {
+        "dark" | "light" | "system" => mode,
+        other => return Err(format!("未知主题：{other}")),
+    };
+    let mut p = prefs::load(&app);
+    p.theme = mode.clone();
+    prefs::save(&app, &p)?;
+    Ok(mode)
+}
+
 #[tauri::command]
 fn autostart_get() -> bool {
     autostart::is_enabled()
@@ -154,7 +174,9 @@ pub fn run() {
             platform,
             local_ip,
             autostart_get,
-            autostart_set
+            autostart_set,
+            theme_get,
+            theme_set
         ])
         .run(tauri::generate_context!())
         .expect("LanDeck 启动失败");

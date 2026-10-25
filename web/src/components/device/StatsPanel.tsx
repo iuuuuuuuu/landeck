@@ -6,7 +6,7 @@ import { bytes, dateTime, duration, hours, relative } from '../../lib/format'
 
 /** 统计页：一台设备的整体画像（运行时长 / 资源 / 操作 / 规模） */
 export function StatsPanel({ data, loading }: { data: StatsOverview | null; loading: boolean }) {
-  const disks = data?.realtime.disks ?? []
+  const disks = data?.realtime?.disks ?? []
   const days = data?.activity.days ?? []
   const bars = useMemo(
     () =>
@@ -74,7 +74,7 @@ export function StatsPanel({ data, loading }: { data: StatsOverview | null; load
             </div>
           </div>
         </div>
-        {data.realtime.battery && (
+        {data.realtime?.battery && (
           <div className="mt-2 flex items-center justify-between rounded-xl border border-line-soft bg-elevated px-3 py-2 text-[12px]">
             <span className="text-faint">电池</span>
             <span className="num text-fg">

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { themeGet, themeSet } from '../lib/discovery'
 import { persist } from 'zustand/middleware'
 
 /** 用户可选的三态；'system' 跟随 prefers-color-scheme */
@@ -79,6 +80,9 @@ export const useThemeStore = create<ThemeState>()(
         const theme = resolveTheme(mode, get().systemLight)
         applyTheme(theme)
         set({ mode, theme })
+        // 桌面端额外落盘：WebView 的 localStorage 在某些环境下会被清空，
+        // 只靠 zustand persist 会出现「选了深色，重启又变回跟随系统」。
+        void themeSet(mode)
       },
 
       cycle: () => {
@@ -110,7 +114,9 @@ export const useThemeStore = create<ThemeState>()(
  * 并挂上 prefers-color-scheme 监听，跟随系统时实时切换。
  */
 export function initTheme(): void {
+  // 先按本地存储渲染（防闪烁），随后异步用磁盘值覆盖
   applyTheme(useThemeStore.getState().theme)
+  void hydrateFromDisk()
 
   const mq = mediaQuery()
   if (!mq) return
@@ -126,6 +132,22 @@ export function initTheme(): void {
   mq.addEventListener('change', onChange)
   // 首帧系统偏好可能与 store 初始化时不同（例如首帧前系统改了设置）
   sync(mq.matches)
+}
+
+/**
+ * 桌面端从磁盘恢复主题。
+ * 顺序：磁盘 > localStorage。磁盘是权威来源，因为它的位置不随 WebView 数据目录变化。
+ */
+async function hydrateFromDisk(): Promise<void> {
+  const saved = await themeGet()
+  if (!saved) return
+  const mode = (['system', 'dark', 'light'] as ThemeMode[]).find((m) => m === saved)
+  if (!mode) return
+  const { mode: current } = useThemeStore.getState()
+  if (current === mode) return
+  const theme = resolveTheme(mode, systemPrefersLight())
+  applyTheme(theme)
+  useThemeStore.setState({ mode, theme, systemLight: systemPrefersLight() })
 }
 
 /** 组件唯一入口 */

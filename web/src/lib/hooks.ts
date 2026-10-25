@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AgentClient } from './api'
+import { normalizeStatus } from './normalizeStatus'
 import type { MediaInfo, StatusSnapshot, WsFrame } from './types'
 import type { PairedDevice } from '../store/app'
 
@@ -35,7 +36,8 @@ export function useLive(device?: PairedDevice | null): LiveState {
   const retryRef = useRef(0)
   const closedRef = useRef(false)
 
-  const push = useCallback((snap: StatusSnapshot) => {
+  const push = useCallback((raw: StatusSnapshot) => {
+    const snap = normalizeStatus(raw)
     setStatus(snap)
     setLastAt(Date.now())
     setConnected(true)

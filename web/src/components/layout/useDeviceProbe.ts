@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AgentClient } from '../../lib/api'
+import { normalizeStatus } from '../../lib/normalizeStatus'
 import { useApp, type PairedDevice } from '../../store/app'
 
 export interface ProbeState {
@@ -44,7 +45,7 @@ export function useDeviceProbe(
       const results = await Promise.all(
         list.map(async (d) => {
           try {
-            const snap = await new AgentClient(d, d.token).status()
+            const snap = normalizeStatus(await AgentClient.fromDevice(d).status())
             markOk(d.id)
             return {
               id: d.id,

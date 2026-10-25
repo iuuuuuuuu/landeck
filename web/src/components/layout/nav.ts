@@ -3,6 +3,7 @@ import {
   BarChart3,
   CalendarClock,
   FolderOpen,
+  Laptop,
   Monitor,
   Radar,
   Settings,
@@ -18,6 +19,7 @@ export interface NavItem {
 
 /** 顶级入口：设备 / 发现 / 文件 / 定时 / 活动 / 设置 */
 export const NAV_ITEMS: NavItem[] = [
+  { to: '/local', label: '本机', icon: Laptop, desc: '当前这台机器的硬件与运行状态' },
   { to: '/devices', label: '设备', icon: Monitor, desc: '已配对主机的状态与快捷入口' },
   { to: '/scan', label: '发现', icon: Radar, desc: '扫描局域网并配对新的 Agent' },
   { to: '/files', label: '文件', icon: FolderOpen, desc: '浏览、下载、上传被控机上的文件' },

@@ -198,12 +198,22 @@ type authed func(w http.ResponseWriter, r *http.Request, client *config.Client)
 func (s *Server) protect(h authed) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token := bearer(r)
-		client, ok := s.Auth.Authenticate(token)
-		if !ok {
+		if token != "" {
+			if client, ok := s.Auth.Authenticate(token); ok {
+				h(w, r, client)
+				return
+			}
 			writeErr(w, http.StatusUnauthorized, "unauthorized", "令牌无效或已失效，请重新配对")
 			return
 		}
-		h(w, r, client)
+		// 本机免令牌：请求来自 127.0.0.1 / 本机网卡地址时直接放行。
+		// 依据是「能在这台机器上发请求 = 已经拥有这台机器」，且本机页面（/local）
+		// 本来就不该强迫用户给自己配对。
+		if s.Cfg.Get().AllowLocalNoAuth && isLocalRequest(r) {
+			h(w, r, &config.Client{ID: "local", Name: "本机", Role: "owner"})
+			return
+		}
+		writeErr(w, http.StatusUnauthorized, "unauthorized", "令牌无效或已失效，请重新配对")
 	}
 }
 

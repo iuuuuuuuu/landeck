@@ -111,8 +111,8 @@ export function DeviceGridCard({
         </div>
 
         <div className="mt-3 space-y-1.5">
-          <ThinMeter label="CPU" value={probe?.online ? probe.cpu : undefined} />
-          <ThinMeter label="内存" value={probe?.online ? probe.mem : undefined} cyan />
+          <ThinMeter label="CPU" value={probe?.online ? (probe.cpu ?? undefined) : undefined} />
+          <ThinMeter label="内存" value={probe?.online ? (probe.mem ?? undefined) : undefined} cyan />
         </div>
 
         <div className="mt-3 flex items-center justify-end gap-1 border-t border-line-soft pt-2.5 text-[12px] font-medium text-accent-soft">

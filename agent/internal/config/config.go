@@ -49,6 +49,9 @@ type Config struct {
 	CodeTTL          int       `json:"codeTTL"` // 秒
 	RequireLocalCode bool      `json:"requireLocalCode"`
 	AllowLanOnly     bool      `json:"allowLanOnly"`
+	// AllowLocalNoAuth 允许本机（loopback）请求跳过令牌：本机就是运行 Agent 的那台机器，
+	// 用户已经在物理上控制了它，再要求配对只会造成「本机设备一片空白」。
+	AllowLocalNoAuth bool      `json:"allowLocalNoAuth"`
 	Locale           string    `json:"locale"`
 	Theme            string    `json:"theme"`
 	CORSOrigins      []string  `json:"corsOrigins"`
@@ -119,6 +122,10 @@ func (s *Store) repair() {
 	}
 	if s.c.CodeTTL == 0 {
 		s.c.CodeTTL, changed = 300, true
+	}
+	if !s.c.AllowLocalNoAuth {
+		s.c.AllowLocalNoAuth = true
+		changed = true
 	}
 	if s.c.Locale == "" {
 		s.c.Locale, changed = "zh-CN", true

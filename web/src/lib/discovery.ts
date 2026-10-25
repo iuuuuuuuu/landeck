@@ -110,6 +110,9 @@ export async function scanLan(opts: ScanOptions): Promise<NodeInfo[]> {
   const found = new Map<string, NodeInfo>()
   const emit = (n: NodeInfo) => {
     if (!n || typeof n.id !== 'string' || !n.id) return
+    // 本机（运行 Agent 的这台机器）不放进「局域网设备」列表：
+    // 它由「本机」页单独承载，混在待配对列表里只会让用户困惑。
+    if (n.self) return
     if (found.has(n.id)) return
     found.set(n.id, n)
     onNode(n)
@@ -190,5 +193,28 @@ export async function autostartSet(enabled: boolean): Promise<{ ok: boolean; err
     return { ok: true }
   } catch (e) {
     return { ok: false, error: String(e) }
+  }
+}
+
+/** 桌面端主题偏好（磁盘持久化）；浏览器返回 null */
+export async function themeGet(): Promise<string | null> {
+  const invoke = tauriInvoke()
+  if (!invoke) return null
+  try {
+    const v = await invoke('theme_get')
+    return typeof v === 'string' && v ? v : null
+  } catch {
+    return null
+  }
+}
+
+/** 写桌面端主题偏好；浏览器里是空操作 */
+export async function themeSet(mode: string): Promise<void> {
+  const invoke = tauriInvoke()
+  if (!invoke) return
+  try {
+    await invoke('theme_set', { mode })
+  } catch {
+    /* 写失败不影响本次会话的显示 */
   }
 }

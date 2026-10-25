@@ -161,3 +161,43 @@ universal dmg（Intel + Apple Silicon），Windows / Linux / Android 各自并�
 `GET /stats` 一次返回设备画像（运行时长、CPU/内存/磁盘、应用与进程数、开机历史、操作统计），
 前端不再发 5 个请求自己拼。页面含：总览六项指标、实时资源双环、磁盘占用、操作趋势柱图、
 操作分类、操作来源（哪个客户端用得最多）。
+
+## v1.0.4-pre — 2026-10-25（预测试版）
+
+修第四/五轮反馈：主题不记忆、`percent` 崩溃、本机信息空白、新增「本机」页、扫描排除本机。
+
+### 0. 新增「本机」页（独立入口）
+`/local`：展示**当前这台机器**的系统、硬件、实时资源、磁盘与开机历史，**不需要配对**。
+- Agent 新增 `allowLocalNoAuth`（默认开）：来自 loopback 的请求跳过令牌校验。
+  依据是「能在这台机器上发请求 = 已经掌握这台机器」；这也是本机页面之前一片空白的根因
+  —— 本机设备没有令牌，`/hardware`、`/status` 全部 401。
+- 扫描局域网时**排除本机**（`self === true` 的节点不再出现在「发现」列表里），
+  本机信息统一由 `/local` 承载，待配对列表里不会再出现「自己」。
+- 本机请求固定打 `http://127.0.0.1:<port>`（Tauri 壳里 `location.origin` 是 `tauri.localhost`，
+  用相对路径会指向 WebView 自己）。
+
+### 1. 主题选择不记忆 —— 改到磁盘持久化
+根因：主题只存在 WebView 的 localStorage 里。Tauri 的 WebView 数据目录在部分环境会变
+（多实例、调试参数、安装路径不同），localStorage 随之清空 —— 用户选了深色，
+重启又变回「跟随系统」。
+
+- Rust 新增 `prefs.rs` + `theme_get` / `theme_set` 命令，把主题写到磁盘。
+- 目录按优先级回退：`app_local_data_dir` → 程序目录旁 `data/` → 系统临时目录。
+  （实测某些受管机器会拒绝 App 进程写 AppData，同样的路径 shell 却能建，所以不能赌单一路径。）
+- 前端 `initTheme()` 先按 localStorage 渲染防闪烁，再异步用磁盘值覆盖；
+  `setMode()` 同时写磁盘和 localStorage。
+
+**实测**（每次都用全新 WebView 数据目录，排除 localStorage 侥幸）：
+`深色 → 重启 → dark`、`浅色 → 重启 → light`，每次 `theme_get` 与 `data-theme` 一致。
+
+### 2. 设备页 `Cannot read properties of undefined (reading 'percent')` —— 已修
+根因：`/status` 响应可能缺字段（老版本 Agent，或端口上根本不是 LanDeck），
+渲染层直接读 `status.cpu.percent` / `d.percent.toFixed()` 就崩，整页白屏。
+
+- 新增 `normalizeStatus()`：**网络回来的一切都当不可信输入**，在入口补齐
+  cpu/mem/disks/net/battery/processes 全部字段，渲染层因此可以安全直读。
+- WebSocket 帧与轮询两条路径都过归一化。
+- 设备卡片对 `probe.cpu/mem` 再加一层兜底。
+
+**实测**：用假 Agent（`/status` 只返回 `{time, uptimeSec}`）复现，修复后
+设备页与详情页均正常渲染，**零未捕获异常**。
