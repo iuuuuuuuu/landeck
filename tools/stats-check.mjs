@@ -54,6 +54,17 @@ const send = (m, p = {}) => new Promise((res) => { const i = ++id; pend.set(i, r
 const ev = async (x) => (await send('Runtime.evaluate', { expression: x, awaitPromise: true, returnByValue: true })).result?.value
 await send('Page.enable'); await send('Runtime.enable')
 
+// 轮询等待页面出现关键字：/stats 首次聚合要读事件日志，固定 sleep 在冷启动时会误判
+async function waitForText(keyword, timeoutMs = 15000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const text = await ev('document.body.innerText')
+    if (typeof text === 'string' && text.includes(keyword)) return text
+    await sleep(500)
+  }
+  return (await ev('document.body.innerText')) || ''
+}
+
 async function open(width, height) {
   await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 600 })
   await send('Page.navigate', { url: BASE + '/' })
@@ -66,8 +77,7 @@ async function open(width, height) {
 // 1) 统计页
 await open(1440, 1000)
 await ev(`location.hash='#/stats'`)
-await sleep(4000)
-const statsText = await ev('document.body.innerText')
+const statsText = await waitForText('总览')
 check('统计页渲染总览', statsText.includes('总览'))
 check('统计页有运行时长', /已运行/.test(statsText))
 check('统计页有实时资源', /实时资源|CPU/.test(statsText))
