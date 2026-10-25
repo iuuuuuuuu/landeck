@@ -30,7 +30,7 @@ import (
 	"landeck/internal/tray"
 )
 
-const Version = "1.0.6"
+const Version = "1.0.7"
 
 func main() {
 	log.SetFlags(log.Ltime)
@@ -78,6 +78,7 @@ func runServer() {
 	flag.BoolVar(&o.noMDNS, "no-mdns", false, "关闭 mDNS 广播")
 	flag.BoolVar(&o.quiet, "quiet", false, "少打日志")
 	noTray := flag.Bool("no-tray", false, "不启动托盘（纯命令行/服务模式）")
+	noOpen := flag.Bool("no-open", false, "首次运行也不自动打开浏览器（被客户端拉起时用）")
 	flag.Parse()
 
 	useTray := tray.Supported() && !*noTray
@@ -183,8 +184,9 @@ func runServer() {
 				}
 			},
 		})
-		if len(cfg.Clients) == 0 {
-			// 首次运行：直接把控制台页面打开，用户能立刻看到配对码
+		if len(cfg.Clients) == 0 && !*noOpen {
+			// 首次运行：直接把控制台页面打开，用户能立刻看到配对码。
+			// --no-open 时不弹：桌面客户端自己就是控制台，弹浏览器只会吓人一跳。
 			go openBrowser(fmt.Sprintf("http://127.0.0.1:%d/", effectivePort(cfg)))
 		}
 	}

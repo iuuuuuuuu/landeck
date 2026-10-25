@@ -23,45 +23,207 @@ struct Node {
     paired: bool,
 }
 
-/// 扫描局域网内的 Agent：先发 UDP 探测包，再收应答。
-/// 端口固定 8421（与 Agent 的发现端口一致），超时 900ms。
-#[tauri::command]
-fn scan_lan() -> Vec<Node> {
-    let mut out: Vec<Node> = Vec::new();
-    let socket = match UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)) {
-        Ok(s) => s,
-        Err(_) => return out,
-    };
-    let _ = socket.set_broadcast(true);
-    let _ = socket.set_read_timeout(Some(Duration::from_millis(250)));
+/// 发现端口，与 Agent 的 UDP 应答端口一致。
+const DISCOVERY_PORT: u16 = 8421;
 
-    let probe = b"LANDECK_DISCOVER_V1";
-    let port = 8421u16;
+/// 等应答的时长：安卓上要发 254 份单播、手机 Wi-Fi 上行慢，多给一点时间。
+#[cfg(target_os = "android")]
+const LISTEN_MS: u64 = 2000;
+#[cfg(not(target_os = "android"))]
+const LISTEN_MS: u64 = 900;
 
-    // 全局广播 + 每个网卡的定向广播（后者在有多个网段/VPN 时更可靠）
-    let mut targets: Vec<Ipv4Addr> = vec![Ipv4Addr::BROADCAST];
+/// 判断是不是「用户真正连着的局域网」私有 IPv4。
+/// 排除环回、链路本地（169.254，安卓没拿到 DHCP 时常见）、以及运营商 CGNAT 段
+/// （100.64/10，安卓蜂窝网常见）—— 后两种扫出来的网段里不可能有用户的 PC。
+fn usable_lan_ip(ip: Ipv4Addr) -> bool {
+    if ip.is_loopback() || ip.is_link_local() || ip.is_broadcast() || ip.is_unspecified() {
+        return false;
+    }
+    let o = ip.octets();
+    if o[0] == 100 && (64..=127).contains(&o[1]) {
+        return false;
+    }
+    ip.is_private()
+}
+
+/// 给网卡打分：分越高越可能是「用户实际连着的那个局域网」。
+///
+/// 安卓上同时存在好几块网卡：wlan0（Wi-Fi，常见 192.168.x.x）、rmnet_data0（蜂窝，
+/// 私有段 10.x）、tun0（VPN）……只取「第一个私有地址」时经常拿到蜂窝的运营商内网地址，
+/// 于是扫的是 10.x 的运营商网段，同网段的 PC 一台都扫不到。
+fn iface_rank(name: &str, ip: Ipv4Addr) -> i32 {
+    let n = name.to_ascii_lowercase();
+    let mut score = 0i32;
+
+    // 蜂窝 / 点对点隧道 / 虚拟网卡先罚分，别让它们抢走首选
+    for k in ["rmnet", "ccmni", "ccni", "seth", "pdp", "wwan", "clat", "cell"] {
+        if n.contains(k) {
+            score -= 100;
+            break;
+        }
+    }
+    for k in ["tun", "tap", "ppp", "ipsec", "utun", "ip6tnl"] {
+        if n.contains(k) {
+            score -= 60;
+            break;
+        }
+    }
+    for k in [
+        "wsl", "vethernet", "virtual", "vmware", "vbox", "virbr", "docker", "veth", "br-",
+        "bridge",
+    ] {
+        if n.contains(k) {
+            score -= 40;
+            break;
+        }
+    }
+
+    // Wi-Fi 才是手机能扫到同网段 PC 的唯一通道
+    for k in ["wlan", "wifi", "wi-fi", "swlan", "wlp", "ap0"] {
+        if n.contains(k) {
+            score += 100;
+            break;
+        }
+    }
+    // 有线网卡（桌面 / 电视盒子 / 部分安卓盒子）
+    if n.starts_with("eth") || n.starts_with("en") || n.starts_with("em") || n.starts_with("ethernet")
+    {
+        score += 20;
+    }
+
+    // 家用路由器几乎都在 192.168.x.x；10.x 次之；172.16/12 常被 Docker/VPN 占用，最低
+    let o = ip.octets();
+    if o[0] == 192 && o[1] == 168 {
+        score += 30;
+    } else if o[0] == 10 {
+        score += 10;
+    }
+    score
+}
+
+/// 本机所有可用局域网 IPv4：(网卡名, 地址, 掩码)
+fn lan_ifaces() -> Vec<(String, Ipv4Addr, Ipv4Addr)> {
+    let mut out: Vec<(String, Ipv4Addr, Ipv4Addr)> = Vec::new();
     if let Ok(ifaces) = if_addrs::get_if_addrs() {
         for iface in ifaces {
             if iface.is_loopback() {
                 continue;
             }
             if let if_addrs::IfAddr::V4(v4) = iface.addr {
-                let ip = u32::from(v4.ip);
-                let mask = u32::from(v4.netmask);
-                let bcast = Ipv4Addr::from(ip | !mask);
-                if !targets.contains(&bcast) {
-                    targets.push(bcast);
+                if usable_lan_ip(v4.ip) {
+                    out.push((iface.name.clone(), v4.ip, v4.netmask));
                 }
             }
         }
     }
-    for t in &targets {
-        let _ = socket.send_to(probe, SocketAddrV4::new(*t, port));
+    out
+}
+
+/// 首选局域网网卡：安卓上是 Wi-Fi 地址，桌面端是有线/Wi-Fi 地址。
+/// 扫哪个 /24、UDP 从哪块网卡出去，全看它。
+fn preferred_lan_iface() -> Option<(String, Ipv4Addr, Ipv4Addr)> {
+    let mut best: Option<(i32, (String, Ipv4Addr, Ipv4Addr))> = None;
+    for item in lan_ifaces() {
+        let score = iface_rank(&item.0, item.1);
+        if best.as_ref().map_or(true, |(s, _)| score > *s) {
+            best = Some((score, item));
+        }
+    }
+    best.map(|(_, item)| item)
+}
+
+/// 某个地址所在 /24 里除自己以外的全部主机地址（与前端扫段用的是同一个 /24）
+#[allow(dead_code)]
+fn slash24_hosts(ip: Ipv4Addr) -> Vec<Ipv4Addr> {
+    let o = ip.octets();
+    let mut out: Vec<Ipv4Addr> = Vec::with_capacity(254);
+    for i in 1..=254u8 {
+        if i == o[3] {
+            continue;
+        }
+        out.push(Ipv4Addr::new(o[0], o[1], o[2], i));
+    }
+    out
+}
+
+/// 扫描时 UDP socket 绑哪个本机地址。
+/// 安卓必须绑 Wi-Fi 地址，强制收发都走 Wi-Fi 口；否则包会从蜂窝口出去，
+/// 发到一个跟 PC 毫不相干的网段（「手机扫不到 PC」的根因之一）。
+#[cfg(target_os = "android")]
+fn scan_bind_ip(preferred: Option<Ipv4Addr>) -> Ipv4Addr {
+    preferred.unwrap_or(Ipv4Addr::UNSPECIFIED)
+}
+
+/// 桌面 / iOS 保持原样：绑 0.0.0.0，多网卡都能收。
+#[cfg(not(target_os = "android"))]
+fn scan_bind_ip(_preferred: Option<Ipv4Addr>) -> Ipv4Addr {
+    Ipv4Addr::UNSPECIFIED
+}
+
+/// 广播之外还要逐台单播探测的地址列表。
+/// 安卓在没拿 WifiManager.MulticastLock 时，Wi-Fi 省电策略会丢广播和组播，
+/// 所以安卓额外对 Wi-Fi 网段逐台发单播（Agent 的回包本来就是 unicast 回给探测方）。
+#[cfg(target_os = "android")]
+fn unicast_sweep(preferred: Option<Ipv4Addr>) -> Vec<Ipv4Addr> {
+    preferred.map(slash24_hosts).unwrap_or_default()
+}
+
+#[cfg(not(target_os = "android"))]
+fn unicast_sweep(_preferred: Option<Ipv4Addr>) -> Vec<Ipv4Addr> {
+    Vec::new()
+}
+
+/// 扫描局域网内的 Agent：先发 UDP 探测包，再收应答。
+/// 端口固定 8421（与 Agent 的发现端口一致）。
+#[tauri::command]
+fn scan_lan() -> Vec<Node> {
+    let mut out: Vec<Node> = Vec::new();
+
+    // 首选网卡决定两件事：socket 绑哪、单播扫哪个 /24
+    let preferred = preferred_lan_iface();
+    let preferred_ip = preferred.as_ref().map(|(_, ip, _)| *ip);
+    let bind = SocketAddrV4::new(scan_bind_ip(preferred_ip), 0);
+    let socket = UdpSocket::bind(bind)
+        .or_else(|_| UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0)));
+    let socket = match socket {
+        Ok(s) => s,
+        Err(_) => return out,
+    };
+    // 广播必须显式打开，否则 send_to(255.255.255.255) 直接 EACCES
+    let _ = socket.set_broadcast(true);
+    let _ = socket.set_read_timeout(Some(Duration::from_millis(200)));
+
+    // 目标一：全局广播 + 每块网卡的定向广播（多网段/VPN 时更可靠）
+    let mut targets: Vec<SocketAddrV4> =
+        vec![SocketAddrV4::new(Ipv4Addr::BROADCAST, DISCOVERY_PORT)];
+    for (_, ip, mask) in lan_ifaces() {
+        let net = u32::from(ip);
+        let m = u32::from(mask);
+        let bcast = Ipv4Addr::from(net | !m);
+        let addr = SocketAddrV4::new(bcast, DISCOVERY_PORT);
+        if !targets.contains(&addr) {
+            targets.push(addr);
+        }
     }
 
-    let deadline = Instant::now() + Duration::from_millis(900);
+    // 目标二（仅安卓）：Wi-Fi 网段逐台单播，绕开安卓丢广播的省电策略
+    for host in unicast_sweep(preferred_ip) {
+        targets.push(SocketAddrV4::new(host, DISCOVERY_PORT));
+    }
+
+    let probe = b"LANDECK_DISCOVER_V1";
+
+    let deadline = Instant::now() + Duration::from_millis(LISTEN_MS);
     let mut buf = [0u8; 2048];
+    let mut rounds = 0u8;
+    // 发一轮、收一会儿、再发一轮：UDP 无连接且会丢包，重发比开线程简单也够用。
     while Instant::now() < deadline {
+        if rounds < 3 {
+            for t in &targets {
+                let _ = socket.send_to(probe, *t);
+            }
+            rounds += 1;
+        }
         match socket.recv_from(&mut buf) {
             Ok((n, from)) => {
                 if let Ok(value) = serde_json::from_slice::<serde_json::Value>(&buf[..n]) {
@@ -161,6 +323,8 @@ fn agent_start_impl(app: &tauri::AppHandle, port: u16) -> Result<bool, String> {
 
     let mut cmd = Command::new(exe);
     cmd.arg("--data").arg(&data);
+    // 客户端自己就是控制台；被控端再弹一个浏览器会让人以为装错了
+    cmd.arg("--no-open");
     if port != 8420 {
         cmd.arg("--port").arg(port.to_string());
     }
@@ -183,35 +347,26 @@ fn platform() -> String {
 
 /// 返回本机的私有 IPv4，供前端推导要扫的网段。
 /// Tauri 里页面 hostname 是 tauri.localhost，前端拿不到内网地址，必须由原生层提供。
+///
+/// 安卓上必须挑 Wi-Fi 那块网卡：蜂窝（rmnet，10.x）和 VPN（tun）也有私有地址，
+/// 谁先被遍历到就返回谁的话，前端会去扫运营商内网段，同网段的 PC 一台都扫不到。
 #[tauri::command]
 fn local_ip() -> Option<String> {
+    if let Some((_, ip, _)) = preferred_lan_iface() {
+        return Some(ip.to_string());
+    }
+    // 一个像样的私有地址都没有（极少见：只连了蜂窝 CGNAT / 只有 IPv6）：
+    // 兜底返回任意一个非环回 IPv4，前端自己会过滤非法值。
     let ifaces = if_addrs::get_if_addrs().ok()?;
-    let mut fallback: Option<String> = None;
     for iface in ifaces {
         if iface.is_loopback() {
             continue;
         }
         if let if_addrs::IfAddr::V4(v4) = iface.addr {
-            let ip = v4.ip;
-            let o = ip.octets();
-            let private = o[0] == 10
-                || (o[0] == 172 && (16..=31).contains(&o[1]))
-                || (o[0] == 192 && o[1] == 168);
-            if private {
-                // 优先真实网卡，跳过常见的虚拟网卡段（WSL/Hyper-V/VirtualBox 也用私有网段，
-                // 但通常排在后面；这里先记下第一个，最后返回最像物理网的）
-                let name = iface.name.to_lowercase();
-                if name.contains("wsl") || name.contains("vethernet") || name.contains("virtual") || name.contains("vmware") {
-                    if fallback.is_none() {
-                        fallback = Some(ip.to_string());
-                    }
-                    continue;
-                }
-                return Some(ip.to_string());
-            }
+            return Some(v4.ip.to_string());
         }
     }
-    fallback
+    None
 }
 
 /// 开机自启：Windows 写 HKCU\...\Run，macOS 写 LaunchAgent，Linux 写 XDG autostart。
@@ -247,6 +402,90 @@ fn autostart_set(enabled: bool) -> Result<bool, String> {
         autostart::disable()?;
     }
     Ok(autostart::is_enabled())
+}
+
+/// 窗口行为：恢复上次尺寸/位置、关闭时隐藏而不是销毁、--silent 静默启动。
+///
+/// 为什么关闭要 hide 而不是 destroy：Tauri 关窗默认销毁 webview，
+/// 从托盘再打开就是**重建**，页面状态、滚动位置、正在看的设备全丢，
+/// 用户看到的就是"重新访问了一遍"。
+#[cfg(desktop)]
+fn setup_window(app: &mut tauri::App) {
+    use tauri::{Manager, WindowEvent};
+
+    let silent = std::env::args().any(|a| a == "--silent");
+    let saved = prefs::load(app.handle()).window;
+
+    if let Some(win) = app.get_webview_window("main") {
+        if saved.saved && saved.width > 320.0 && saved.height > 240.0 {
+            let _ = win.set_size(tauri::LogicalSize::new(saved.width, saved.height));
+            if saved.x > -32000.0 && saved.y > -32000.0 {
+                let _ = win.set_position(tauri::LogicalPosition::new(saved.x, saved.y));
+            }
+            if saved.maximized {
+                let _ = win.maximize();
+            }
+        }
+        if silent {
+            // 开机自启：直接缩到托盘，不弹窗
+            let _ = win.hide();
+        } else {
+            let _ = win.show();
+            let _ = win.set_focus();
+        }
+    }
+
+    let handle = app.handle().clone();
+    if let Some(win) = app.get_webview_window("main") {
+        win.on_window_event(move |event| match event {
+            WindowEvent::CloseRequested { api, .. } => {
+                // 关窗 = 收进托盘，进程和页面都留着
+                api.prevent_close();
+                if let Some(w) = handle.get_webview_window("main") {
+                    let _ = w.hide();
+                }
+            }
+            WindowEvent::Resized(_) | WindowEvent::Moved(_) => save_window_geometry(&handle),
+            _ => {}
+        });
+    }
+}
+
+/// 记录当前窗口几何。最大化时存还原尺寸（否则下次恢复出来是个全屏卡住的窗口）。
+#[cfg(desktop)]
+fn save_window_geometry(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    let Some(win) = app.get_webview_window("main") else {
+        return;
+    };
+    if win.is_minimized().unwrap_or(false) {
+        return;
+    }
+    let maximized = win.is_maximized().unwrap_or(false);
+    if maximized {
+        // 最大化状态下只更新标记，尺寸沿用上次的还原值
+        let mut p = prefs::load(app);
+        if p.window.maximized {
+            return;
+        }
+        p.window.maximized = true;
+        let _ = prefs::save(app, &p);
+        return;
+    }
+    let (Ok(size), Ok(pos)) = (win.inner_size(), win.outer_position()) else {
+        return;
+    };
+    let scale = win.scale_factor().unwrap_or(1.0);
+    let mut p = prefs::load(app);
+    p.window = prefs::WindowPrefs {
+        width: size.width as f64 / scale,
+        height: size.height as f64 / scale,
+        x: pos.x as f64 / scale,
+        y: pos.y as f64 / scale,
+        maximized: false,
+        saved: true,
+    };
+    let _ = prefs::save(app, &p);
 }
 
 #[cfg(desktop)]
@@ -322,6 +561,8 @@ pub fn run() {
         .setup(|app| {
             #[cfg(desktop)]
             setup_tray(app)?;
+            #[cfg(desktop)]
+            setup_window(app);
             // 随客户端自动启动本机被控端：用户装完就能在本机页看到数据，
             // 不必再去点一次「启动」。失败不影响客户端本身。
             #[cfg(desktop)]

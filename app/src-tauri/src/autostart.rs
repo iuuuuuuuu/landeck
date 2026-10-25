@@ -48,7 +48,7 @@ mod imp {
         fs::create_dir_all(&dir).map_err(|e| format!("创建启动文件夹失败：{e}"))?;
         let link = link_path()?;
         let script = format!(
-            "$ws = New-Object -ComObject WScript.Shell;              $s = $ws.CreateShortcut('{}');              $s.TargetPath = '{}';              $s.WorkingDirectory = '{}';              $s.Save()",
+            "$ws = New-Object -ComObject WScript.Shell;              $s = $ws.CreateShortcut('{}');              $s.TargetPath = '{}';              $s.WorkingDirectory = '{}';              $s.Arguments = '--silent';              $s.Save()",
             link.display(),
             exe.display(),
             exe.parent().map(|p| p.display().to_string()).unwrap_or_default()

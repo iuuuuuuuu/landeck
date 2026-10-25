@@ -15,7 +15,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AgentSettingsCard } from '../components/pair/AgentSettingsCard'
 import { apiErrorMessage } from '../components/pair/errors'
-import { PairingSecurityCard } from '../components/pair/PairingSecurityCard'
 import {
   Button,
   Card,
@@ -354,7 +353,6 @@ export default function Settings() {
         <>
           <IdentityCard />
           <AgentSettingsCard device={device} />
-          <PairingSecurityCard device={device} />
           <AboutCard device={device} />
         </>
       )}

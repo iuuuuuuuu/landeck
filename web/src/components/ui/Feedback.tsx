@@ -205,7 +205,11 @@ export function ToastHost() {
   const toasts = useApp((s) => s.toasts)
   const dismiss = useApp((s) => s.dismissToast)
   return createPortal(
-    <div className="pointer-events-none fixed inset-x-0 top-3 z-[60] flex flex-col items-center gap-2 px-3 sm:top-5">
+    // top 用 safe-area：手机刘海/状态栏会盖住原本的 top-3，提示条被切一半
+    <div
+      className="pointer-events-none fixed inset-x-0 z-[60] flex flex-col items-center gap-2 px-3"
+      style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
+    >
       <AnimatePresence>
         {toasts.map((t) => (
           <motion.div

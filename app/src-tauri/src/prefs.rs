@@ -14,6 +14,26 @@ pub struct Prefs {
     /// system | dark | light
     #[serde(default = "default_mode")]
     pub theme: String,
+    /// 窗口几何：记住用户拖过的大小和位置
+    #[serde(default)]
+    pub window: WindowPrefs,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct WindowPrefs {
+    #[serde(default)]
+    pub width: f64,
+    #[serde(default)]
+    pub height: f64,
+    #[serde(default)]
+    pub x: f64,
+    #[serde(default)]
+    pub y: f64,
+    #[serde(default)]
+    pub maximized: bool,
+    /// 是否已经存过一次（避免 0x0 被当成有效尺寸）
+    #[serde(default)]
+    pub saved: bool,
 }
 
 fn default_mode() -> String {
@@ -22,7 +42,7 @@ fn default_mode() -> String {
 
 impl Default for Prefs {
     fn default() -> Self {
-        Prefs { theme: default_mode() }
+        Prefs { theme: default_mode(), window: WindowPrefs::default() }
     }
 }
 

@@ -10,8 +10,12 @@ import Activity from './pages/Activity'
 import Settings from './pages/Settings'
 import Files from './pages/Files'
 import Stats from './pages/Stats'
+import { useLocalIdentity } from './lib/useLocalIdentity'
+import { useLastRoute } from './lib/useLastRoute'
 
 export default function App() {
+  useLocalIdentity()
+  useLastRoute()
   return (
     <>
       <AppShell>

@@ -38,7 +38,7 @@ export function HardwarePanel({
   )
 
   return (
-    <Card className="flex h-full flex-col">
+    <Card>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-[15px] font-semibold text-fg">硬件信息</h3>
@@ -49,21 +49,20 @@ export function HardwarePanel({
           aria-label="刷新硬件信息"
           onClick={hw.reload}
           disabled={hw.loading}
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-elevated text-muted transition-colors hover:bg-elevated-2 hover:text-fg disabled:opacity-40"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line bg-elevated text-muted transition-colors hover:bg-elevated-2 hover:text-fg disabled:opacity-40"
         >
-          <RotateCw size={14} className={hw.loading ? 'animate-spin' : undefined} />
+          <RotateCw size={13} className={hw.loading ? 'animate-spin' : undefined} />
         </button>
       </div>
 
       {/*
-        页签内容区撑满剩余高度：与左侧「实时状态」同高，内容不足时留白在卡片内部，
-        内容超出时在卡片内滚动（lg 断点给上限，避免某一页签把整行撑高）。
+        内容按内容高度排布（不再撑满整行），Group 在宽屏并排；只有明细特别多时才在卡片内滚动。
       */}
-      <div className="scroll-area mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5 lg:max-h-[640px]">
+      <div className="scroll-area mt-3 max-h-[640px] overflow-y-auto overscroll-contain pr-0.5">
         {hw.loading && !hw.data ? (
-          <div className="space-y-3">
+          <div className="grid gap-2 sm:grid-cols-2">
             {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-9 w-full" />
+              <Skeleton key={i} className="h-16 w-full" />
             ))}
           </div>
         ) : hw.error ? (
@@ -106,7 +105,7 @@ export function HardwarePanel({
   )
 }
 
-/** 硬件全量罗列：不再用页签分组，一屏从上往下看完 */
+/** 硬件全量罗列：不分组页签，宽屏多列平铺，一屏看完 */
 function Body({ hw }: { hw: HardwareInfo }) {
   const cpu = pick(hw, 'cpu')
   const mem = pick(hw, 'memory', 'mem')
@@ -142,9 +141,9 @@ function Body({ hw }: { hw: HardwareInfo }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-2 2xl:grid-cols-3">
       {hasCpu && (
-        <Group icon={<Cpu size={13} />} title={cpuModel || '处理器'}>
+        <Group icon={<Cpu size={12} />} title={cpuModel || '处理器'}>
           <Row label="厂商" value={cpuVendor || '—'} />
           <Row label="核心 / 线程" value={ratio(cores, threads)} />
           <Row label="基准频率" value={nz(base, ' MHz')} />
@@ -154,7 +153,7 @@ function Body({ hw }: { hw: HardwareInfo }) {
       )}
 
       {hasMem && (
-        <Group icon={<MemoryStick size={13} />} title="内存">
+        <Group icon={<MemoryStick size={12} />} title="内存">
           <Row label="总容量" value={sizeOf(memTotal)} />
           <Row label="类型" value={memType || '—'} />
           <Row label="频率" value={nz(memSpeed, ' MHz')} />
@@ -165,7 +164,7 @@ function Body({ hw }: { hw: HardwareInfo }) {
       {slots.map((s, i) => (
         <Group
           key={`mem-${strOf(s, 'bank', 'slot')}-${i}`}
-          icon={<MemoryStick size={13} />}
+          icon={<MemoryStick size={12} />}
           title={strOf(s, 'bank', 'slot', 'locator') || `内存插槽 ${i + 1}`}
         >
           <Row label="容量" value={sizeOf(numOf(s, 'sizeBytes', 'size', 'capacity'))} />
@@ -178,7 +177,7 @@ function Body({ hw }: { hw: HardwareInfo }) {
       {gpus.map((g, i) => (
         <Group
           key={`gpu-${strOf(g, 'name')}-${i}`}
-          icon={<MonitorCog size={13} />}
+          icon={<MonitorCog size={12} />}
           title={strOf(g, 'name', 'model') || `显卡 ${i + 1}`}
         >
           <Row label="显存" value={vramLabel(numOf(g, 'vramMb', 'vram', 'adapterRamMb'))} />
@@ -189,7 +188,7 @@ function Body({ hw }: { hw: HardwareInfo }) {
       {disks.map((d, i) => (
         <Group
           key={`disk-${strOf(d, 'name', 'model')}-${i}`}
-          icon={<HardDrive size={13} />}
+          icon={<HardDrive size={12} />}
           title={strOf(d, 'name', 'model', 'friendlyName') || `磁盘 ${i + 1}`}
         >
           <Row label="类型" value={strOf(d, 'type', 'mediaType', 'busType') || '—'} />
@@ -204,7 +203,7 @@ function Body({ hw }: { hw: HardwareInfo }) {
         return (
           <Group
             key={`nic-${strOf(n, 'mac')}-${i}`}
-            icon={<Network size={13} />}
+            icon={<Network size={12} />}
             title={strOf(n, 'name', 'iface') || `网卡 ${i + 1}`}
           >
             <Row label="速率" value={nz(numOf(n, 'speedMbps', 'speed'), ' Mbps')} />
@@ -216,11 +215,11 @@ function Body({ hw }: { hw: HardwareInfo }) {
 
       {hasOs && (
         <>
-          <Group icon={<MonitorCog size={13} />} title={osName || '系统'}>
+          <Group icon={<MonitorCog size={12} />} title={osName || '系统'}>
             <Row label="版本" value={strOf(os, 'version') || '—'} />
             <Row label="安装时间" value={installedAt || '—'} />
           </Group>
-          <Group icon={<CircuitBoard size={13} />} title="主板">
+          <Group icon={<CircuitBoard size={12} />} title="主板">
             <Row label="厂商" value={strOf(board, 'manufacturer') || '—'} />
             <Row label="型号" value={boardModel || '—'} />
             <Row label="BIOS" value={strOf(board, 'bios', 'biosVersion') || '—'} />
@@ -241,25 +240,25 @@ function Group({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-line bg-elevated px-3 py-2.5">
-      <div className="mb-2 flex items-center gap-1.5 text-[11.5px] text-accent-soft">
+    <div className="min-w-0 rounded-lg border border-line bg-elevated px-2.5 py-1.5">
+      <div className="mb-1 flex items-center gap-1.5 text-[11.5px] text-accent-soft">
         {icon}
         <span className="truncate font-medium text-fg-soft" title={title}>
           {title}
         </span>
       </div>
-      <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">{children}</div>
+      <div className="grid grid-cols-1 gap-y-[3px]">{children}</div>
     </div>
   )
 }
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex min-w-0 items-baseline justify-between gap-3">
+    <div className="flex min-w-0 items-baseline gap-2 leading-tight">
       <span className="shrink-0 text-[11.5px] text-faint">{label}</span>
       <span
         className={clsx(
-          'num min-w-0 truncate text-right text-[12.5px] text-fg',
+          'num min-w-0 flex-1 truncate text-right text-[12px] text-fg',
           mono && 'font-mono text-[11.5px] tracking-tight',
         )}
         title={value}
@@ -271,5 +270,5 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
 }
 
 function Empty({ text }: { text: string }) {
-  return <p className="py-6 text-center text-[12.5px] text-muted">{text}</p>
+  return <p className="py-4 text-center text-[12.5px] text-muted">{text}</p>
 }
