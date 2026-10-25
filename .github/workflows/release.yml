@@ -238,12 +238,17 @@ jobs:
           find artifacts -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.dmg' \
             -o -name '*.deb' -o -name '*.AppImage' -o -name '*.apk' \
             -o -name 'landeck-agent-*' \) -exec cp {} out/ \;
-          cd out && sha256sum * > SHA256SUMS.txt && ls -la
+          # 先删掉各 job 带来的旧校验和：`sha256sum *` 会把刚重定向出的空文件也算进去
+          rm -f out/SHA256SUMS.txt
+          cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
 
-      - name: 创建 draft release
+      # draft: false —— 之前用 draft，结果是「发版了但用户看不到」，还得手动去后台点发布。
+      # 按项目规矩（未经批准只发预测试版），这里固定 prerelease，但**直接可见**。
+      - name: 发布 pre-release
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          name: "LanDeck ${{ github.ref_name }}（预测试版）"
+          draft: false
           prerelease: true
           files: out/*
           generate_release_notes: true
