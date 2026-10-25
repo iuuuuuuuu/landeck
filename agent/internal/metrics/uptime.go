@@ -33,9 +33,26 @@ type UptimeTotals struct {
 }
 
 type UptimeHistory struct {
-	Days   []UptimeDay  `json:"days"`
-	Boots  []BootEntry  `json:"boots"`
-	Totals UptimeTotals `json:"totals"`
+	Days   []UptimeDay   `json:"days"`
+	Months []UptimeMonth `json:"months"`
+	Boots  []BootEntry   `json:"boots"`
+	Totals UptimeTotals  `json:"totals"`
+}
+
+// UptimeMonth 按月聚合的开机统计。
+// 用户要求「开机统计按照月统计，不要只统计一周的」——按天铺 90 天太碎，
+// 按月给总量才看得出趋势。
+type UptimeMonth struct {
+	// Month 形如 2026-10
+	Month string `json:"month"`
+	// OnSec 当月累计开机秒数（跨月的会话按天切分后累加）
+	OnSec int64 `json:"onSec"`
+	// Boots 当月开机次数
+	Boots int `json:"boots"`
+	// AvgUptimeSec 当月平均单次开机时长
+	AvgUptimeSec int64 `json:"avgUptimeSec"`
+	// LongestSec 当月最长一次
+	LongestSec int64 `json:"longestSec"`
 }
 
 var (
@@ -46,8 +63,8 @@ var (
 
 // CachedHistory 平台事件日志读取代价大（Get-WinEvent / last），缓存 3 分钟。
 func CachedHistory(days int) UptimeHistory {
-	if days <= 0 || days > 90 {
-		days = 14
+	if days <= 0 || days > 400 {
+		days = 90
 	}
 	upMu.Lock()
 	if upCache != nil && time.Since(upAt) < 3*time.Minute && len(upCache.Days) == days {
@@ -171,6 +188,66 @@ func BuildHistory(events []RawEvent, now time.Time, days int) UptimeHistory {
 			Kind:      ev.Kind,
 			UptimeSec: uptime,
 		})
+	}
+
+	// 按月聚合：最近 12 个月，按时间正序。
+	// 跨月的会话要按天切开分别累加到各自月份，否则一个横跨月末的长开机
+	// 会被整段算进某一个月，另一个月凭空为 0。
+	{
+		months := make([]UptimeMonth, 0, 12)
+		byKey := map[string]*UptimeMonth{}
+		order := make([]string, 0, 12)
+		thisMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+		for i := 11; i >= 0; i-- {
+			m := thisMonth.AddDate(0, -i, 0)
+			key := m.Format("2006-01")
+			byKey[key] = &UptimeMonth{Month: key}
+			order = append(order, key)
+		}
+		for _, se := range sessions {
+			if se.end.Before(thisMonth.AddDate(0, -11, 0)) {
+				continue
+			}
+			// 逐月切分这段会话
+			cursor := se.start
+			for !cursor.After(se.end) {
+				monthStart := time.Date(cursor.Year(), cursor.Month(), 1, 0, 0, 0, 0, loc)
+				monthEnd := monthStart.AddDate(0, 1, 0)
+				segEnd := se.end
+				if segEnd.After(monthEnd) {
+					segEnd = monthEnd
+				}
+				segSec := int64(segEnd.Sub(cursor).Seconds())
+				key := monthStart.Format("2006-01")
+				if mm, ok := byKey[key]; ok {
+					if segSec > 0 {
+						mm.OnSec += segSec
+						if segSec > mm.LongestSec {
+							mm.LongestSec = segSec
+						}
+					}
+					// 开机次数记在会话真正开始的那个月
+					if se.start.Equal(cursor) || (se.start.After(monthStart) && se.start.Before(monthEnd)) {
+						mm.Boots++
+					}
+				}
+				if !segEnd.After(cursor) {
+					break
+				}
+				cursor = segEnd
+				if cursor.Equal(se.end) {
+					break
+				}
+			}
+		}
+		for _, key := range order {
+			mm := byKey[key]
+			if mm.Boots > 0 {
+				mm.AvgUptimeSec = mm.OnSec / int64(mm.Boots)
+			}
+			months = append(months, *mm)
+		}
+		out.Months = months
 	}
 
 	// 7 天总览

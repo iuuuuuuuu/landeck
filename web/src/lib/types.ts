@@ -248,8 +248,18 @@ export interface BootEvent {
   uptimeSec: number
 }
 
+/** 按月聚合的开机统计 */
+export interface UptimeMonth {
+  month: string
+  onSec: number
+  boots: number
+  avgUptimeSec: number
+  longestSec: number
+}
+
 export interface UptimeHistory {
   days: UptimeDay[]
+  months?: UptimeMonth[]
   boots: BootEvent[]
   totals: { onSec7d: number; boots7d: number; avgUptimeSec: number; longestSec: number }
 }

@@ -126,6 +126,43 @@ export async function nativeLocalIP(): Promise<string | undefined> {
   return undefined
 }
 
+/**
+ * 查出「本机正在运行的那个 Agent」的 id，用来把这一条从扫描结果里排掉。
+ *
+ * 为什么不按 IP 排：同一台机器上可能既跑 Agent 又要被自己控制，
+ * 按 IP 排除会把这台机器上的 Agent 全部藏起来，表现为「第一次能扫到，之后再扫就没了」。
+ */
+async function probeSelfId(invoke: TauriInvoke | null): Promise<string | null> {
+  // 原生壳：直接问 Rust（一次 UDP 探测，几百毫秒内出结果，不受 WebView 网络策略影响）
+  if (invoke) {
+    try {
+      const id = await invoke('self_agent_id')
+      if (typeof id === 'string' && id) return id
+      return null
+    } catch {
+      /* 命令不存在（老版本壳）就退回下面的 HTTP 探测 */
+    }
+  }
+  // 纯浏览器：只能试同源的 /api/v1/hello。同源一定通（页面就是从它加载的），
+  // 所以这里不再遍历 127.0.0.1 的各个端口 —— 那些跨源请求在手机浏览器上会被拦，
+  // 挂到超时反而拖慢整轮扫描。
+  if (typeof location === 'undefined') return null
+  try {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 900)
+    const res = await fetch('/api/v1/hello', {
+      signal: ctrl.signal,
+      headers: { Accept: 'application/json' },
+    })
+    clearTimeout(timer)
+    if (!res.ok) return null
+    const data = (await res.json()) as { id?: unknown }
+    return typeof data.id === 'string' && data.id ? data.id : null
+  } catch {
+    return null
+  }
+}
+
 async function scanNative(invoke: TauriInvoke): Promise<NodeInfo[]> {
   try {
     const res = await invoke('scan_lan')
@@ -139,27 +176,31 @@ async function scanNative(invoke: TauriInvoke): Promise<NodeInfo[]> {
 export async function scanLan(opts: ScanOptions): Promise<NodeInfo[]> {
   const { onNode, onProgress, concurrency = 64, timeoutMs = 620 } = opts
   const found = new Map<string, NodeInfo>()
-  const emit = (n: NodeInfo) => {
-    if (!n || typeof n.id !== 'string' || !n.id) return
-    // 本机（运行 Agent 的这台机器）不放进「局域网设备」列表：
-    // 它由「本机」页单独承载，混在待配对列表里只会让用户困惑。
-    if (n.self) return
-    if (n.ip && (selfIPs.has(n.ip) || n.ip === '127.0.0.1' || n.ip === '::1')) return
-    if (found.has(n.id)) return
-    found.set(n.id, n)
-    onNode(n)
-  }
-
   // 网段提示：URL 优先，其次问原生层（Tauri 下 hostname 是 tauri.localhost，推不出网段）
   const localIP = await nativeLocalIP()
   const hintHost = opts.hintHost ?? resolveHint(localIP)
   const exactHint = !!hintHost && isPrivateV4(hintHost)
   const invoke = tauriInvoke()
-  // 本机地址：URL 主机名 / 原生 IP 都算。用于把「自己」排除出待配对列表 ——
-  // 原生 UDP 帧里没有 self 字段，只能比 IP。
-  const selfIPs = new Set<string>()
-  if (localIP) selfIPs.add(localIP)
-  if (typeof location !== 'undefined' && location.hostname) selfIPs.add(location.hostname)
+  // 本机 Agent 的 id：只用来排掉「我自己」这一条，不影响同机器上的其它 Agent。
+  // 拿不到就不排除（宁可多显示一条，也不要扫不到）。
+  const selfId = await probeSelfId(invoke)
+
+  const emit = (n: NodeInfo) => {
+    if (!n || typeof n.id !== 'string' || !n.id) return
+    // 只排除「页面所在的这台机器上那个 Agent」，不能按 IP 整段排除。
+    //
+    // 踩过的坑：之前按 IP 比对 selfIPs，把整台机器的所有 Agent 都排掉了。
+    // 结果用户第一次扫描能看到自己的 PC，配对/刷新之后再扫就永远扫不到 ——
+    // 因为那个 Agent 恰好就跑在同一台机器上。
+    // 正确判据是「这条记录是不是我自己正在用的那个 Agent」：用 selfId 比 ID。
+    if (n.self) return
+    if (selfId && n.id === selfId) return
+    if (n.ip === '127.0.0.1' || n.ip === '::1') return
+    if (found.has(n.id)) return
+    found.set(n.id, n)
+    onNode(n)
+  }
+
 
   // 1) 原生 UDP 广播 + 2) HTTP 扫段，两条路并行跑，谁有结果都不影响另一条。
   //    早期版本在广播有结果时直接 return，导致「广播收到一半」就漏掉整段扫描。

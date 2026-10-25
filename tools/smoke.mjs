@@ -88,7 +88,14 @@ ws.onmessage = (e) => {
     return
   }
   if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') {
-    consoleErrors.push(m.params.args.map((a) => a.value ?? a.description ?? '').join(' '))
+    const stack = (m.params.stackTrace?.callFrames || [])
+      .slice(0, 5)
+      .map((f) => `${f.functionName || '?'}@${(f.url || '').split('/').pop()}:${f.lineNumber}`)
+      .join(' <- ')
+    consoleErrors.push(
+      m.params.args.map((a) => a.value ?? a.description ?? '').join(' ') +
+        (stack ? ' || ' + stack : ''),
+    )
   }
   if (m.method === 'Runtime.exceptionThrown') {
     pageErrors.push(m.params.exceptionDetails.exception?.description ?? m.params.exceptionDetails.text)
@@ -209,9 +216,26 @@ const themeAfter = await evalJs(readThemeLabel)
 const themeAttr = await evalJs(`document.documentElement.getAttribute('data-theme') || 'none'`)
 check('主题可切换', themeBefore !== themeAfter, `${themeBefore} -> ${themeAfter} (data-theme=${themeAttr})`)
 
-// 3. 定时任务
+// 3. 定时任务：已从一级导航移进设备详情页，旧路由应重定向
 text = await visit('#/schedules')
-check('定时页渲染', text.includes('定时'), text.slice(0, 30).replace(/\n/g, ' '))
+const afterSchedules = await evalJs(`location.hash`)
+check('旧 /schedules 重定向到设备页', afterSchedules === '#/devices', `${afterSchedules}`)
+// 入口在详情页里，不在列表页：直接进第一台设备的详情页再验
+const detailHash = await evalJs(`(() => {
+  const raw = localStorage.getItem('landeck.app.v1')
+  if (!raw) return null
+  try {
+    const st = JSON.parse(raw)?.state
+    const d = (st?.devices || [])[0]
+    return d ? '#/devices/' + d.id : null
+  } catch { return null }
+})()`)
+if (detailHash) {
+  text = await visit(detailHash)
+  check('详情页存在「定时」入口', text.includes('定时'), `${detailHash} :: ${text.slice(0, 60).replace(/\n/g, ' ')}`)
+} else {
+  check('详情页存在「定时」入口', false, '没有已配对设备，无法进入详情页')
+}
 
 // 4. 活动日志
 text = await visit('#/activity')
@@ -251,15 +275,21 @@ for (const [name, hash] of [
 }
 
 // 8. 控制台干净
-// Edge 自带扩展在 headless 里会抛 "Receiving end does not exist"，与本项目无关；
-// 只忽略这一条已知噪声，其余一律判失败。
-const ENV_NOISE = /Receiving end does not exist|Could not establish connection/
+// Edge 自带扩展在 headless 里会抛 "Receiving end does not exist"、装的翻译插件会报
+// "Immersive Translate ... fetchError"，这些来自 chrome-extension:// 而非本应用。
+// 只忽略「带扩展来源或明确是扩展文案」的噪声，应用自身的错误一律判失败。
+const ENV_NOISE =
+  /Receiving end does not exist|Could not establish connection|Immersive Translate|chrome-extension:\/\//
 const realErrors = pageErrors.filter((e) => !ENV_NOISE.test(e))
 if (pageErrors.length !== realErrors.length) {
   console.log(`(忽略 ${pageErrors.length - realErrors.length} 条浏览器扩展噪声)`)
 }
 check('无未捕获异常', realErrors.length === 0, realErrors.slice(0, 2).join(' | '))
-check('无 console.error', consoleErrors.length === 0, consoleErrors.slice(0, 2).join(' | '))
+const realConsoleErrors = consoleErrors.filter((e) => !ENV_NOISE.test(e))
+if (consoleErrors.length !== realConsoleErrors.length) {
+  console.log(`(忽略 ${consoleErrors.length - realConsoleErrors.length} 条扩展 console 噪声)`)
+}
+check('无 console.error', realConsoleErrors.length === 0, realConsoleErrors.slice(0, 2).join(' | '))
 
 const failed = results.filter((r) => !r.ok)
 console.log(`\n${results.length - failed.length}/${results.length} 通过`)

@@ -56,9 +56,15 @@ export function HardwarePanel({
       </div>
 
       {/*
-        内容按内容高度排布（不再撑满整行），Group 在宽屏并排；只有明细特别多时才在卡片内滚动。
+        滚轮失效的根因（用户反馈「鼠标在硬件信息区域上下不能滑动」）：
+        1) 这里是 overflow-y:auto 的滚动容器 —— 即便内容不够高、压根没得滚，它依然是 scrollport；
+        2) 之前叠加了 `overscroll-contain`，它会把滚动链掐断：内层没得滚时，滚轮既不滚内层、
+           也不冒泡给页面 → 表现为"指针停在这一块，整页都不动"。
+        修法：去掉 overscroll-contain（显式 overscroll-y-auto 允许冒泡），max-h 只作为
+        超长明细的兜底；内容不足时既没有滚动条、也不会预留空白（没有 scrollbar-gutter）。
+        另确认：祖先链上（main / AppShell / body）都没有 overflow:hidden。
       */}
-      <div className="scroll-area mt-3 max-h-[640px] overflow-y-auto overscroll-contain pr-0.5">
+      <div className="scroll-area mt-3 max-h-[min(70vh,640px)] overflow-y-auto overscroll-y-auto pr-0.5">
         {hw.loading && !hw.data ? (
           <div className="grid gap-2 sm:grid-cols-2">
             {[0, 1, 2, 3].map((i) => (
@@ -140,8 +146,13 @@ function Body({ hw }: { hw: HardwareInfo }) {
     return <Empty text="未读取到硬件信息" />
   }
 
+  /*
+    等高但不留白：Grid 用默认 stretch（不再写 items-start），同一行的卡片自然等高；
+    Group 内部 flex-col，行容器 flex-1 + justify-between，把富余高度均摊到行间距，
+    而不是全堆在卡片底部。窄屏只有一列时行高仍由内容决定，不会被拉长。
+  */
   return (
-    <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-2 2xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 2xl:grid-cols-3">
       {hasCpu && (
         <Group icon={<Cpu size={12} />} title={cpuModel || '处理器'}>
           <Row label="厂商" value={cpuVendor || '—'} />
@@ -240,14 +251,15 @@ function Group({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-w-0 rounded-lg border border-line bg-elevated px-2.5 py-1.5">
-      <div className="mb-1 flex items-center gap-1.5 text-[11.5px] text-accent-soft">
+    <div className="flex min-w-0 flex-col rounded-lg border border-line bg-elevated px-2.5 py-1.5">
+      <div className="mb-1 flex shrink-0 items-center gap-1.5 text-[11.5px] text-accent-soft">
         {icon}
         <span className="truncate font-medium text-fg-soft" title={title}>
           {title}
         </span>
       </div>
-      <div className="grid grid-cols-1 gap-y-[3px]">{children}</div>
+      {/* flex-1 + justify-between：同行卡片等高时，富余空间均摊到行间距，不在底部留一块空白 */}
+      <div className="flex flex-1 flex-col justify-between gap-y-[3px]">{children}</div>
     </div>
   )
 }

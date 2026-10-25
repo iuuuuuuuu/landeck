@@ -172,7 +172,7 @@ export class AgentClient {
     return this.req<HardwareInfo>('/hardware', { timeoutMs: 20000 })
   }
 
-  uptime(days = 14) {
+  uptime(days = 90) {
     return this.req<UptimeHistory>(`/uptime/history?days=${days}`, { timeoutMs: 20000 })
   }
 

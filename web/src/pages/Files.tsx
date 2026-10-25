@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react'
 import { Button, Card, EmptyState, Skeleton } from '../components/ui'
-import { FolderTree, ShieldAlert } from 'lucide-react'
+import { FolderTree, RotateCw, ShieldAlert } from 'lucide-react'
+import type { AgentClient } from '../lib/api'
+import type { PairedDevice } from '../store/app'
 import { LOCAL_DOWN_HINT, useActiveTarget } from '../lib/useActiveTarget'
 import { useFetch } from '../components/device/useFetch'
 import { DeviceSelect } from '../components/device/DeviceSelect'
@@ -19,19 +21,23 @@ function localError(err: unknown): { title: string; desc: string } {
   return { title: '本机被控端无响应', desc: `${LOCAL_DOWN_HINT}（${errText(err)}）` }
 }
 
-/** 文件管理页：设备选择（含本机）+ 根目录 / 目录浏览，功能开关关掉时整块提示 */
-export default function Files() {
-  const { devices, deviceId, setDeviceId, isLocal, pairedCount, client } = useActiveTarget()
-  // 401 记在「哪个目标上」：换目标后自动失效，不用 effect 去清，也不会被旧结果卡住
-  const [authLostFor, setAuthLostFor] = useState<string | null>(null)
-  const authLost = authLostFor === deviceId
-
+/**
+ * 文件管理面板：只针对传入的这台设备，不再让用户在弹层里选设备。
+ * 设备详情页的抽屉与（历史）独立页面共用这一份实现。
+ */
+export function FilesPanel({
+  device,
+  client,
+  isLocal = false,
+  onAuthError,
+}: {
+  device: PairedDevice
+  client: AgentClient
+  isLocal?: boolean
+  onAuthError?: () => void
+}) {
   /** 目标身份：换设备 / 换令牌都要重新拉数据 */
-  const targetKey = [deviceId, client.target.host, client.target.port, client.token]
-  /** 本机的 401 不是「配对失效」，没有重新配对这回事，别整页劫持 */
-  const onAuthError = useCallback(() => {
-    if (!isLocal) setAuthLostFor(deviceId)
-  }, [isLocal, deviceId])
+  const targetKey = [device.id, client.target.host, client.target.port, client.token]
 
   const sys = useFetch(() => client.system(), targetKey, onAuthError)
   const filesOn = sys.data?.features?.files !== false
@@ -42,33 +48,29 @@ export default function Files() {
     onAuthError,
   )
 
-  if (authLost) return <AuthLost />
-
   return (
     <div className="space-y-3">
-      <Card padded={false} className="flex flex-wrap items-center gap-2 p-2.5">
-        <DeviceSelect devices={devices} value={deviceId} onChange={setDeviceId} />
-        {pairedCount === 0 && (
-          <span className="text-[11.5px] text-faint">还没有已配对的设备，当前显示本机</span>
-        )}
-        <span className="hidden items-center gap-1.5 text-[11.5px] text-faint sm:inline-flex">
-          <FolderTree size={12} />
-          浏览、下载、上传、新建目录、重命名与删除
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex min-w-0 items-center gap-1.5 text-[11.5px] text-faint">
+          <FolderTree size={12} className="shrink-0" />
+          <span className="truncate">浏览、下载、上传、新建目录、重命名与删除</span>
         </span>
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="secondary"
-            className="h-10"
-            onClick={() => {
-              sys.reload()
-              roots.reload()
-            }}
-            disabled={sys.loading || roots.loading}
-          >
-            刷新
-          </Button>
-        </div>
-      </Card>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="ml-auto h-9"
+          icon={
+            <RotateCw size={13} className={sys.loading || roots.loading ? 'animate-spin' : undefined} />
+          }
+          onClick={() => {
+            sys.reload()
+            roots.reload()
+          }}
+          disabled={sys.loading || roots.loading}
+        >
+          刷新
+        </Button>
+      </div>
 
       {sys.loading && !sys.data ? (
         <Card>
@@ -111,7 +113,7 @@ export default function Files() {
               <Button
                 variant="secondary"
                 onClick={() => {
-                  if (isAuthError(roots.error)) onAuthError()
+                  if (isAuthError(roots.error)) onAuthError?.()
                   roots.reload()
                 }}
               >
@@ -130,13 +132,43 @@ export default function Files() {
         </Card>
       ) : (
         <FileBrowser
-          key={deviceId}
+          key={device.id}
           client={client}
           allowWrite={roots.data?.allowWrite === true}
           roots={roots.data?.roots ?? []}
           onAuthError={onAuthError}
         />
       )}
+    </div>
+  )
+}
+
+/**
+ * 历史独立页：路由已重定向到 /devices，这里保留页面外壳（含设备下拉 + 本机目标），
+ * 方便以后从别处再次挂载，也保证本文件自洽。
+ */
+export default function Files() {
+  const { devices, device, deviceId, setDeviceId, isLocal, pairedCount, client } = useActiveTarget()
+  // 401 记在「哪个目标上」：换目标后自动失效，不用 effect 去清，也不会被旧结果卡住
+  const [authLostFor, setAuthLostFor] = useState<string | null>(null)
+  const authLost = authLostFor === deviceId
+
+  /** 本机的 401 不是「配对失效」，没有重新配对这回事，别整页劫持 */
+  const onAuthError = useCallback(() => {
+    if (!isLocal) setAuthLostFor(deviceId)
+  }, [isLocal, deviceId])
+
+  if (authLost) return <AuthLost />
+
+  return (
+    <div className="space-y-3">
+      <Card padded={false} className="flex flex-wrap items-center gap-2 p-2.5">
+        <DeviceSelect devices={devices} value={deviceId} onChange={setDeviceId} />
+        {pairedCount === 0 && (
+          <span className="text-[11.5px] text-faint">还没有已配对的设备，当前显示本机</span>
+        )}
+      </Card>
+      <FilesPanel device={device} client={client} isLocal={isLocal} onAuthError={onAuthError} />
     </div>
   )
 }

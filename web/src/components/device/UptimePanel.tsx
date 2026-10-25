@@ -35,7 +35,7 @@ export function UptimePanel({
   const hist = useAsync(
     client
       ? () =>
-          client.uptime(14).catch((e: unknown) => {
+          client.uptime(90).catch((e: unknown) => {
             if (isAuthError(e)) onAuthError?.()
             throw e
           })
@@ -45,12 +45,14 @@ export function UptimePanel({
 
   const theme = useThemeStore((st) => st.theme)
   const days = hist.data?.days ?? []
-  // 交给 echarts 画：y 轴固定 0–24h，柱高就是真实占比（手写版没有刻度，看着全一样高）
-  const bars = days.map((d) => ({
-    date: d.date,
-    label: d.date.slice(5),
-    onSec: d.onSec,
-    boots: d.boots,
+  const months = hist.data?.months ?? []
+  // 主视图按月：用户要求「开机统计按照月统计，不要只统计一周的」。
+  // 柱子高度按当月累计开机时长，标签用 10月 这种短格式。
+  const bars = months.map((m) => ({
+    date: m.month,
+    label: `${Number(m.month.slice(5))}月`,
+    onSec: m.onSec,
+    boots: m.boots,
   }))
   const events = [...(hist.data?.boots ?? [])]
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
@@ -62,7 +64,7 @@ export function UptimePanel({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-[15px] font-semibold text-fg">开机统计</h3>
-          <p className="mt-0.5 text-[12px] text-muted">近 14 天，按系统事件日志聚合</p>
+          <p className="mt-0.5 text-[12px] text-muted">近 12 个月，按系统事件日志聚合</p>
         </div>
         <button
           type="button"
@@ -92,7 +94,7 @@ export function UptimePanel({
           </div>
           <Skeleton className="h-24 w-full" />
         </div>
-      ) : !hist.data || days.length === 0 ? (
+      ) : !hist.data || (months.length === 0 && days.length === 0) ? (
         <p className="py-8 text-center text-[12.5px] text-muted">暂无开机记录</p>
       ) : (
         <div className="mt-4 grid gap-4 lg:grid-cols-12">
@@ -107,7 +109,7 @@ export function UptimePanel({
               </div>
               {bars.length > 0 ? (
                 <Suspense fallback={<Skeleton className="h-[200px] w-full" />}>
-                  <UptimeBarChart data={bars} height={200} theme={theme} />
+                  <UptimeBarChart data={bars} height={200} theme={theme} monthly />
                 </Suspense>
               ) : (
                 <Skeleton className="h-[200px] w-full" />

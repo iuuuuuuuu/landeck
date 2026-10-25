@@ -1,7 +1,9 @@
 import { useCallback, useState } from 'react'
 import { Button, Card, EmptyState, Modal, Skeleton } from '../components/ui'
 import { CalendarClock, Plus, RotateCw } from 'lucide-react'
+import type { AgentClient } from '../lib/api'
 import type { Schedule } from '../lib/types'
+import type { PairedDevice } from '../store/app'
 import { useApp } from '../store/app'
 import { LOCAL_DOWN_HINT, useActiveTarget } from '../lib/useActiveTarget'
 import { useFetch } from '../components/device/useFetch'
@@ -11,14 +13,22 @@ import { ScheduleModal } from '../components/device/ScheduleModal'
 import { AuthLost } from '../components/device/AuthLost'
 import { errText, isAuthError } from '../components/device/apiHelpers'
 
-/** 定时任务页：目标（含本机）+ 任务列表 + 新建 / 编辑 / 删除编排 */
-export default function Schedules() {
-  const { devices, deviceId, setDeviceId, isLocal, pairedCount, client } = useActiveTarget()
+/**
+ * 定时任务面板：任务列表 + 新建 / 编辑 / 启停 / 删除。
+ * 只针对传入的这台设备，不再让用户在弹层里选设备。
+ */
+export function SchedulesPanel({
+  device,
+  client,
+  isLocal = false,
+  onAuthError,
+}: {
+  device: PairedDevice
+  client: AgentClient
+  isLocal?: boolean
+  onAuthError?: () => void
+}) {
   const toast = useApp((s) => s.toast)
-
-  const [authLostFor, setAuthLostFor] = useState<string | null>(null)
-  /** 401 记在具体目标上：换目标自动失效 */
-  const authLost = authLostFor === deviceId
   const [busyId, setBusyId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [editor, setEditor] = useState<{ open: boolean; target: Schedule | null }>({
@@ -27,14 +37,9 @@ export default function Schedules() {
   })
   const [deleting, setDeleting] = useState<Schedule | null>(null)
 
-  /** 本机的 401 不是「配对失效」，没有重新配对这回事 */
-  const onAuthError = useCallback(() => {
-    if (!isLocal) setAuthLostFor(deviceId)
-  }, [isLocal, deviceId])
-
   const list = useFetch(
     () => client.schedules(),
-    [deviceId, client.target.host, client.target.port, client.token],
+    [device.id, client.target.host, client.target.port, client.token],
     onAuthError,
   )
   const items = list.data?.items ?? []
@@ -47,14 +52,14 @@ export default function Schedules() {
         toast({ kind: 'ok', title: next.enabled ? '任务已启用' : '任务已暂停' })
         list.reload()
       } catch (e) {
-        if (isAuthError(e)) onAuthError()
+        if (isAuthError(e)) onAuthError?.()
         toast({ kind: 'error', title: '更新失败', desc: errText(e) })
       } finally {
         setBusyId(null)
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [client, list, toast],
+    [client, list, toast, onAuthError],
   )
 
   const save = async (draft: Omit<Schedule, 'id'>) => {
@@ -66,7 +71,7 @@ export default function Schedules() {
       setEditor({ open: false, target: null })
       list.reload()
     } catch (e) {
-      if (isAuthError(e)) onAuthError()
+      if (isAuthError(e)) onAuthError?.()
       toast({ kind: 'error', title: '保存失败', desc: errText(e) })
     } finally {
       setSaving(false)
@@ -81,22 +86,16 @@ export default function Schedules() {
       toast({ kind: 'ok', title: '任务已删除' })
       list.reload()
     } catch (e) {
-      if (isAuthError(e)) onAuthError()
+      if (isAuthError(e)) onAuthError?.()
       toast({ kind: 'error', title: '删除失败', desc: errText(e) })
     } finally {
       setBusyId(null)
     }
   }
 
-  if (authLost) return <AuthLost />
-
   return (
     <div className="space-y-3">
-      <Card padded={false} className="flex flex-wrap items-center gap-2 p-2.5">
-        <DeviceSelect devices={devices} value={deviceId} onChange={setDeviceId} />
-        {pairedCount === 0 && (
-          <span className="text-[11.5px] text-faint">还没有已配对的设备，当前显示本机</span>
-        )}
+      <div className="flex flex-wrap items-center gap-2">
         <span className="hidden text-[11.5px] text-faint sm:inline">
           共 <span className="num text-fg-soft">{items.length}</span> 个任务
         </span>
@@ -118,7 +117,7 @@ export default function Schedules() {
             新建
           </Button>
         </div>
-      </Card>
+      </div>
 
       <div>
         {list.loading && !list.data ? (
@@ -199,6 +198,35 @@ export default function Schedules() {
           </>
         }
       />
+    </div>
+  )
+}
+
+/**
+ * 历史独立页：路由已重定向到 /devices，保留页面外壳（设备下拉 + 本机目标），
+ * 方便以后再次挂载，也保证本文件自洽。
+ */
+export default function Schedules() {
+  const { devices, device, deviceId, setDeviceId, isLocal, pairedCount, client } = useActiveTarget()
+  const [authLostFor, setAuthLostFor] = useState<string | null>(null)
+  const authLost = authLostFor === deviceId
+
+  /** 本机的 401 不是「配对失效」，没有重新配对这回事 */
+  const onAuthError = useCallback(() => {
+    if (!isLocal) setAuthLostFor(deviceId)
+  }, [isLocal, deviceId])
+
+  if (authLost) return <AuthLost />
+
+  return (
+    <div className="space-y-3">
+      <Card padded={false} className="flex flex-wrap items-center gap-2 p-2.5">
+        <DeviceSelect devices={devices} value={deviceId} onChange={setDeviceId} />
+        {pairedCount === 0 && (
+          <span className="text-[11.5px] text-faint">还没有已配对的设备，当前显示本机</span>
+        )}
+      </Card>
+      <SchedulesPanel device={device} client={client} isLocal={isLocal} onAuthError={onAuthError} />
     </div>
   )
 }
