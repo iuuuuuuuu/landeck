@@ -45,6 +45,7 @@ Thumbs.db
 app/src-tauri/gen/android/.gradle/
 app/src-tauri/gen/android/build/
 app/src-tauri/gen/android/app/build/
+app/src-tauri/gen/android/app/src/main/assets/
 app/src-tauri/gen/android/local.properties
 app/src-tauri/gen/android/*.keystore
 app/src-tauri/gen/android/keystore.properties
