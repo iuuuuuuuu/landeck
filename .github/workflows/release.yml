@@ -113,6 +113,11 @@ jobs:
       # 客户端安装包里要带被控端：CI 里没有这个二进制（.gitignore 排除），
       # 所以打包前按当前平台现编一份放进 resources/。
       # macOS 出的是 universal 包，被控端也要 lipo 成 universal，否则另一半架构跑不起来。
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: agent/go.sum
+
       - name: 准备被控端
         shell: bash
         run: |
