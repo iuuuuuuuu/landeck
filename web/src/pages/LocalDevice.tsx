@@ -2,26 +2,44 @@ import { useEffect, useMemo, useState } from 'react'
 import { Cpu, HardDrive, Info, MonitorSmartphone, RefreshCw, Wifi } from 'lucide-react'
 import { Badge, Button, Card, DeviceAvatar, Gauge, SectionTitle, Skeleton, Stat } from '../components/ui'
 import { HardwarePanel } from '../components/device/HardwarePanel'
-import { LocalPairingCard } from '../components/device/LocalPairingCard'
+import { PhoneSelfPanel } from '../components/device/PhoneSelfPanel'
+import { PairingSecurityCard } from '../components/pair/PairingSecurityCard'
 import { UptimePanel } from '../components/device/UptimePanel'
 import { AgentClient, ApiError } from '../lib/api'
 import { bytes, dateTime, duration, osLabel } from '../lib/format'
 import { useAsync, useLive } from '../lib/hooks'
 import { agentStart, agentStatus } from '../lib/discovery'
 import { DEFAULT_PORT } from '../lib/discovery'
+import { isPhoneOS, useRuntime } from '../lib/runtime'
 import type { SystemInfo } from '../lib/types'
 import { useApp } from '../store/app'
 
 /**
  * 「本机」页：展示**当前这台机器**的信息，不需要配对。
  *
- * 为什么单独做一页：控制端和被控 Agent 可能跑在同一台机器上，
- * 这时「扫描局域网」不该把自己列成待配对设备（用户会被自己搞糊涂），
- * 但用户又确实想看看这台机器的情况 —— 所以给它一个独立入口。
+ * 这里按运行环境分成两种形态：
+ *   1. 桌面端 / 浏览器（'desktop' | 'web'）—— 读 127.0.0.1 上本机被控端的系统、
+ *      硬件、实时状态，被控端没起来还能一键启动它。
+ *   2. 手机（'android' | 'ios'）—— 手机跑不了被控端（agent_start 是桌面端专属命令，
+ *      移动端只有返回 Err 的桩），请求 127.0.0.1 必然失败，点了也只会弹
+ *      「手机上不能启动本机被控端」。所以手机上换成 PhoneSelfPanel，
+ *      用 Web API 展示这台手机自己的信息，既不调 agentStatus/agentStart，
+ *      也不渲染「这台电脑上还没有运行被控端」那张卡。
  *
  * 免令牌依据：Agent 对 loopback 请求放行（本机 = 已经掌握这台机器）。
  */
 export default function LocalDevice() {
+  const runtime = useRuntime()
+  // 手机分支提前返回：下面的 LocalAgentView 一个 hook 都不会执行，
+  // 也就不会连 127.0.0.1、不会调 agent_start。
+  // 用 isPhoneOS 而不是只看 runtime：手机浏览器打开时 runtime 是 'web'，
+  // 但那台手机同样跑不了被控端，硬套桌面视图只会显示一片「连不上」。
+  if (runtime === 'android' || runtime === 'ios' || isPhoneOS()) return <PhoneSelfPanel />
+  return <LocalAgentView />
+}
+
+/** 桌面端 / 桌面浏览器的「本机」页：这台电脑上被控端的实时信息 */
+function LocalAgentView() {
   const toast = useApp((s) => s.toast)
   const [port, setPort] = useState(DEFAULT_PORT)
   const [nonce, setNonce] = useState(0)
@@ -295,7 +313,7 @@ export default function LocalDevice() {
       {!offline && (
         <>
           <HardwarePanel client={client} />
-          <LocalPairingCard client={client} />
+          <PairingSecurityCard device={device as never} />
           <UptimePanel client={client} />
         </>
       )}

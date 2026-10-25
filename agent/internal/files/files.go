@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -75,9 +76,13 @@ func detectRoots() []string {
 			}
 		}
 	}
-	// Windows 盘符
-	if vol := os.Getenv("SystemDrive"); vol != "" {
-		out = append(out, vol+string(os.PathSeparator))
+	// Windows 全部本地盘符（C/D/E…）。
+	// 之前只放了 %SystemDrive%，用户反馈「文件只能看 C 盘、其他盘没识别到」。
+	// 用 GetLogicalDrives 位掩码而不是 A-Z os.Stat：既快又不会因为空光驱位卡顿。
+	if runtime.GOOS == "windows" {
+		for _, root := range windowsDrives() {
+			out = append(out, root)
+		}
 	}
 	return dedupe(out)
 }

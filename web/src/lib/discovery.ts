@@ -1,4 +1,5 @@
 import { probeNode } from './api'
+import { detectRuntime } from './runtime'
 import type { NodeInfo } from './types'
 
 /**
@@ -48,20 +49,50 @@ function isPrivateV4(ip: string): boolean {
   const parts = ip.split('.').map(Number)
   if (parts.length !== 4 || parts.some((p) => !Number.isFinite(p))) return false
   const [a, b] = parts
+  // 0.x / 127.x / 169.254.x（链路本地）/ 100.64-127.x（运营商 CGNAT）都不是
+  // 「用户自己的局域网」—— 安卓蜂窝网最常见的就是这两种，扫它们纯属浪费时间。
+  if (a === 0 || a === 127) return false
+  if (a === 169 && b === 254) return false
+  if (a === 100 && b >= 64 && b <= 127) return false
   return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)
 }
 
-/** 由提示地址推导待扫列表（/24），提示主机排最前 */
-export function candidatesFromHint(hintHost?: string): string[] {
-  if (!hintHost || !isPrivateV4(hintHost)) return []
-  const base = hintHost.split('.').slice(0, 3).join('.')
-  const self = Number(hintHost.split('.')[3])
-  const list: string[] = [hintHost]
+/** 兜底网段：主流家用/办公私有网段，按命中概率排序 */
+export const FALLBACK_SUBNETS = [
+  '192.168.1',
+  '192.168.0',
+  '192.168.31',
+  '10.0.0',
+  '172.16.0',
+]
+
+/** 某个 /24 里 1..254 的主机地址，可跳过指定末位 */
+function slash24Hosts(base: string, skipHost?: number): string[] {
+  const list: string[] = []
   for (let i = 1; i <= 254; i++) {
-    if (i === self) continue
+    if (i === skipHost) continue
     list.push(`${base}.${i}`)
   }
   return list
+}
+
+/** 不知道自己在哪个网段时，退化成扫几个常见内网 /24 */
+export function fallbackCandidates(): string[] {
+  return FALLBACK_SUBNETS.flatMap((base) => slash24Hosts(base))
+}
+
+/**
+ * 由提示地址推导待扫列表（/24），提示主机排最前。
+ *
+ * 拿不到提示地址时不再返回空表：安卓原生壳里 `local_ip` 可能失败
+ * （只连了蜂窝/VPN、网卡名不认识、权限被限制），返回空表就等于「一台上网设备都扫不到」。
+ * 这时退化成扫常见私有网段的 /24，至少还有机会命中用户家里的路由器网段。
+ */
+export function candidatesFromHint(hintHost?: string): string[] {
+  if (!hintHost || !isPrivateV4(hintHost)) return fallbackCandidates()
+  const base = hintHost.split('.').slice(0, 3).join('.')
+  const self = Number(hintHost.split('.')[3])
+  return [hintHost, ...slash24Hosts(base, self)]
 }
 
 export function ownHint(): string | undefined {
@@ -122,6 +153,7 @@ export async function scanLan(opts: ScanOptions): Promise<NodeInfo[]> {
   // 网段提示：URL 优先，其次问原生层（Tauri 下 hostname 是 tauri.localhost，推不出网段）
   const localIP = await nativeLocalIP()
   const hintHost = opts.hintHost ?? resolveHint(localIP)
+  const exactHint = !!hintHost && isPrivateV4(hintHost)
   const invoke = tauriInvoke()
   // 本机地址：URL 主机名 / 原生 IP 都算。用于把「自己」排除出待配对列表 ——
   // 原生 UDP 帧里没有 self 字段，只能比 IP。
@@ -143,16 +175,35 @@ export async function scanLan(opts: ScanOptions): Promise<NodeInfo[]> {
   }
 
   const hosts = candidatesFromHint(hintHost)
-  if (hosts.length > 0) {
+  // 兜底网段只在「原生壳里确实拿不到本机 IP」时才扫（安卓/iOS 才需要）：
+  // 纯浏览器打开一个非内网地址（localhost / 域名）时盲扫内网没有意义，仍交给手动添加；
+  // 桌面端 local_ip 正常时也不会走到这里，行为与之前一致。
+  const runtime = detectRuntime()
+  const mobileShell = runtime === 'android' || runtime === 'ios'
+  const sweep = hosts.length > 0 && (exactHint || (!!invoke && mobileShell))
+
+  if (sweep) {
+    // 兜底网段命中率低，只探默认端口：否则手机上要发 2500+ 个请求，
+    // 拖十几秒还没结果，用户只会觉得「扫描卡住了」。
+    const ports = exactHint ? COMMON_PORTS : [COMMON_PORTS[0]]
     jobs.push(
       (async () => {
         const tasks: { host: string; port: number; tls: boolean }[] = []
         for (const host of hosts) {
-          for (const p of COMMON_PORTS) tasks.push({ host, ...p })
+          for (const p of ports) tasks.push({ host, ...p })
         }
         let done = 0
         let cursor = 0
+        let lastTick = 0
         onProgress?.(0, tasks.length)
+        // 节流：每 120ms 或每 16 个任务才汇报一次。
+        // 之前每个任务都 setState，700+ 次重渲染会把切页拖到卡死。
+        const tick = (force = false) => {
+          const now = Date.now()
+          if (!force && now - lastTick < 120 && done % 16 !== 0) return
+          lastTick = now
+          onProgress?.(done, tasks.length)
+        }
         async function worker() {
           while (cursor < tasks.length) {
             if (opts.signal?.aborted) return
@@ -160,14 +211,16 @@ export async function scanLan(opts: ScanOptions): Promise<NodeInfo[]> {
             const node = await probeNode(t.host, t.port, t.tls, timeoutMs, opts.signal)
             done++
             if (node) emit({ ...node, ip: node.ip || t.host, port: t.port, tls: t.tls })
-            onProgress?.(done, tasks.length)
+            tick()
           }
         }
         await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker))
+        tick(true)
       })(),
     )
-  } else if (!invoke) {
-    // 浏览器里打开的不是内网地址（localhost / 域名），无网段可扫 —— 交给页面提示手动填 IP
+  } else {
+    // 没有可用网段（纯浏览器打开 localhost / 域名）：0/0 告诉页面「扫不了段」，
+    // 界面会给出「手动填 IP」的兜底。
     onProgress?.(0, 0)
   }
 

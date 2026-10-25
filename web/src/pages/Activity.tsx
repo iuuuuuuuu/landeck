@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Badge, Button, Card, EmptyState, Skeleton } from '../components/ui'
 import { History, RotateCw, TriangleAlert } from 'lucide-react'
 import type { ActivityItem } from '../lib/types'
-import { useApp } from '../store/app'
-import { useClient } from '../lib/hooks'
+import { LOCAL_DOWN_HINT, useActiveTarget } from '../lib/useActiveTarget'
 import { DeviceSelect } from '../components/device/DeviceSelect'
 import { AuthLost } from '../components/device/AuthLost'
 import { errText, isAuthError } from '../components/device/apiHelpers'
@@ -11,15 +10,9 @@ import { actionLabel, dateTime } from '../lib/format'
 
 const PAGE = 50
 
+/** 活动日志页：目标（含本机）+ 按天分组的时间线，滚动加载更多 */
 export default function Activity() {
-  const devices = useApp((s) => s.devices)
-  const activeId = useApp((s) => s.activeId)
-  const [deviceId, setDeviceId] = useState<string | null>(activeId ?? devices[0]?.id ?? null)
-  const device = useMemo(
-    () => devices.find((d) => d.id === deviceId) ?? devices[0] ?? null,
-    [devices, deviceId],
-  )
-  const client = useClient(device)
+  const { devices, deviceId, setDeviceId, isLocal, pairedCount, client } = useActiveTarget()
 
   const [items, setItems] = useState<ActivityItem[]>([])
   const itemsRef = useRef<ActivityItem[]>([])
@@ -27,15 +20,17 @@ export default function Activity() {
   const [more, setMore] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<unknown>(null)
-  const [authLost, setAuthLost] = useState(false)
+  // 401 记在具体目标上：换目标自动失效，不用 effect 去清
+  const [authLostFor, setAuthLostFor] = useState<string | null>(null)
+  const authLost = authLostFor === deviceId
 
-  useEffect(() => {
-    if (device && device.id !== deviceId) setDeviceId(device.id)
-  }, [device, deviceId])
+  /** 本机的 401 不是「配对失效」，不整页劫持 */
+  const onAuthError = useCallback(() => {
+    if (!isLocal) setAuthLostFor(deviceId)
+  }, [isLocal, deviceId])
 
   const load = useCallback(
     async (mode: 'reset' | 'more') => {
-      if (!client) return
       if (mode === 'reset') {
         setLoading(true)
         setError(null)
@@ -56,24 +51,26 @@ export default function Activity() {
         }
         setDone(batch.length < PAGE)
       } catch (e) {
-        if (isAuthError(e)) setAuthLost(true)
+        if (isAuthError(e)) onAuthError()
         setError(e)
       } finally {
         setLoading(false)
         setMore(false)
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [client],
   )
 
+  // 切目标：清空旧记录，再按新目标重新拉第一页
   useEffect(() => {
     itemsRef.current = []
     setItems([])
     setDone(false)
     setError(null)
-    if (client) void load('reset')
+    void load('reset')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client?.target.host, client?.target.port, client?.token])
+  }, [deviceId, client.target.host, client.target.port, client.token])
 
   const groups = useMemo(() => {
     const out: { key: string; items: ActivityItem[] }[] = []
@@ -90,39 +87,28 @@ export default function Activity() {
 
   return (
     <div className="space-y-3">
-      {devices.length > 0 && (
-        <Card padded={false} className="flex flex-wrap items-center gap-2 p-2.5">
-          <DeviceSelect
-            devices={devices}
-            value={device?.id ?? null}
-            onChange={setDeviceId}
-          />
-          <span className="hidden text-[11.5px] text-faint sm:inline">
-            共 <span className="num text-fg-soft">{items.length}</span> 条记录
-          </span>
-          <div className="ml-auto flex items-center gap-2">
-            <Button
-              variant="secondary"
-              className="h-10 w-10 shrink-0 p-0"
-              aria-label="刷新日志"
-              onClick={() => void load('reset')}
-              disabled={loading || !client}
-            >
-              <RotateCw size={14} className={loading ? 'animate-spin' : undefined} />
-            </Button>
-          </div>
-        </Card>
-      )}
+      <Card padded={false} className="flex flex-wrap items-center gap-2 p-2.5">
+        <DeviceSelect devices={devices} value={deviceId} onChange={setDeviceId} />
+        {pairedCount === 0 && (
+          <span className="text-[11.5px] text-faint">还没有已配对的设备，当前显示本机</span>
+        )}
+        <span className="hidden text-[11.5px] text-faint sm:inline">
+          共 <span className="num text-fg-soft">{items.length}</span> 条记录
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="secondary"
+            className="h-10 w-10 shrink-0 p-0"
+            aria-label="刷新日志"
+            onClick={() => void load('reset')}
+            disabled={loading}
+          >
+            <RotateCw size={14} className={loading ? 'animate-spin' : undefined} />
+          </Button>
+        </div>
+      </Card>
 
-      {devices.length === 0 ? (
-        <Card>
-          <EmptyState
-            icon={<History size={26} />}
-            title="还没有已配对的设备"
-            desc="日志来自具体设备，先扫描并配对一台电脑。"
-          />
-        </Card>
-      ) : loading && items.length === 0 ? (
+      {loading && items.length === 0 ? (
         <div className="space-y-3">
           {[0, 1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-14 w-full" />
@@ -132,8 +118,8 @@ export default function Activity() {
         <Card>
           <EmptyState
             icon={<TriangleAlert size={24} />}
-            title="日志加载失败"
-            desc={errText(error)}
+            title={isLocal ? '本机日志读取失败' : '日志加载失败'}
+            desc={isLocal ? `${errText(error)} · ${LOCAL_DOWN_HINT}` : errText(error)}
             action={
               <Button variant="secondary" onClick={() => void load('reset')}>
                 重试

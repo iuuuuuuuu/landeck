@@ -55,6 +55,18 @@ export function isMobileLike(runtime: Runtime): boolean {
   return runtime === 'android' || runtime === 'ios' || (runtime === 'web' && isTouchDevice())
 }
 
+/**
+ * 是否是手机/平板这类**跑不了被控端**的设备。
+ *
+ * 与 isMobileLike 的区别：这里不看触摸能力，只看操作系统。
+ * 手机浏览器打开 Web UI 时 runtime 是 'web'，但那台手机同样不可能运行
+ * LanDeck 被控端 —— 「本机」页对它只能是「这台手机自己的信息」。
+ */
+export function isPhoneOS(): boolean {
+  const os = mobileOS()
+  return os === 'android' || os === 'ios'
+}
+
 function isTouchDevice(): boolean {
   if (typeof window === 'undefined') return false
   return 'ontouchstart' in window || (navigator.maxTouchPoints ?? 0) > 0
