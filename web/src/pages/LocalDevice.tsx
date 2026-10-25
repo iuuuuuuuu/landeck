@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { Cpu, HardDrive, Info, MonitorSmartphone, RefreshCw, Wifi } from 'lucide-react'
 import { Badge, Button, Card, DeviceAvatar, Gauge, SectionTitle, Skeleton, Stat } from '../components/ui'
 import { HardwarePanel } from '../components/device/HardwarePanel'
+import { LocalPairingCard } from '../components/device/LocalPairingCard'
 import { UptimePanel } from '../components/device/UptimePanel'
 import { AgentClient, ApiError } from '../lib/api'
 import { bytes, dateTime, duration, osLabel } from '../lib/format'
 import { useAsync, useLive } from '../lib/hooks'
+import { agentStart, agentStatus } from '../lib/discovery'
 import { DEFAULT_PORT } from '../lib/discovery'
 import type { SystemInfo } from '../lib/types'
 import { useApp } from '../store/app'
@@ -51,6 +53,9 @@ export default function LocalDevice() {
   const live = useLive(device)
   const system = useAsync<SystemInfo>(() => client.system(), [port, nonce])
   const hardware = useAsync(() => client.hardware(), [port, nonce])
+  const [starting, setStarting] = useState(false)
+  // 本机有没有被控端：桌面端可以直接问原生层，浏览器只能靠请求成败推断
+  const [agentUp, setAgentUp] = useState<boolean | null>(null)
 
   // 探测可用端口：默认 8420，若不通则说明 Agent 不在或端口改过
   useEffect(() => {
@@ -76,6 +81,38 @@ export default function LocalDevice() {
   const offline = !live.connected && !status && Boolean(system.error)
 
   const refresh = () => {
+    setNonce((n) => n + 1)
+    system.reload()
+    hardware.reload()
+    void agentStatus(port).then(setAgentUp)
+  }
+
+  // 一进来就问一次原生层；请求也顺便跑一次，浏览器下没有 agent_status 也能工作
+  useEffect(() => {
+    let alive = true
+    void agentStatus(port).then((v) => {
+      if (alive) setAgentUp(v)
+    })
+    return () => {
+      alive = false
+    }
+  }, [port])
+
+  const startAgent = async () => {
+    setStarting(true)
+    const res = await agentStart(port)
+    setStarting(false)
+    if (!res.ok) {
+      toast({ kind: 'error', title: '启动本机被控端失败', desc: res.error })
+      return
+    }
+    toast({ kind: 'ok', title: '本机被控端已启动', desc: '正在读取本机信息…' })
+    // 等它起来再拉数据
+    for (let i = 0; i < 12; i++) {
+      await new Promise((r) => setTimeout(r, 500))
+      if (await agentStatus(port)) break
+    }
+    setAgentUp(true)
     setNonce((n) => n + 1)
     system.reload()
     hardware.reload()
@@ -128,11 +165,31 @@ export default function LocalDevice() {
 
       {offline && (
         <Card>
-          <div className="flex items-start gap-2">
-            <Info size={15} className="mt-0.5 shrink-0 text-warn" />
-            <div className="text-[12.5px] leading-relaxed text-muted">
-              连不上本机 Agent（127.0.0.1:{port}）。确认这台机器上 LanDeck Agent 正在运行，
-              且端口没被改过。
+          <div className="flex items-start gap-3">
+            <Info size={16} className="mt-0.5 shrink-0 text-warn" />
+            <div className="min-w-0 flex-1">
+              <h3 className="text-[13.5px] font-semibold text-fg">
+                {agentUp === false ? '这台电脑上还没有运行被控端' : '连不上本机被控端'}
+              </h3>
+              <p className="mt-1 text-[12px] leading-relaxed text-muted">
+                「本机」页读的是<strong className="text-fg-soft">当前这台电脑</strong>上的 LanDeck
+                被控端（127.0.0.1:{port}）。它没在运行，所以系统、硬件、实时状态都读不到。
+                {agentUp !== false && ' 如果你刚改过端口，改回上面的端口号再试。'}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {agentUp === false && (
+                  <Button size="sm" variant="primary" loading={starting} onClick={() => void startAgent()}>
+                    启动本机被控端
+                  </Button>
+                )}
+                <Button size="sm" variant="secondary" onClick={refresh}>
+                  重新检测
+                </Button>
+              </div>
+              <p className="mt-2 text-[11.5px] leading-relaxed text-faint">
+                客户端安装包里自带被控端；也可以单独运行 landeck-agent.exe（对外提供被控服务的那一端）。
+                要控制<strong>别的</strong>电脑，请去「发现」页扫描它。
+              </p>
             </div>
           </div>
         </Card>
@@ -234,11 +291,14 @@ export default function LocalDevice() {
         </Card>
       </div>
 
-      {/* 硬件（复用详情页的面板） */}
-      <HardwarePanel client={client} />
-
-      {/* 开机历史 */}
-      <UptimePanel client={client} />
+      {/* 硬件与开机历史：连不上就不渲染，避免出现两处「设备离线」的噪声 */}
+      {!offline && (
+        <>
+          <HardwarePanel client={client} />
+          <LocalPairingCard client={client} />
+          <UptimePanel client={client} />
+        </>
+      )}
     </div>
   )
 }

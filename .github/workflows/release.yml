@@ -110,6 +110,31 @@ jobs:
           pnpm --dir web install --frozen-lockfile
           pnpm --dir app install --frozen-lockfile
 
+      # 客户端安装包里要带被控端：CI 里没有这个二进制（.gitignore 排除），
+      # 所以打包前按当前平台现编一份放进 resources/。
+      # macOS 出的是 universal 包，被控端也要 lipo 成 universal，否则另一半架构跑不起来。
+      - name: 准备被控端
+        shell: bash
+        run: |
+          set -e
+          mkdir -p app/src-tauri/resources
+          cd agent
+          LDFLAGS="-s -w"
+          case "${{ matrix.os }}" in
+            windows-latest)
+              GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$LDFLAGS -H windowsgui"                 -o ../app/src-tauri/resources/landeck-agent.exe .
+              ;;
+            ubuntu-*)
+              GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$LDFLAGS"                 -o ../app/src-tauri/resources/landeck-agent .
+              ;;
+            macos-*)
+              GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$LDFLAGS" -o /tmp/agent-amd64 .
+              GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "$LDFLAGS" -o /tmp/agent-arm64 .
+              lipo -create -output ../app/src-tauri/resources/landeck-agent /tmp/agent-amd64 /tmp/agent-arm64
+              ;;
+          esac
+          ls -la ../app/src-tauri/resources/
+
       # 分成两步：Tauri 只要看到 APPLE_CERTIFICATE 这个变量存在就当作「要签名」，
       # 而未配置的 GitHub secret 会展开成空字符串（变量仍在）—— 实测会导致：
       #   failed to import the signing certificate as a PKCS#12 (.p12) file
@@ -238,12 +263,17 @@ jobs:
           find artifacts -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.dmg' \
             -o -name '*.deb' -o -name '*.AppImage' -o -name '*.apk' \
             -o -name 'landeck-agent-*' \) -exec cp {} out/ \;
-          cd out && sha256sum * > SHA256SUMS.txt && ls -la
+          # 先删掉各 job 带来的旧校验和：`sha256sum *` 会把刚重定向出的空文件也算进去
+          rm -f out/SHA256SUMS.txt
+          cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
 
-      - name: 创建 draft release
+      # draft: false —— 之前用 draft，结果是「发版了但用户看不到」，还得手动去后台点发布。
+      # 按项目规矩（未经批准只发预测试版），这里固定 prerelease，但**直接可见**。
+      - name: 发布 pre-release
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          name: "LanDeck ${{ github.ref_name }}（预测试版）"
+          draft: false
           prerelease: true
           files: out/*
           generate_release_notes: true

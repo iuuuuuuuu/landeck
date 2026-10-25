@@ -27,9 +27,10 @@ export function duration(sec: number, style: 'full' | 'short' = 'full'): string 
   const m = Math.floor((sec % 3600) / 60)
   const s = Math.floor(sec % 60)
   if (style === 'short') {
-    if (d > 0) return `${d}d ${h}h`
-    if (h > 0) return `${h}h ${m}m`
-    return `${m}m`
+    // 中文短格式：不要把 2d/3h 这种英文缩写丢给用户
+    if (d > 0) return `${d} 天 ${h} 小时`
+    if (h > 0) return `${h} 小时 ${m} 分`
+    return `${m} 分`
   }
   const parts: string[] = []
   if (d) parts.push(`${d} 天`)

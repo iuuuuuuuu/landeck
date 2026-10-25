@@ -41,6 +41,17 @@ Status: implemented
 - **把 Android 构建挪到本地**：本机 Windows 能出 APK，但 CI 就覆盖不到这条链路，
   以后 Android 侧改动没人守。放弃。
 
+## 追加：不要用 draft release
+
+第一次真跑通后发现了第三个问题：`release` job 用了 `draft: true`，于是**产物齐全但用户看不到** ——
+GitHub 上只有一条 draft，必须手动去后台点「发布」才会出现。用户的第一反应是「报错了，都没发版」。
+
+改成 `draft: false` + `prerelease: true`：打 tag 即产出**立即可见**的预发布版，
+既符合「未经批准只发预测试版」的规矩，也不会让人以为没发出去。
+
+顺带修了校验和的自包含 bug：`sha256sum * > SHA256SUMS.txt` 里重定向先创建空文件，
+`*` 展开时把它也含进去，等于给一个空文件算哈希。现在先 `rm -f` 再算。
+
 ## Consequences
 
 收益：两个 job 都能出产物；macOS 在没证书时给出「未签名」的明确结果而不是失败；

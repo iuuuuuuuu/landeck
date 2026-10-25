@@ -92,6 +92,7 @@ func Open(dir string) (*Store, error) {
 		s.repair()
 	case errors.Is(err, os.ErrNotExist):
 		s.c = Default()
+		s.repair()
 		if err := s.persist(); err != nil {
 			return nil, err
 		}
@@ -201,6 +202,8 @@ func Default() Config {
 		Bind:          "0.0.0.0",
 		FixedKey:      GenerateFixedKey(),
 		RandomEnabled: true,
+		// 新装即默认允许本机免令牌：否则「本机」页在全新机器上必然 401
+		AllowLocalNoAuth: true,
 		CodeTTL:       300,
 		Locale:        "zh-CN",
 		Theme:         "aurora",
