@@ -11,6 +11,7 @@ import { UptimePanel } from '../components/device/UptimePanel'
 import { VolumeCard } from '../components/device/VolumeCard'
 import { CountdownBar } from '../components/device/CountdownBar'
 import { DeviceToolsDrawer } from '../components/device/DeviceToolsDrawer'
+import { ScheduleListCard } from '../components/device/ScheduleListCard'
 import { PairingSecurityCard } from '../components/pair/PairingSecurityCard'
 import { AgentClient } from '../lib/api'
 import { dateTime, duration, osLabel } from '../lib/format'
@@ -50,6 +51,7 @@ function LocalAgentView() {
   const [port, setPort] = useState(DEFAULT_PORT)
   const [nonce, setNonce] = useState(0)
   const [toolsOpen, setToolsOpen] = useState(false)
+  const [toolsTab, setToolsTab] = useState<'files' | 'schedules'>('files')
   const [countdown, setCountdown] = useState<{ label: string; until: number } | null>(null)
   const [agentUp, setAgentUp] = useState<boolean | null>(null)
   const [starting, setStarting] = useState(false)
@@ -236,7 +238,10 @@ function LocalAgentView() {
           {/* ③ 管理工具：与详情页完全同一个入口与抽屉（文件 + 定时） */}
           <button
             type="button"
-            onClick={() => setToolsOpen(true)}
+            onClick={() => {
+              setToolsTab('files')
+              setToolsOpen(true)
+            }}
             className="panel group flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-hover"
           >
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line-soft bg-elevated text-accent-soft">
@@ -275,6 +280,16 @@ function LocalAgentView() {
             <div className="lg:col-span-5">
               <HardwarePanel client={client} />
             </div>
+            {/* 定时任务直接列在页面上（与详情页一致） */}
+            <div className="lg:col-span-12">
+              <ScheduleListCard
+                client={client}
+                onManage={() => {
+                  setToolsTab('schedules')
+                  setToolsOpen(true)
+                }}
+              />
+            </div>
             <div className="lg:col-span-12">
               <UptimePanel client={client} />
             </div>
@@ -303,6 +318,7 @@ function LocalAgentView() {
         onClose={() => setToolsOpen(false)}
         device={device}
         client={client}
+        initialTab={toolsTab}
       />
 
       {!offline && (

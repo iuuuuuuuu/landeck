@@ -90,6 +90,12 @@ export function sameOriginIconUrl(exe: string): string {
     /^192\.168\./.test(host) ||
     /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
     host === 'localhost'
+  // 桌面 App 的页面源是 tauri.localhost，它不是 Agent，同源取不到图标。
+  // 这时回落到本机 Agent（被控端随客户端安装、固定听 127.0.0.1）。
+  if (host === 'tauri.localhost') {
+    // 8420 是被控端默认端口（api.ts 不引 discovery 以免循环依赖）
+    return `http://127.0.0.1:8420/api/v1/apps/icon?exe=${encodeURIComponent(exe)}`
+  }
   if (!privateHost && location.port !== '8420') return ''
   return `${location.origin}/api/v1/apps/icon?exe=${encodeURIComponent(exe)}`
 }

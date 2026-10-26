@@ -215,6 +215,7 @@ export function AppPanel({
                 <AppRow
                   key={app.key}
                   app={app}
+                  iconUrlFor={client ? (exe: string) => client.appIconUrl(exe) : undefined}
                   expanded={open === app.key}
                   killing={killingKey === app.key}
                   onToggle={() => setOpen(open === app.key ? null : app.key)}

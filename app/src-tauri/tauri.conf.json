@@ -28,7 +28,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://*:8420 https://*:8443 ws://*:8420 wss://*:8443; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+      "csp": "default-src 'self'; connect-src 'self' http://*:8420 https://*:8443 ws://*:8420 wss://*:8443; img-src 'self' data: http://*:8420 http://127.0.0.1:* https://*:8443 https://127.0.0.1:*; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
     },
     "withGlobalTauri": true
   },
