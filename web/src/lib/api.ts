@@ -56,15 +56,51 @@ export function wsUrl(
   return `${t.tls ? 'wss' : 'ws'}://${t.host}:${t.port}/api/v1/ws?token=${encodeURIComponent(token)}`
 }
 
+/**
+ * 应用图标地址（给 <img src> 用）。
+ *
+ * 为什么单独拼 URL：<img> 发不出 Authorization 头，所以令牌只能走 query ——
+ * 服务端 bearer() 本来就兼容 ?token=（本机请求还免令牌）。
+ * 提取失败服务端返回 404，前端 onError 回退到字母占位。
+ */
+export function appIconUrl(
+  target: Pick<Target, 'host' | 'port' | 'tls' | 'local'>,
+  token: string | undefined,
+  exe: string,
+): string {
+  if (!exe) return ''
+  let url = `${baseUrl(target)}/apps/icon?exe=${encodeURIComponent(exe)}`
+  if (token) url += `&token=${encodeURIComponent(token)}`
+  return url
+}
+
+/**
+ * 同源图标地址：浏览器里这个 SPA 就是由 Agent 自己提供的，
+ * 直接打 /api/v1/apps/icon 即可（本机/同一台机器上免令牌）。
+ *
+ * 只在「页面确实由 Agent 提供」时才成立：Tauri 壳里 origin 是 tauri.localhost，
+ * 那是 WebView 自己的资源服务器，打过去只会拿到 index.html，所以直接返回空。
+ */
+export function sameOriginIconUrl(exe: string): string {
+  if (!exe || typeof location === 'undefined') return ''
+  if (location.protocol !== 'http:' && location.protocol !== 'https:') return ''
+  const host = location.hostname
+  const privateHost =
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+    host === 'localhost'
+  if (!privateHost && location.port !== '8420') return ''
+  return `${location.origin}/api/v1/apps/icon?exe=${encodeURIComponent(exe)}`
+}
+
 interface RequestOptions {
   token?: string
   body?: unknown
   method?: string
   timeoutMs?: number
   signal?: AbortSignal
-}
-
-async function request<T>(url: string, opts: RequestOptions = {}): Promise<T> {
+}async function request<T>(url: string, opts: RequestOptions = {}): Promise<T> {
   const { token, body, method = 'GET', timeoutMs = 12000, signal } = opts
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeoutMs)
@@ -261,6 +297,11 @@ export class AgentClient {
       method: 'POST',
       body: { key, force },
     })
+  }
+
+  /** 应用图标地址：本机走 127.0.0.1 且不带令牌，远程设备把令牌放进 query */
+  appIconUrl(exe: string): string {
+    return appIconUrl(this.target, this.target.local ? undefined : this.token, exe)
   }
 
   fileRoots() {

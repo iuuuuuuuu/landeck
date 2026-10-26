@@ -70,28 +70,26 @@ for (const [route, name, keyword] of [
 // ---- 3. 硬件密度（必须量到真实分组，不能量到空卡）----
 await ev(`location.hash='#/local'`); await sleep(4500)
 const hw = await ev(`(() => {
-  const h=[...document.querySelectorAll('h3')].find(x=>/硬件信息/.test(x.textContent||''))
-  if(!h) return JSON.stringify({err:'no-title'})
-  let card=h; for(let i=0;i<3;i++){ if(card.parentElement) card=card.parentElement }
-  let best=null
-  for (const g of card.querySelectorAll('div')) {
-    const c = typeof g.className==='string'?g.className:''
-    if (!c.includes('grid')) continue
-    const kids=[...g.children].filter(k=>{
-      const kc=typeof k.className==='string'?k.className:''
-      return kc.includes('rounded-')&&kc.includes('border-line')
-    })
-    if (kids.length>0 && (!best||kids.length>best.kids.length)) best={g,kids}
-  }
-  if(!best) return JSON.stringify({err:'no-groups', cardH:Math.round(card.getBoundingClientRect().height)})
-  const rects=best.kids.map(k=>k.getBoundingClientRect())
-  const byRow={}
-  for(const r of rects){const k=Math.round(r.top/8)*8; byRow[k]=(byRow[k]||0)+1}
+  // Group 现在是 flex flex-col + rounded-lg + border-line + bg-elevated，
+  // 直接按「有圆角+边框+背景、且内部含一行标签-数值」来认，不依赖外层栅格类名。
+  const groups = [...document.querySelectorAll('div')].filter(e => {
+    const c = typeof e.className === 'string' ? e.className : ''
+    if (!c.includes('rounded-lg') || !c.includes('border-line') || !c.includes('bg-elevated')) return false
+    const t = e.textContent || ''
+    if (t.length < 6) return false
+    return /厂商|核心|容量|频率|类型|速率|型号|健康|显存|驱动/.test(t)
+  })
+  if (groups.length === 0) return JSON.stringify({ err: 'no-groups' })
+  const rects = groups.map(g => g.getBoundingClientRect())
+  const byRow = {}
+  for (const r of rects) { const k = Math.round(r.top / 6) * 6; byRow[k] = (byRow[k] || []).concat(Math.round(r.height)) }
+  const uneven = Object.values(byRow).filter(hs => new Set(hs).size > 1).length
   return JSON.stringify({
-    found: best.kids.length,
-    avgGroupH: Math.round(rects.reduce((a,r)=>a+r.height,0)/rects.length),
-    maxPerRow: Math.max(...Object.values(byRow)),
-    spanH: Math.round(Math.max(...rects.map(r=>r.bottom))-Math.min(...rects.map(r=>r.top))),
+    found: groups.length,
+    rows: Object.keys(byRow).length,
+    unevenRows: uneven,
+    maxPerRow: Math.max(...Object.values(byRow).map(a => a.length)),
+    avgGroupH: Math.round(rects.reduce((a, r) => a + r.height, 0) / rects.length),
   })
 })()`)
 let hwObj = {}

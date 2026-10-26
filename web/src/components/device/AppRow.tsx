@@ -2,8 +2,52 @@ import clsx from 'clsx'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Button } from '../ui'
 import { ShieldAlert } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { appIconUrl, sameOriginIconUrl } from '../../lib/api'
 import type { AppGroup } from '../../lib/types'
-import { initialOf, memLabel, toneOf } from './appMeta'
+import { useApp } from '../../store/app'
+import { hasIconSource, initialOf, memLabel, toneOf } from './appMeta'
+
+/**
+ * 「这一行接近视口了没」。
+ * 应用列表一屏能有几十行，全都直接 <img> 就是几十个并发请求，
+ * 所以先用 IntersectionObserver 把范围收到视口附近（多预留 240px），
+ * 真正滚到哪儿才拉哪儿的图标；浏览器 HTTP 缓存 + 服务端 Cache-Control 兜住后续切换。
+ */
+function useNearViewport(margin = '240px') {
+  const ref = useRef<HTMLLIElement | null>(null)
+  const [near, setNear] = useState(false)
+
+  useEffect(() => {
+    if (near) return
+    const el = ref.current
+    if (!el) return
+    if (typeof IntersectionObserver === 'undefined') {
+      setNear(true)
+      return
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setNear(true)
+          io.disconnect()
+        }
+      },
+      { rootMargin: margin },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [near, margin])
+
+  return { ref, near }
+}
+
+/** 这一行属于哪台设备：路由里的 :id 优先，其次全局选中的设备 */
+function useIconTarget() {
+  const routeId = useParams<{ id?: string }>().id
+  return useApp((s) => s.devices.find((d) => d.id === (routeId ?? s.activeId)) ?? s.devices[0])
+}
 
 /** 单行应用：点击行展开细节，右侧「结束」按钮冒泡拦截 */
 export function AppRow({
@@ -22,8 +66,30 @@ export function AppRow({
   killing: boolean
 }) {
   const hot = app.cpu > 50
+  const row = useNearViewport()
+  const device = useIconTarget()
+  const [iconFailed, setIconFailed] = useState(false)
+  const [iconLoaded, setIconLoaded] = useState(false)
+
+  // 图标地址：优先走当前设备的 Agent（带令牌），拿不到设备时退回同源（浏览器里 SPA 就是 Agent 发的）
+  const iconUrl = useMemo(() => {
+    if (!hasIconSource(app.exe)) return ''
+    if (device) {
+      return appIconUrl(
+        { host: device.host, port: device.port, tls: device.tls, local: device.local },
+        device.local ? undefined : device.token,
+        app.exe,
+      )
+    }
+    return sameOriginIconUrl(app.exe)
+  }, [device, app.exe])
+
+  // 图片没成功前保留原来的首字母色块：加载中不会闪空白，加载完再让位给真图标
+  const showTile = !iconLoaded || iconFailed
+  const showImage = iconUrl !== '' && !iconFailed && row.near
+
   return (
-    <li className="border-b border-line-soft last:border-0">
+    <li ref={row.ref} className="border-b border-line-soft last:border-0">
       <div
         role="button"
         tabIndex={0}
@@ -39,12 +105,30 @@ export function AppRow({
       >
         <span
           className={clsx(
-            'grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border text-[13px] font-semibold',
-            toneOf(app.key),
+            'relative grid h-8 w-8 shrink-0 place-items-center',
+            showTile && 'rounded-[10px] border text-[13px] font-semibold',
+            showTile && toneOf(app.key),
           )}
           aria-hidden
         >
-          {initialOf(app.name)}
+          {showTile && initialOf(app.name)}
+          {showImage && (
+            <img
+              src={iconUrl}
+              alt=""
+              width={24}
+              height={24}
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+              onLoad={() => setIconLoaded(true)}
+              onError={() => setIconFailed(true)}
+              className={clsx(
+                'h-6 w-6 rounded-[6px] object-contain',
+                iconLoaded ? 'block' : 'absolute inset-0 m-auto opacity-0',
+              )}
+            />
+          )}
         </span>
 
         <span className="min-w-0 flex-1">

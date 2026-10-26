@@ -227,23 +227,35 @@ jobs:
         working-directory: app
         run: pnpm exec tauri android build --apk --target aarch64
 
+      # 签名必须用**固定**的 keystore。
+      # 之前每次在 CI 里 keytool -genkeypair 现生成一个，导致每个版本签名都不同：
+      # Android 认为它们是不同的应用，升级安装会报「签名不一致」，
+      # 用户必须先卸载（丢数据）才能装新版 —— 用户实测反馈过。
+      # 现在从 Secrets 取固定 keystore（base64）。拿不到就直接失败：
+      # 宁可红，也不要静默产出一个「装不上」的包。
       - name: 签名 APK
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           set -e
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASS" ]; then
+            echo "缺少 ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD" >&2
+            echo "没有固定 keystore 时签名会每次不同，用户无法覆盖安装。" >&2
+            echo "按 docs/BUILD.md「Android 固定签名」配置 Secrets 后重跑。" >&2
+            exit 1
+          fi
+          ALIAS="${KEY_ALIAS:-landeck}"
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | tail -1)
           UNSIGNED=$(find app/src-tauri/gen/android/app/build/outputs/apk -name '*release-unsigned.apk' | head -1)
           "$BT/zipalign" -p -f 4 "$UNSIGNED" /tmp/aligned.apk
-          # 用 CI 里现生成的 keystore；正式发布请换成仓库 Secrets 里的固定 keystore，
-          # 否则每次构建签名不同，用户无法覆盖安装。
-          keytool -genkeypair -keystore /tmp/release.keystore -alias landeck -keyalg RSA \
-            -keysize 2048 -validity 10000 -storepass "${{ secrets.ANDROID_STORE_PASSWORD || 'landeck-ci' }}" \
-            -keypass "${{ secrets.ANDROID_STORE_PASSWORD || 'landeck-ci' }}" \
-            -dname "CN=LanDeck, O=LanDeck, C=CN"
-          "$BT/apksigner" sign --ks /tmp/release.keystore \
-            --ks-pass pass:"${{ secrets.ANDROID_STORE_PASSWORD || 'landeck-ci' }}" \
-            --key-pass pass:"${{ secrets.ANDROID_STORE_PASSWORD || 'landeck-ci' }}" \
-            --ks-key-alias landeck --out /tmp/landeck.apk /tmp/aligned.apk
-          "$BT/apksigner" verify /tmp/landeck.apk
+          echo "$KS_B64" | base64 -d > /tmp/release.keystore
+          "$BT/apksigner" sign --ks /tmp/release.keystore --ks-pass pass:"$KS_PASS" --key-pass pass:"$KS_PASS" --ks-key-alias "$ALIAS" --out /tmp/landeck.apk /tmp/aligned.apk
+          # 打印证书指纹并随产物留档，方便确认「这次和上次是同一个签名」
+          "$BT/apksigner" verify --print-certs /tmp/landeck.apk | tee /tmp/cert.txt
+          grep -i 'SHA-256 digest' /tmp/cert.txt | head -1 > landeck-android-cert.txt || true
+          cat landeck-android-cert.txt 2>/dev/null || true
           cp /tmp/landeck.apk "landeck-android-${GITHUB_REF_NAME}.apk"
 
       - uses: actions/upload-artifact@v4

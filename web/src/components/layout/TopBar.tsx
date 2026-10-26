@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useApp } from '../../store/app'
 import { Button } from '../ui'
 import { DeviceSwitcher } from './DeviceSwitcher'
-import { findNav } from './nav'
+import { findNav, ICON_STROKE, INLINE_ICON_SIZE, NAV_ICON_PROPS } from './nav'
 import { StatusDot } from './StatusDot'
 import { ThemeToggle } from './ThemeToggle'
 import { useDeviceProbe } from './useDeviceProbe'
@@ -35,6 +35,11 @@ export function TopBar() {
   return (
     <header className="pt-safe sticky top-0 z-20 bg-topbar px-3 pb-2 backdrop-blur-xl sm:px-4">
       <div className="panel panel-edge mx-auto flex h-16 max-w-[1240px] items-center gap-2 px-3 sm:gap-3 sm:px-4">
+        {/* 页标题图标：与侧栏、移动底栏同一个入口用同一枚图标 + 同一套 18px/1.75 规格。
+            手机上由底栏承担导航，这里不重复占位。 */}
+        <span className="hidden h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-elevated text-accent sm:grid">
+          <nav.icon {...NAV_ICON_PROPS} />
+        </span>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[16px] font-semibold tracking-tight text-fg sm:text-[17px]">
             {detail ? '设备' : nav.label}
@@ -54,7 +59,7 @@ export function TopBar() {
             <Button
               variant="secondary"
               size="md"
-              icon={<Radar size={15} />}
+              icon={<Radar size={INLINE_ICON_SIZE} strokeWidth={ICON_STROKE} aria-hidden />}
               onClick={() => navigate('/scan')}
               className="hidden sm:inline-flex"
             >

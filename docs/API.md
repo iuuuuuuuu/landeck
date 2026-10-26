@@ -199,6 +199,28 @@ POST /processes/kill
 * 系统关键进程（system/csrss/wininit/lsass/services… /init/systemd/launchd）一律拒绝。
 * 需要 `features.allowProcessKill`（默认开，可在设置里关；关掉后查看与结束都返回 409）。
 
+### 应用图标
+
+```http
+GET /apps/icon?exe=C%3A%5CWindows%5Cexplorer.exe
+->
+200 image/x-icon  (Cache-Control: public, max-age=86400)
+404 { "error":"not_found" }  (Cache-Control: public, max-age=300)
+```
+
+* 从 exe 内嵌资源里取**最大尺寸**的图标，直接返回单条目 `.ico`，浏览器 `<img>` 可直接渲染。
+* 只接受绝对路径、`.exe` / `.dll`、且必须是普通文件；只读字节，不执行、不加载目标程序。
+* 缓存 256 条（按路径 + mtime + size 失效），命中约 1–2ms；只在首次读盘。
+* 失败缓存的 `max-age` 是 300 秒而不是一天：这样新装软件后不会长时间看不到图标。
+* 什么时候会 404（属正常，前端回退到首字母占位）：
+  - 该 exe 本身没有 `RT_GROUP_ICON`（Win11 的 `notepad.exe` / `taskmgr.exe` / `mstsc.exe`
+    已是 Store 存根，图标在 AppX 包里）；
+  - 非 Windows 平台（无 PE 资源）；
+  - `features.allowProcessKill` 关闭时，图标端点一并 404。
+* 令牌：`<img>` 发不出 `Authorization` 头，所以跨机请求把令牌放 query（`?exe=...&token=...`）；
+  本机请求走 loopback 免令牌，不拼 token。
+* iOS/Safari 的 `WKWebView` 不支持 `<img>` 渲染 ICO，会走 `onError` 回退。
+
 ## 6. 定时任务
 
 ```http

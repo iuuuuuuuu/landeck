@@ -1,5 +1,5 @@
 import { probeNode } from './api'
-import { detectRuntime } from './runtime'
+import { detectRuntime, isPhoneOS } from './runtime'
 import type { NodeInfo } from './types'
 
 /**
@@ -174,7 +174,8 @@ async function scanNative(invoke: TauriInvoke): Promise<NodeInfo[]> {
 }
 
 export async function scanLan(opts: ScanOptions): Promise<NodeInfo[]> {
-  const { onNode, onProgress, concurrency = 64, timeoutMs = 620 } = opts
+  // concurrency 已按平台在下面定（手机 8 / 桌面 24 / 浏览器 48），这里不再从参数取
+  const { onNode, onProgress, timeoutMs = 620 } = opts
   const found = new Map<string, NodeInfo>()
   // 网段提示：URL 优先，其次问原生层（Tauri 下 hostname 是 tauri.localhost，推不出网段）
   const localIP = await nativeLocalIP()
@@ -202,63 +203,85 @@ export async function scanLan(opts: ScanOptions): Promise<NodeInfo[]> {
   }
 
 
-  // 1) 原生 UDP 广播 + 2) HTTP 扫段，两条路并行跑，谁有结果都不影响另一条。
-  //    早期版本在广播有结果时直接 return，导致「广播收到一半」就漏掉整段扫描。
+  // ===== 扫描策略：手机与桌面走不同的路 =====
+  //
+  // 手机切页卡顿的根因就在这里：以前无论有没有原生扫描，都会**并行**跑一遍 HTTP 扫段，
+  // 兜底时最多 1270 个地址 × 每 620ms 超时，几十条并发 fetch 同时占着 WebView 的
+  // socket 池。用户一离开发现页，这些请求还在排队完成/中止，主线程被反复唤醒 →
+  // 「切页非常卡」。而手机原生壳本来就有 unicast 扫描（Agent 直接回包给对方地址），
+  // 这才是手机上真正有效的那条路，前端再扫一遍纯属重复劳动。
+  const runtime = detectRuntime()
+  const mobileShell = runtime === 'android' || runtime === 'ios' || isPhoneOS()
+
+  // 并发与超时：手机收窄到 8 并发 / 450ms，桌面 24 / 620ms，纯浏览器 48 / 620ms
+  const CONC = mobileShell ? 8 : runtime === 'desktop' ? 24 : 48
+  const PER_TIMEOUT = mobileShell ? 450 : timeoutMs
+
+  const hosts = candidatesFromHint(hintHost)
+  const exactHintOk = exactHint
+  // 兜底网段只在「原生壳里确实拿不到本机 IP」时才扫（安卓/iOS 才需要）；
+  // 纯浏览器打开非内网地址时盲扫没有意义，交给手动添加。
+  const sweepAllowed = hosts.length > 0 && (exactHintOk || (!!invoke && mobileShell))
+
+  /** 扫段作业：phoneFallback=true 时只扫一个 /24、单端口、低并发 */
+  const runSweep = (phoneFallback: boolean) =>
+    (async () => {
+      const hostList = phoneFallback ? hosts.slice(0, 254) : hosts
+      const ports = phoneFallback || !exactHintOk ? [COMMON_PORTS[0]] : COMMON_PORTS
+      const tasks: { host: string; port: number; tls: boolean }[] = []
+      for (const host of hostList) {
+        for (const p of ports) tasks.push({ host, ...p })
+      }
+      let done = 0
+      let cursor = 0
+      let lastTick = 0
+      onProgress?.(0, tasks.length)
+      // 节流：每 120ms 或每 16 个任务才汇报一次（每个任务都 setState 会拖死切页）
+      const tick = (force = false) => {
+        const now = Date.now()
+        if (!force && now - lastTick < 120 && done % 16 !== 0) return
+        lastTick = now
+        onProgress?.(done, tasks.length)
+      }
+      async function worker() {
+        while (cursor < tasks.length) {
+          if (opts.signal?.aborted) return
+          const t = tasks[cursor++]
+          const node = await probeNode(t.host, t.port, t.tls, PER_TIMEOUT, opts.signal)
+          done++
+          if (opts.signal?.aborted) return
+          if (node) emit({ ...node, ip: node.ip || t.host, port: t.port, tls: t.tls })
+          tick()
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(CONC, tasks.length) }, worker))
+      tick(true)
+    })()
+
   const jobs: Promise<void>[] = []
 
   if (invoke) {
-    jobs.push(
-      (async () => {
-        const nodes = await scanNative(invoke)
-        nodes.forEach(emit)
-      })(),
-    )
-  }
-
-  const hosts = candidatesFromHint(hintHost)
-  // 兜底网段只在「原生壳里确实拿不到本机 IP」时才扫（安卓/iOS 才需要）：
-  // 纯浏览器打开一个非内网地址（localhost / 域名）时盲扫内网没有意义，仍交给手动添加；
-  // 桌面端 local_ip 正常时也不会走到这里，行为与之前一致。
-  const runtime = detectRuntime()
-  const mobileShell = runtime === 'android' || runtime === 'ios'
-  const sweep = hosts.length > 0 && (exactHint || (!!invoke && mobileShell))
-
-  if (sweep) {
-    // 兜底网段命中率低，只探默认端口：否则手机上要发 2500+ 个请求，
-    // 拖十几秒还没结果，用户只会觉得「扫描卡住了」。
-    const ports = exactHint ? COMMON_PORTS : [COMMON_PORTS[0]]
-    jobs.push(
-      (async () => {
-        const tasks: { host: string; port: number; tls: boolean }[] = []
-        for (const host of hosts) {
-          for (const p of ports) tasks.push({ host, ...p })
-        }
-        let done = 0
-        let cursor = 0
-        let lastTick = 0
-        onProgress?.(0, tasks.length)
-        // 节流：每 120ms 或每 16 个任务才汇报一次。
-        // 之前每个任务都 setState，700+ 次重渲染会把切页拖到卡死。
-        const tick = (force = false) => {
-          const now = Date.now()
-          if (!force && now - lastTick < 120 && done % 16 !== 0) return
-          lastTick = now
-          onProgress?.(done, tasks.length)
-        }
-        async function worker() {
-          while (cursor < tasks.length) {
-            if (opts.signal?.aborted) return
-            const t = tasks[cursor++]
-            const node = await probeNode(t.host, t.port, t.tls, timeoutMs, opts.signal)
-            done++
-            if (node) emit({ ...node, ip: node.ip || t.host, port: t.port, tls: t.tls })
-            tick()
-          }
-        }
-        await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker))
-        tick(true)
-      })(),
-    )
+    if (mobileShell) {
+      // 手机：先等原生结果。有结果就完全不扫段（省电、省 socket、切页不卡）。
+      const nativeNodes = await scanNative(invoke)
+      if (opts.signal?.aborted) return [...found.values()]
+      nativeNodes.forEach(emit)
+      if (nativeNodes.length === 0 && sweepAllowed) {
+        // 原生一台都没扫到才兜底，且只扫一个 /24、单端口、8 并发
+        jobs.push(runSweep(true))
+      }
+    } else {
+      // 桌面原生壳：两条路并行，谁先出结果都不影响另一条
+      jobs.push(
+        (async () => {
+          const nativeNodes = await scanNative(invoke)
+          nativeNodes.forEach(emit)
+        })(),
+      )
+      if (sweepAllowed) jobs.push(runSweep(false))
+    }
+  } else if (sweepAllowed) {
+    jobs.push(runSweep(false))
   } else {
     // 没有可用网段（纯浏览器打开 localhost / 域名）：0/0 告诉页面「扫不了段」，
     // 界面会给出「手动填 IP」的兜底。

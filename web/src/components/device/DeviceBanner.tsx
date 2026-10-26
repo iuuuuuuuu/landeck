@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import clsx from 'clsx'
 import { Badge, Button, Card, DeviceAvatar, IconButton, Modal } from '../ui'
-import { ChevronDown, ChevronLeft, Info, MoreVertical, Unplug } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Info, MoreVertical, Unplug } from 'lucide-react'
 import type { PairedDevice } from '../../store/app'
 import type { SystemInfo } from '../../lib/types'
 import { osLabel } from '../../lib/format'
@@ -60,7 +60,18 @@ export function DeviceBanner({
 
   return (
     <Card padded={false} className="relative overflow-visible" glow>
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex items-center gap-2.5 px-3 py-3 sm:gap-3 sm:px-4">
+        <button
+          type="button"
+          onClick={() => navigate('/devices')}
+          aria-label="返回设备列表"
+          title="返回设备列表"
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-line-soft bg-elevated px-2 text-[12px] text-muted transition-colors hover:bg-hover hover:text-fg sm:px-2.5"
+        >
+          <ArrowLeft size={16} />
+          <span className="hidden sm:inline">返回设备列表</span>
+        </button>
+
         <DeviceAvatar os={platform} size={44} />
 
         <div className="min-w-0 flex-1">
@@ -124,7 +135,7 @@ export function DeviceBanner({
       </div>
 
       <div className="border-t border-line-soft">
-        <div className="flex items-center justify-between px-3">
+        <div className="flex items-center px-3">
           <button
             type="button"
             aria-expanded={info}
@@ -137,14 +148,6 @@ export function DeviceBanner({
               size={12}
               className={clsx('transition-transform duration-200', info && 'rotate-180')}
             />
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/devices')}
-            className="inline-flex h-8 items-center gap-0.5 rounded-lg px-1 text-[11.5px] text-faint transition-colors hover:text-fg-soft"
-          >
-            <ChevronLeft size={12} />
-            全部设备
           </button>
         </div>
 

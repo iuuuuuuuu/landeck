@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Field, Input, Modal, Segmented, Slider, Toggle } from '../ui'
+import { Button, Field, Input, Modal, Segmented, Select, Slider, Toggle } from '../ui'
 import type { PowerAction, Schedule, ScheduleKind } from '../../lib/types'
 import { actionLabel } from '../../lib/format'
 
@@ -170,17 +170,17 @@ export function ScheduleModal({
         </Field>
 
         <Field label="动作" hint={paramsPreview}>
-          <select
+          <Select
             value={action}
             onChange={(e) => setAction(e.target.value as PowerAction)}
-            className="h-11 w-full appearance-none rounded-xl border border-line bg-elevated px-3.5 text-[14px] text-fg outline-none transition-colors focus:border-accent/55 focus:ring-2 focus:ring-accent/20 [&>option]:bg-surface"
+            aria-label="定时动作"
           >
             {options.map((a) => (
               <option key={a} value={a}>
                 {actionLabel(a)}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
 
         {action === 'volume.set' && (
