@@ -15,7 +15,7 @@ fn exe_path() -> Result<PathBuf, String> {
 }
 
 #[cfg(windows)]
-mod imp {
+pub(crate) mod imp {
     use super::*;
     use std::fs;
     use std::path::PathBuf;
@@ -36,17 +36,31 @@ mod imp {
             .join("Startup"))
     }
 
+    fn link_path_for(id: &str) -> Result<PathBuf, String> {
+        Ok(startup_dir()?.join(format!("{id}.lnk")))
+    }
+
     fn link_path() -> Result<PathBuf, String> {
-        Ok(startup_dir()?.join(format!("{APP_ID}.lnk")))
+        link_path_for(APP_ID)
     }
 
     /// 用 PowerShell 建 .lnk：Windows 没给 Rust 提供创建快捷方式的稳定 API，
     /// WScript.Shell 是系统自带、无依赖的标准做法。
     pub fn enable() -> Result<(), String> {
+        enable_as(APP_ID)
+    }
+
+    /// 用指定名字创建启动快捷方式。
+    ///
+    /// 存在的意义：单元测试要能验证 enable/disable 的真实行为，又**不能**碰
+    /// 用户真正的开机自启项 —— 曾经因为测试直接写真名，把启动项指向了 cargo
+    /// 测试二进制（`target/release/deps/landeck_lib-*.exe`），用户开机就会看到
+    /// 「未知发布者」的安全警告。现在测试用自己的探针名，跑完即删。
+    pub fn enable_as(id: &str) -> Result<(), String> {
         let exe = exe_path()?;
         let dir = startup_dir()?;
         fs::create_dir_all(&dir).map_err(|e| format!("创建启动文件夹失败：{e}"))?;
-        let link = link_path()?;
+        let link = link_path_for(id)?;
         let script = format!(
             "$ws = New-Object -ComObject WScript.Shell;              $s = $ws.CreateShortcut('{}');              $s.TargetPath = '{}';              $s.WorkingDirectory = '{}';              $s.Arguments = '--silent';              $s.Save()",
             link.display(),
@@ -65,7 +79,11 @@ mod imp {
     }
 
     pub fn disable() -> Result<(), String> {
-        let link = link_path()?;
+        disable_as(APP_ID)
+    }
+
+    pub fn disable_as(id: &str) -> Result<(), String> {
+        let link = link_path_for(id)?;
         if link.exists() {
             fs::remove_file(&link).map_err(|e| format!("删除启动快捷方式失败：{e}"))?;
         }
@@ -73,7 +91,11 @@ mod imp {
     }
 
     pub fn is_enabled() -> bool {
-        link_path().map(|p| p.exists()).unwrap_or(false)
+        is_enabled_as(APP_ID)
+    }
+
+    pub fn is_enabled_as(id: &str) -> bool {
+        link_path_for(id).map(|p| p.exists()).unwrap_or(false)
     }
 }
 

@@ -324,6 +324,57 @@ export function readDeviceSelfSync(): DeviceSelfInfo {
  * 原生注入合并
  * ------------------------------------------------------------------ */
 
+interface TauriInvokeFn {
+  (cmd: string, args?: Record<string, unknown>): Promise<unknown>
+}
+
+function nativeInvokeFn(): TauriInvokeFn | null {
+  const w = window as unknown as {
+    __TAURI__?: { core?: { invoke?: TauriInvokeFn }; invoke?: TauriInvokeFn }
+    __TAURI_INTERNALS__?: { invoke?: TauriInvokeFn }
+  }
+  return w.__TAURI__?.core?.invoke ?? w.__TAURI__?.invoke ?? w.__TAURI_INTERNALS__?.invoke ?? null
+}
+
+/**
+ * 读原生设备真值（系统版本 / 机型 / 真实内存 / 真实核心数）。
+ *
+ * 浏览器侧只能拿到 `deviceMemory` 分档值（上限 8）与常被钳在 4 的
+ * `hardwareConcurrency`，用来展示"我的手机配置"是不准的。
+ */
+export async function readNativeDeviceProfile(): Promise<NativeSelfPatch | null> {
+  const invoke = nativeInvokeFn()
+  if (!invoke) return null
+  try {
+    const p = (await invoke('device_profile')) as {
+      os?: string
+      os_version?: string
+      model?: string
+      vendor?: string
+      mem_total_mb?: number
+      cpu_cores?: number
+    } | null
+    if (!p) return null
+    const memGb = p.mem_total_mb && p.mem_total_mb > 0 ? Math.round((p.mem_total_mb / 1024) * 10) / 10 : null
+    const os = p.os === 'android' || p.os === 'ios' ? p.os : null
+    const system =
+      p.os === 'android'
+        ? `Android ${p.os_version || '?'}`
+        : p.os === 'ios'
+          ? 'iOS'
+          : undefined
+    return {
+      os,
+      system,
+      model: (p.model || '').trim() || undefined,
+      memoryGb: memGb,
+      cpuCores: p.cpu_cores && p.cpu_cores > 0 ? p.cpu_cores : null,
+    }
+  } catch {
+    return null
+  }
+}
+
 /** 原生值覆盖浏览器值；只有校验通过的字段才算数，并记进 nativeFields */
 function applyNative(base: DeviceSelfInfo, patch: NativeSelfPatch | null | undefined): DeviceSelfInfo {
   if (!patch || typeof patch !== 'object') return base

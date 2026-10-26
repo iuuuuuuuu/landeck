@@ -10,10 +10,13 @@ import {
   ShieldAlert,
   Sun,
   UserRound,
+  SlidersHorizontal,
 } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AgentSettingsCard } from '../components/pair/AgentSettingsCard'
+import { isPhoneOS } from '../lib/runtime'
+import { readNativeDeviceProfile } from '../lib/deviceSelf'
 import { apiErrorMessage } from '../components/pair/errors'
 import {
   Button,
@@ -84,6 +87,26 @@ function IdentityCard() {
   const toast = useApp((s) => s.toast)
   const [name, setName] = useState(myName)
   const dirty = name.trim() !== myName && name.trim().length > 0
+
+  // 从没用过自定义名字时，用原生读到的机型名打底（比「Android 手机」有辨识度多了）。
+  // 只在用户没动过输入框时覆盖，避免打断正在输入的内容。
+  const [autoFilled, setAutoFilled] = useState(false)
+  useEffect(() => {
+    if (autoFilled || name.trim() !== myName) return
+    let alive = true
+    void readNativeDeviceProfile().then((p) => {
+      const model = (p?.model || '').trim()
+      if (!alive || !model) return
+      // 只在当前名字还是默认值时才替换
+      if (/^(Android 手机|iPhone|Mac|Windows PC|Linux 设备|我的设备)$/.test(myName.trim())) {
+        setName(model)
+        setAutoFilled(true)
+      }
+    })
+    return () => {
+      alive = false
+    }
+  }, [autoFilled, name, myName])
 
   return (
     <Card>
@@ -352,7 +375,21 @@ export default function Settings() {
       ) : (
         <>
           <IdentityCard />
-          <AgentSettingsCard device={device} />
+          {isPhoneOS() ? (
+            <Card>
+              <SectionTitle
+                icon={<SlidersHorizontal size={16} />}
+                title="被控端设置"
+                desc="手机端只作为控制端运行，本机没有 Agent 可配置。"
+              />
+              <p className="mt-3 text-[12px] leading-relaxed text-muted">
+                想修改「{device.name}」的设备名、端口或开机自启，请在那台机器上打开 LanDeck，
+                或从「设备」进入它的详情页操作。
+              </p>
+            </Card>
+          ) : (
+            <AgentSettingsCard device={device} />
+          )}
           <AboutCard device={device} />
         </>
       )}

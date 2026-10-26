@@ -27,7 +27,8 @@ type ScanStatus = 'idle' | 'scanning' | 'done'
  * 之前是「每台设备一次 setState + 每 100ms 一次耗时 setState」，
  * 一页里几十次重渲染（雷达还在跑 framer-motion），切页时直接卡住。
  */
-const FLUSH_MS = 200
+// 手机上每 200ms 重渲染整页很浪费；400ms 肉眼一样顺滑，主线程压力减半
+const FLUSH_MS = 400
 
 /** 雷达只吃 id 和配对状态，单独 memo：耗时/进度跳动时不必重画 SVG */
 const RadarPane = memo(function RadarPane({
@@ -323,11 +324,27 @@ export default function Scan() {
             <div>
               <div className="mb-1.5 flex items-center justify-between text-[11.5px]">
                 <span className={scanning ? 'text-accent-soft' : 'text-muted'}>
-                  {scanning ? '正在扫描局域网…' : status === 'done' ? '扫描完成' : '准备扫描'}
+                  {scanning
+                    ? total > 0
+                      ? '正在扫描局域网…'
+                      : '正在用系统接口探测…'
+                    : status === 'done'
+                      ? '扫描完成'
+                      : '准备扫描'}
                 </span>
-                <span className="num text-muted">{pct}%</span>
+                {/* 原生扫描阶段没有"端口总数"这个概念，硬显示 0% 会让人以为卡死，
+                    改成滚动的不定态条纹，从第一秒就有反馈 */}
+                <span className="num text-muted">{total > 0 ? `${pct}%` : scanning ? '•••' : '—'}</span>
               </div>
-              <ProgressBar value={pct} tone={scanning ? 'accent' : 'ok'} />
+              {total > 0 ? (
+                <ProgressBar value={pct} tone={scanning ? 'accent' : 'ok'} />
+              ) : scanning ? (
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
+                  <div className="animate-indeterminate h-full w-1/3 rounded-full bg-accent" />
+                </div>
+              ) : (
+                <ProgressBar value={0} tone="ok" />
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-[11.5px] leading-relaxed text-faint">

@@ -462,3 +462,17 @@
   --tone-danger-glow: rgba(198, 47, 71, 0.22);
   --ldk-thumb-border: #6d4bd1;
 }
+
+/* 不定态进度条：原生扫描阶段没有"已扫端口"总数，用它表示"正在进行"，
+   避免进度条停在 0% 让人以为卡死。 */
+@keyframes ldk-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+.animate-indeterminate {
+  animation: ldk-indeterminate 1.1s ease-in-out infinite;
+}

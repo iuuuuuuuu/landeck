@@ -161,6 +161,76 @@ fn slash24_hosts(ip: Ipv4Addr) -> Vec<Ipv4Addr> {
     out
 }
 
+/// 本机真实设备信息。
+///
+/// 为什么需要原生：WebView 里 `navigator.deviceMemory` 是**分档近似值**（上限 8），
+/// `hardwareConcurrency` 在安卓上常年被钳在 4 —— 用户 16GB / 16 核的机器会被显示成
+/// 8GB / 4 核，属于"数据不准"。这里改读系统真值：
+///   · 内存：/proc/meminfo 的 MemTotal（安卓 / Linux 通用）
+///   · 系统版本/机型：`getprop`（安卓自带二进制）
+///   · 核心数：available_parallelism（真实可用核心）
+#[derive(serde::Serialize, Default)]
+struct DeviceProfile {
+    os: String,
+    os_version: String,
+    model: String,
+    vendor: String,
+    /// 内存总量（MB，整数；拿不到为 0）
+    mem_total_mb: u64,
+    cpu_cores: u32,
+}
+
+#[cfg(target_os = "android")]
+fn android_getprop(key: &str) -> String {
+    std::process::Command::new("getprop")
+        .arg(key)
+        .output()
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default()
+}
+
+fn mem_total_mb() -> u64 {
+    let txt = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
+    for line in txt.lines() {
+        if let Some(rest) = line.strip_prefix("MemTotal:") {
+            if let Some(kb) = rest.split_whitespace().next() {
+                if let Ok(kb) = kb.parse::<u64>() {
+                    return kb / 1024;
+                }
+            }
+        }
+    }
+    0
+}
+
+#[tauri::command]
+fn device_profile() -> DeviceProfile {
+    let mut p = DeviceProfile {
+        cpu_cores: std::thread::available_parallelism().map(|n| n.get() as u32).unwrap_or(0),
+        mem_total_mb: mem_total_mb(),
+        ..Default::default()
+    };
+
+    #[cfg(target_os = "android")]
+    {
+        p.os = "android".into();
+        p.os_version = android_getprop("ro.build.version.release");
+        p.model = android_getprop("ro.product.model");
+        p.vendor = android_getprop("ro.product.manufacturer");
+    }
+    #[cfg(target_os = "ios")]
+    {
+        p.os = "ios".into();
+    }
+    #[cfg(all(not(target_os = "android"), not(target_os = "ios")))]
+    {
+        p.os = std::env::consts::OS.to_string();
+        p.os_version = String::new();
+    }
+    p
+}
+
 /// 扫描时 UDP socket 绑哪个本机地址。
 /// 安卓必须绑 Wi-Fi 地址，强制收发都走 Wi-Fi 口；否则包会从蜂窝口出去，
 /// 发到一个跟 PC 毫不相干的网段（「手机扫不到 PC」的根因之一）。
@@ -636,6 +706,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            device_profile,
             scan_lan,
             platform,
             local_ip,
@@ -690,22 +761,35 @@ mod tests {
     /// 两者都不允许「返回 Ok 但实际没生效」。
     #[test]
     fn autostart_roundtrip() {
-        let before = autostart::is_enabled();
-        match autostart::enable() {
-            Ok(()) => {
-                assert!(autostart::is_enabled(), "enable 返回成功但状态没变 —— 假成功");
-                autostart::disable().expect("关闭自启失败");
-                assert!(!autostart::is_enabled(), "disable 后仍为启用 —— 假关闭");
-                if before {
-                    let _ = autostart::enable();
+        // 用**独立探针名**跑，绝不碰用户真实的自启动项。
+        // 历史教训：这个测试曾经直接操作真名，把启动项指向了 cargo 测试二进制
+        // （target/release/deps/landeck_lib-*.exe），导致用户开机看到
+        // 「未知发布者」的安全警告，且极难联想到是测试留下的。
+        #[cfg(windows)]
+        {
+            use crate::autostart::imp;
+            const PROBE: &str = "LanDeckTestProbe";
+            let _ = imp::disable_as(PROBE); // 清掉上次残留
+            assert!(!imp::is_enabled_as(PROBE), "起点应为未启用");
+            match imp::enable_as(PROBE) {
+                Ok(()) => {
+                    assert!(imp::is_enabled_as(PROBE), "enable 返回成功但状态没变 —— 假成功");
+                    imp::disable_as(PROBE).expect("关闭失败");
+                    assert!(!imp::is_enabled_as(PROBE), "disable 后仍存在 —— 假关闭");
+                    println!("autostart roundtrip ok（探针名 {PROBE}，已清理）");
                 }
-                println!("autostart roundtrip ok (before={before})");
+                Err(e) => {
+                    assert!(!e.is_empty(), "失败必须给出原因");
+                    let _ = imp::disable_as(PROBE);
+                    println!("autostart 被环境拦截（已正确上报错误）：{e}");
+                }
             }
-            Err(e) => {
-                assert!(!e.is_empty(), "失败必须给出原因");
-                assert!(!autostart::is_enabled(), "enable 报错却已生效，状态不一致");
-                println!("autostart 被环境拦截（已正确上报错误）：{e}");
-            }
+            // 真实自启动项的状态不受本次测试影响
+            println!("真实自启动项当前状态 = {}", crate::autostart::is_enabled());
+        }
+        #[cfg(not(windows))]
+        {
+            println!("autostart roundtrip: 非 Windows 平台跳过探针写入（避免动真实自启项）");
         }
     }
 
