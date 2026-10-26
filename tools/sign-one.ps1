@@ -15,14 +15,23 @@ param(
 # Exit policy (a real gate, not a rubber stamp):
 #   0  signed, verified by re-reading from disk
 #   0  not our artifact (see NamePattern) -> skip, nothing is signed
-#   0  no cert present AND -Require not given -> prints a LOUD skip notice
+#   0  no cert available AND -Require not given -> LOUD skip notice
 #   1  cert present but signing failed, or -Require given without a cert
+#   1  the binary path does not exist
 #
-# Why the NamePattern whitelist: Tauri pushes EVERY signable binary through
-# signCommand, including its own bundled WiX toolchain DLLs
-# (WixUtilExtension.dll, WixUIExtension.dll, ...) under target/release/wix/.
-# Signing a third party's toolchain DLL with our local cert is simply wrong,
-# and it also corrupts Tauri's tool cache. Measured, not hypothetical.
+# Two measured constraints shape this script:
+#
+# 1. NEVER use the `Cert:` PSDrive (`Get-ChildItem Cert:\...`). It is not
+#    registered in every Windows session -- a GitHub Actions windows-latest
+#    runner threw `Cannot find drive. A drive with the name 'Cert' does not
+#    exist` and that exception aborted the whole bundle step. Use the .NET
+#    X509Store API instead, which works everywhere.
+#
+# 2. The whitelist is required: Tauri pushes EVERY signable binary through
+#    signCommand, including its own bundled toolchain DLLs (WiX under
+#    target/release/wix/, NSIS plugins under target/release/nsis/). Signing a
+#    third party's toolchain DLL with our local cert is wrong and also
+#    corrupts Tauri's tool cache. Measured, not hypothetical.
 #
 # The signature is only accepted after re-reading it from disk and checking
 # BOTH status=Valid AND thumbprint match. Trusting the return value of
@@ -37,25 +46,44 @@ if (-not (Test-Path -LiteralPath $Path)) {
 
 $name = Split-Path $Path -Leaf
 
-# Only sign our own artifacts. Third-party toolchain DLLs (WiX etc.) ship
-# already signed by their vendor and must be left untouched.
+# Only sign our own artifacts.
 if ($name -notmatch $NamePattern) {
   Write-Host ("sign-one: skip (not our artifact): {0}" -f $name)
   exit 0
 }
 
-$cert = Get-ChildItem Cert:\CurrentUser\My |
-  Where-Object { $_.Subject -like "*$SubjectMatch*" -and $_.HasPrivateKey } |
-  Select-Object -First 1
+# Find our cert via X509Store -- no `Cert:` drive.
+function Get-OurCert {
+  param([string]$Match)
+  foreach ($loc in @('CurrentUser', 'LocalMachine')) {
+    $store = $null
+    try {
+      $store = New-Object System.Security.Cryptography.X509Certificates.X509Store('My', $loc)
+      $store.Open('ReadOnly')
+      $found = $store.Certificates | Where-Object {
+        $_.Subject -like "*$Match*" -and $_.HasPrivateKey
+      } | Select-Object -First 1
+      if ($found) { return $found }
+    } catch {
+      # store unavailable -- keep looking, then fall through to "no cert"
+    } finally {
+      if ($store) { $store.Close() }
+    }
+  }
+  return $null
+}
+
+$cert = $null
+try { $cert = Get-OurCert -Match $SubjectMatch } catch { $cert = $null }
 
 if (-not $cert) {
   if ($Require) {
     Write-Host 'sign-one: FAIL - no code-signing cert and -Require was given.'
-    Write-Host 'sign-one: run  tools/sign-windows.ps1 -Setup  first.'
+    Write-Host 'sign-one: run tools/sign-windows.ps1 -Setup on this machine first.'
     exit 1
   }
-  Write-Host 'sign-one: SKIP (no cert in CurrentUser\My) - artifact left UNSIGNED.'
-  Write-Host 'sign-one: run tools/sign-windows.ps1 -Setup to enable signing.'
+  Write-Host 'sign-one: SKIP (no code-signing cert in this session) - artifact left UNSIGNED.'
+  Write-Host 'sign-one: run tools/sign-windows.ps1 -Setup to enable signing on this machine.'
   exit 0
 }
 
