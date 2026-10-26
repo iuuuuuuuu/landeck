@@ -29,14 +29,22 @@ export function DeviceToolsDrawer({
   device,
   client,
   onAuthError,
+  initialTab = 'files',
 }: {
   open: boolean
   onClose: () => void
   device: PairedDevice
   client: AgentClient | null
   onAuthError?: () => void
+  /** 从页面上的「定时任务」卡进来时直接落在 schedules */
+  initialTab?: ToolsTab
 }) {
-  const [tab, setTab] = useState<ToolsTab>('files')
+  const [tab, setTab] = useState<ToolsTab>(initialTab)
+
+  // 抽屉每次被重新打开时都回到调用方指定的 tab（例如从定时任务卡点进来）
+  useEffect(() => {
+    if (open) setTab(initialTab)
+  }, [open, initialTab])
   const bodyRef = useRef<HTMLDivElement | null>(null)
 
   // 换设备时回到第一页 tab，避免标题是 A 设备、内容是 B 设备的旧状态

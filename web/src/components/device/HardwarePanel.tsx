@@ -152,7 +152,7 @@ function Body({ hw }: { hw: HardwareInfo }) {
     而不是全堆在卡片底部。窄屏只有一列时行高仍由内容决定，不会被拉长。
   */
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 2xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-2">
       {hasCpu && (
         <Group icon={<Cpu size={12} />} title={cpuModel || '处理器'}>
           <Row label="厂商" value={cpuVendor || '—'} />
@@ -251,26 +251,26 @@ function Group({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-w-0 flex-col rounded-lg border border-line bg-elevated px-2.5 py-1.5">
-      <div className="mb-1 flex shrink-0 items-center gap-1.5 text-[11.5px] text-accent-soft">
+    <div className="flex min-w-0 flex-col rounded-xl border border-line bg-elevated px-3 py-2.5">
+      <div className="mb-2 flex shrink-0 items-center gap-1.5 text-[12px] text-accent-soft">
         {icon}
         <span className="truncate font-medium text-fg-soft" title={title}>
           {title}
         </span>
       </div>
       {/* flex-1 + justify-between：同行卡片等高时，富余空间均摊到行间距，不在底部留一块空白 */}
-      <div className="flex flex-1 flex-col justify-between gap-y-[3px]">{children}</div>
+      <div className="flex flex-1 flex-col justify-between gap-y-1.5">{children}</div>
     </div>
   )
 }
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex min-w-0 items-baseline gap-2 leading-tight">
-      <span className="shrink-0 text-[11.5px] text-faint">{label}</span>
+    <div className="flex min-w-0 items-baseline gap-2 leading-snug">
+      <span className="shrink-0 text-[12px] text-faint">{label}</span>
       <span
         className={clsx(
-          'num min-w-0 flex-1 truncate text-right text-[12px] text-fg',
+          'num min-w-0 flex-1 break-all text-right text-[12.5px] text-fg',
           mono && 'font-mono text-[11.5px] tracking-tight',
         )}
         title={value}

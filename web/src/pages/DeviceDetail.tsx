@@ -13,6 +13,7 @@ import { UptimePanel } from '../components/device/UptimePanel'
 import { ProcessPanel } from '../components/device/ProcessPanel'
 import { AuthLost } from '../components/device/AuthLost'
 import { DeviceToolsDrawer } from '../components/device/DeviceToolsDrawer'
+import { ScheduleListCard } from '../components/device/ScheduleListCard'
 import { useFetch } from '../components/device/useFetch'
 import { useActionRunner } from '../components/device/useActionRunner'
 import { useClient, useLive } from '../lib/hooks'
@@ -36,6 +37,7 @@ export default function DeviceDetail() {
   const [countdown, setCountdown] = useState<Countdown | null>(null)
   /** 管理工具抽屉：文件管理与定时任务合并在一个入口里（内部 tab 切换） */
   const [toolsOpen, setToolsOpen] = useState(false)
+  const [toolsTab, setToolsTab] = useState<'files' | 'schedules'>('files')
 
   const markAuthLost = useCallback(() => setAuthLost(true), [])
 
@@ -117,7 +119,10 @@ export default function DeviceDetail() {
       {/* 单一入口：文件管理 + 定时任务收进同一个抽屉，避免一排并列按钮 */}
       <button
         type="button"
-        onClick={() => setToolsOpen(true)}
+        onClick={() => {
+          setToolsTab('files')
+          setToolsOpen(true)
+        }}
         className="panel group flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-hover"
       >
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line-soft bg-elevated text-accent-soft">
@@ -153,6 +158,16 @@ export default function DeviceDetail() {
         <div className="lg:col-span-5">
           <HardwarePanel client={client} onAuthError={markAuthLost} />
         </div>
+        {/* 定时任务直接列在页面上，不用先进抽屉 */}
+        <div className="lg:col-span-12">
+          <ScheduleListCard
+            client={client}
+            onManage={() => {
+              setToolsTab('schedules')
+              setToolsOpen(true)
+            }}
+          />
+        </div>
         <div className="lg:col-span-12">
           <UptimePanel client={client} onAuthError={markAuthLost} />
         </div>
@@ -165,6 +180,7 @@ export default function DeviceDetail() {
       <DeviceToolsDrawer
         open={toolsOpen}
         onClose={() => setToolsOpen(false)}
+        initialTab={toolsTab}
         device={device}
         client={client}
         onAuthError={markAuthLost}
