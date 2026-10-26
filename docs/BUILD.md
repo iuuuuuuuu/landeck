@@ -52,3 +52,34 @@ node tools/smoke.mjs --base http://<ip>:8420     # 前端冒烟（真浏览器 +
 node tools/desktop-check.mjs                      # 桌面端 CDP 自检（需先开调试端口）
 cd app/src-tauri && cargo test --release          # 原生层单测（本机 IP / UDP 发现 / 自启）
 ```
+
+## Android 固定签名（重要）
+
+APK 的签名**必须每次都用同一个 keystore**。否则 Android 会把每个版本当成不同的应用：
+升级安装报「签名不一致」，只能先卸载（丢数据）再装。
+
+CI 从仓库 Secrets 取固定 keystore，缺了就**直接失败**（不再像以前那样现生成一个）。
+
+| Secret | 内容 |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | keystore 文件的 base64（`base64 -w0 release.keystore`） |
+| `ANDROID_KEYSTORE_PASSWORD` | keystore 密码 |
+| `ANDROID_KEY_ALIAS` | 密钥别名（默认 `landeck`） |
+
+配置方式：
+
+```bash
+base64 -w0 app/src-tauri/gen/android/landeck-release.keystore | gh secret set ANDROID_KEYSTORE_BASE64
+gh secret set ANDROID_KEYSTORE_PASSWORD   # 交互输入
+gh secret set ANDROID_KEY_ALIAS           # 交互输入，通常 landeck
+```
+
+keystore 本身在 `.gitignore` 里（`app/src-tauri/gen/android/*.keystore`），**不要入库**。
+
+验证签名一致：
+
+```bash
+apksigner verify --print-certs app-release.apk | grep 'SHA-256 digest'
+```
+
+CI 会把这条指纹写进 `landeck-android-cert.txt` 一并上传，两个版本比一下就知道有没有变。

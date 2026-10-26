@@ -43,23 +43,6 @@ Status: implemented
   聚合出的「单次最长」会失真。放后端算才对。放弃。
 - **y 轴仍固定 24h 但把月数据除以天数**：等于显示「日均开机」，与「当月累计」语义混淆。放弃。
 
-## 追加：Android CI 的 configuration cache 必红
-
-v1.0.8 首次触发发布流水线时，Android job 红了：
-
-```
-Configuration cache state could not be cached: field `__classpath__` of
-`LintTool_Decorated` bean found in `task :app:lintVitalAnalyzeUniversalRelease`:
-error writing value of type 'DefaultConfigurableFileCollection'
-```
-
-这是 AGP 的 lint 任务与 Gradle configuration cache 的兼容问题，与本次代码无关 ——
-但它在 CI 上**必现**，因为 `gen/android/gradle.properties` 里开着
-`org.gradle.configuration-cache=true`。本地能过是因为命中了已有缓存条目。
-
-修法：该文件改成 `configuration-cache=false`。代价只是增量构建慢一点，产物不受影响。
-本地重跑 `tauri android build --apk` 确认仍能出包。
-
 ## Consequences
 
 收益：通知区只有一个图标；扫描「本机」的判据正确（同一台机器上的 Agent 不再被莫名藏起来）；

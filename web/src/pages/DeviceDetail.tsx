@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, EmptyState } from '../components/ui'
-import { CalendarClock, FolderOpen, MonitorSmartphone } from 'lucide-react'
+import { ChevronRight, MonitorSmartphone, PanelsTopLeft } from 'lucide-react'
 import { DeviceBanner } from '../components/device/DeviceBanner'
 import { CountdownBar } from '../components/device/CountdownBar'
 import { PowerCard } from '../components/device/PowerCard'
@@ -12,9 +12,7 @@ import { HardwarePanel } from '../components/device/HardwarePanel'
 import { UptimePanel } from '../components/device/UptimePanel'
 import { ProcessPanel } from '../components/device/ProcessPanel'
 import { AuthLost } from '../components/device/AuthLost'
-import { DetailDrawer } from '../components/device/DetailDrawer'
-import { FilesPanel } from './Files'
-import { SchedulesPanel } from './Schedules'
+import { DeviceToolsDrawer } from '../components/device/DeviceToolsDrawer'
 import { useFetch } from '../components/device/useFetch'
 import { useActionRunner } from '../components/device/useActionRunner'
 import { useClient, useLive } from '../lib/hooks'
@@ -36,14 +34,14 @@ export default function DeviceDetail() {
   const live = useLive(device)
   const [authLost, setAuthLost] = useState(false)
   const [countdown, setCountdown] = useState<Countdown | null>(null)
-  /** 详情页内的功能抽屉：文件管理 / 定时任务 */
-  const [panel, setPanel] = useState<'files' | 'schedules' | null>(null)
+  /** 管理工具抽屉：文件管理与定时任务合并在一个入口里（内部 tab 切换） */
+  const [toolsOpen, setToolsOpen] = useState(false)
 
   const markAuthLost = useCallback(() => setAuthLost(true), [])
 
   // 抽屉里的操作都绑定当前设备，切设备时收起，避免内容与标题错位
   useEffect(() => {
-    setPanel(null)
+    setToolsOpen(false)
   }, [device?.id])
 
   const sys = useFetch(
@@ -116,25 +114,26 @@ export default function DeviceDetail() {
         />
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="secondary"
-          icon={<FolderOpen size={15} />}
-          onClick={() => setPanel('files')}
-        >
-          文件管理
-        </Button>
-        <Button
-          variant="secondary"
-          icon={<CalendarClock size={15} />}
-          onClick={() => setPanel('schedules')}
-        >
-          定时任务
-        </Button>
-        <span className="hidden text-[11.5px] text-faint sm:inline">
-          直接在这台设备上操作，不离开当前页
+      {/* 单一入口：文件管理 + 定时任务收进同一个抽屉，避免一排并列按钮 */}
+      <button
+        type="button"
+        onClick={() => setToolsOpen(true)}
+        className="panel group flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-hover"
+      >
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line-soft bg-elevated text-accent-soft">
+          <PanelsTopLeft size={16} />
         </span>
-      </div>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[13.5px] font-medium text-fg">管理工具</span>
+          <span className="block truncate text-[11.5px] text-muted">
+            文件管理 · 定时任务，在当前设备上直接操作
+          </span>
+        </span>
+        <ChevronRight
+          size={16}
+          className="shrink-0 text-faint transition-colors group-hover:text-fg-soft"
+        />
+      </button>
 
       <div className="grid gap-3 lg:grid-cols-3">
         <PowerCard
@@ -163,29 +162,13 @@ export default function DeviceDetail() {
       </div>
 
       {/* 抽屉在详情页内打开：目标固定为当前设备，关掉即回到本页（滚动位置不变） */}
-      <DetailDrawer
-        open={panel === 'files'}
-        onClose={() => setPanel(null)}
-        title="文件管理"
-        desc={`${sys.data?.name ?? device.name} · 浏览、下载、上传与整理`}
-        icon={<FolderOpen size={16} />}
-      >
-        {client && (
-          <FilesPanel device={device} client={client} onAuthError={markAuthLost} />
-        )}
-      </DetailDrawer>
-
-      <DetailDrawer
-        open={panel === 'schedules'}
-        onClose={() => setPanel(null)}
-        title="定时任务"
-        desc={`${sys.data?.name ?? device.name} · 定时关机、睡眠与 RTC 唤醒`}
-        icon={<CalendarClock size={16} />}
-      >
-        {client && (
-          <SchedulesPanel device={device} client={client} onAuthError={markAuthLost} />
-        )}
-      </DetailDrawer>
+      <DeviceToolsDrawer
+        open={toolsOpen}
+        onClose={() => setToolsOpen(false)}
+        device={device}
+        client={client}
+        onAuthError={markAuthLost}
+      />
     </div>
   )
 }

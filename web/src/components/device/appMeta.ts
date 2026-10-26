@@ -25,3 +25,16 @@ export function initialOf(name: string): string {
   const c = name.trim().charAt(0)
   return c ? c.toUpperCase() : '?'
 }
+
+/**
+ * 这个可执行文件值不值得去请求图标。
+ *
+ * 服务端只从 PE 资源段里取图标，所以只有 .exe / .dll 有意义
+ * （Linux 的 .desktop、macOS 的 .app 走另一套，这里直接回退字母）。
+ * 先筛一层，避免列表里几十行都白发一次 404。
+ */
+export function hasIconSource(exe: string | undefined | null): boolean {
+  if (!exe) return false
+  const lower = exe.toLowerCase()
+  return lower.endsWith('.exe') || lower.endsWith('.dll')
+}

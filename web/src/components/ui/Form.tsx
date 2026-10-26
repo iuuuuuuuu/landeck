@@ -157,24 +157,14 @@ export function Input({
   )
 }
 
-export function Select({
-  className,
-  children,
-  ...rest
-}: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      className={clsx(
-        'h-11 w-full appearance-none rounded-xl border border-line bg-elevated px-3.5 text-[14px] text-fg',
-        'outline-none transition-colors focus:border-accent/55 focus:ring-2 focus:ring-accent/20',
-        className,
-      )}
-      {...rest}
-    >
-      {children}
-    </select>
-  )
-}
+/**
+ * 下拉选择：原生 `<select>` 的样式在深色/浅色主题下都无法自定义弹层
+ * （系统绘制白底菜单），所以换成自绘的 Dropdown。
+ *
+ * 这里保留 `Select` 这个导出名与 `<option>` children 的调用约定，
+ * 现有调用点（设备切换、定时动作）一行都不用改。
+ */
+export { Select } from './Dropdown'
 
 export function Segmented<T extends string>({
   value,

@@ -80,8 +80,8 @@ async function open(width, height) {
 // 1) 统计页
 await open(1440, 1000)
 await ev(`location.hash='#/stats'`)
-const statsText = await waitForText('总览')
-check('统计页渲染总览', statsText.includes('总览'))
+const statsText = await waitForText('规模与活动')
+check('统计页渲染主视觉与指标区', /已运行/.test(statsText) && /规模与活动/.test(statsText))
 check('统计页有运行时长', /已运行/.test(statsText))
 check('统计页有实时资源', /实时资源|CPU/.test(statsText))
 check('统计页有磁盘占用', /磁盘占用/.test(statsText))

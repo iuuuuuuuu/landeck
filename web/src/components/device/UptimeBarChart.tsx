@@ -13,18 +13,26 @@ echarts.use([BarChart, GridComponent, TooltipComponent, MarkLineComponent, Canva
  * 数据一多就露馅（之前 14 根柱看着等高，就是因为缺 y 轴参照）。
  *
  * 关键点：y 轴固定 0–24 小时，柱高才是真实占比；否则 echarts 会按最大值自适应，
- * 又会变成「都差不多高」。
+ * 又会变成「都差不多高」。按月视图累计值远超 24h，这时交给 echarts 自适应，
+ * 刻度按天显示。
+ *
+ * 视觉上它是「趋势面板」的内胆：容器（圆角/描边/标题/当前值）由 UptimePanel 提供，
+ * 这里只管画布本身，所以默认高度压到 172，左右留白也收窄，方便和实时状态的
+ * 迷你趋势图同台。
  */
 export function UptimeBarChart({
   monthly = false,
   data,
-  height = 190,
+  height = 172,
   theme,
+  highlightIndex,
 }: {
   data: { date: string; label: string; onSec: number; boots: number }[]
   height?: number
   theme: 'dark' | 'light'
   monthly?: boolean
+  /** 需要高亮的柱（默认最后一根 = 本月），其余柱降透明度做层次 */
+  highlightIndex?: number
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const chartRef = useRef<echarts.ECharts | null>(null)
@@ -49,13 +57,21 @@ export function UptimeBarChart({
     const dark = theme === 'dark'
     const axisColor = dark ? 'rgba(255,255,255,0.28)' : 'rgba(19,22,35,0.28)'
     const labelColor = dark ? '#9aa2b8' : '#5f677d'
+    const splitColor = dark ? 'rgba(255,255,255,0.06)' : 'rgba(19,22,35,0.06)'
     const tooltipBg = dark ? 'rgba(12,14,22,0.96)' : 'rgba(255,255,255,0.98)'
     const tooltipBorder = dark ? 'rgba(255,255,255,0.12)' : 'rgba(19,22,35,0.10)'
     const tooltipFg = dark ? '#edeff8' : '#111423'
 
+    const hi = highlightIndex ?? data.length - 1
+    const barGradient = (strong: boolean) =>
+      new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+        { offset: 0, color: strong ? (dark ? '#a78bfa' : '#8b6bff') : dark ? '#6d5bd0' : '#b9a8ff' },
+        { offset: 1, color: strong ? (dark ? '#7c5cff' : '#a78bfa') : dark ? '#4d4197' : '#d8ccff' },
+      ])
+
     const option: EChartsOption = {
-      animationDuration: 480,
-      grid: { left: 34, right: 10, top: 14, bottom: 26 },
+      animationDuration: 420,
+      grid: { left: 30, right: 6, top: 10, bottom: 20 },
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
@@ -80,17 +96,15 @@ export function UptimeBarChart({
         data: data.map((d) => d.label),
         axisLine: { lineStyle: { color: axisColor } },
         axisTick: { show: false },
-        axisLabel: { color: labelColor, fontSize: 10.5 },
+        axisLabel: { color: labelColor, fontSize: 10.5, margin: 8 },
       },
-      // 按天视图固定 24 小时（柱高才是当天占比）；按月视图累计值远超 24h，
-      // 若仍固定 24 会把柱子全部截平 —— 所以按月时交给 echarts 自适应，刻度按天显示。
       yAxis: monthly
         ? {
             type: 'value',
             min: 0,
             axisLine: { show: false },
             axisTick: { show: false },
-            splitLine: { lineStyle: { color: dark ? 'rgba(255,255,255,0.06)' : 'rgba(19,22,35,0.06)' } },
+            splitLine: { lineStyle: { color: splitColor } },
             axisLabel: {
               color: labelColor,
               fontSize: 10.5,
@@ -104,7 +118,7 @@ export function UptimeBarChart({
             interval: 6,
             axisLine: { show: false },
             axisTick: { show: false },
-            splitLine: { lineStyle: { color: dark ? 'rgba(255,255,255,0.06)' : 'rgba(19,22,35,0.06)' } },
+            splitLine: { lineStyle: { color: splitColor } },
             axisLabel: {
               color: labelColor,
               fontSize: 10.5,
@@ -115,15 +129,15 @@ export function UptimeBarChart({
         {
           type: 'bar',
           name: '开机时长',
-          data: data.map((d) => Math.round((d.onSec / 3600) * 100) / 100),
-          barMaxWidth: 26,
-          itemStyle: {
-            borderRadius: [5, 5, 0, 0],
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: dark ? '#a78bfa' : '#8b6bff' },
-              { offset: 1, color: dark ? '#7c5cff' : '#a78bfa' },
-            ]),
-          },
+          // 逐柱样式：本月用主渐变，其余降饱和做背景层次
+          data: data.map((d, i) => ({
+            value: Math.round((d.onSec / 3600) * 100) / 100,
+            itemStyle: {
+              borderRadius: [5, 5, 0, 0],
+              color: barGradient(i === hi),
+            },
+          })),
+          barMaxWidth: 22,
           emphasis: { itemStyle: { color: dark ? '#c4b5fd' : '#7c5cff' } },
         },
       ],
@@ -131,7 +145,7 @@ export function UptimeBarChart({
     chart.setOption(option, true)
     // 容器尺寸变化（切主题、切布局）后需要 resize
     requestAnimationFrame(() => chart.resize())
-  }, [data, theme])
+  }, [data, theme, monthly, highlightIndex])
 
   return <div ref={ref} style={{ width: '100%', height }} />
 }

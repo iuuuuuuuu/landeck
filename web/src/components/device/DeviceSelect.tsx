@@ -19,10 +19,8 @@ export function DeviceSelect({
       aria-label="选择设备"
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value)}
-      className={clsx(
-        'h-10 w-full min-w-0 sm:w-64 [&>option]:bg-surface [&>option]:text-fg',
-        className,
-      )}
+      // [&>option] 那套是原生 select 时代的 hack，自绘下拉不需要了
+      className={clsx('h-10 w-full min-w-0 sm:w-64', className)}
     >
       {devices.length === 0 && <option value="">暂无已配对设备</option>}
       {devices.map((d) => (

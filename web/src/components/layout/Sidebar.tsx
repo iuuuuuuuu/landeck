@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { motion } from 'framer-motion'
 import { NavLink } from 'react-router-dom'
 import { useApp } from '../../store/app'
-import { NAV_ITEMS } from './nav'
+import { NAV_ICON_PROPS, NAV_ITEMS } from './nav'
 
 /** 桌面侧栏：248px 玻璃面板，激活项左侧发光竖条 + 半透明底 */
 export function Sidebar() {
@@ -49,9 +49,13 @@ export function Sidebar() {
                       style={{ boxShadow: '0 0 12px rgba(124,92,255,.85)' }}
                     />
                   )}
+                  {/* 尺寸/描边统一走 nav.ts 的 NAV_ICON_PROPS；选中态用 accent 提亮 */}
                   <item.icon
-                    size={17}
-                    className={isActive ? 'text-accent-soft' : 'text-faint group-hover:text-fg-soft'}
+                    {...NAV_ICON_PROPS}
+                    className={clsx(
+                      'shrink-0 transition-colors duration-150',
+                      isActive ? 'text-accent' : 'text-faint group-hover:text-fg-soft',
+                    )}
                   />
                   <span className="text-[13.5px] font-medium">{item.label}</span>
                 </span>
