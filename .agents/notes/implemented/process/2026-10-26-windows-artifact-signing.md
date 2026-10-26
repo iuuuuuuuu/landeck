@@ -76,14 +76,19 @@ Status: implemented
 - **买商业代码签名证书（OV/EV）**：这是唯一能让**别人**也不弹框的正路，
   也是自签名做不到的部分。但需要花钱（约 ¥1000–4000/年）与企业资质，
   超出本次「让本机不弹」的请求范围。**列为后续可选项，未实施。**
-- **只签构建产物、不签安装副本**：改动最小，但用户点开的正是安装副本，
-  实测无效。放弃（这正是第 1 条缺陷）。
-- **用 `certificateThumbprint` + `digestAlgorithm`**：Tauri 的官方推荐写法，
+- **只用 `certificateThumbprint` + `digestAlgorithm`**：Tauri 的官方推荐写法，
   但对本机不成立 —— 没有 `signtool.exe`，配置完必定在打包末尾报
   `SignToolNotFound`。放弃。
 - **把 `signCommand` 写成内联 `-Command`**：试过。`%1` 只在**参数恰好等于 `%1`**时
   被替换，内嵌进命令文本无效；`-Command` 后面也无法再跟位置参数
   （PowerShell 解析器会把它拼进命令行文本并报 `Unexpected token`）。放弃。
+- **用 `Get-ChildItem Cert:\CurrentUser\My` 取证书**：这是最自然的写法，
+  本地一直正常；但在 GitHub Actions 的 windows-latest 上直接抛
+  `Cannot find drive. A drive with the name 'Cert' does not exist` 并让打包 exit 1。
+  `Cert:` 是 PSDrive，不是每个会话都注册。改为 .NET `X509Store`。放弃。
+- **让 `signCommand` 在拿不到证书时也返回非零**：那会让**没装自签名证书**的
+  打包机（含 CI）永久变红，而「本来就没打算在那台机器上签名」是正常状态。
+  改为明确 SKIP + exit 0，并用 `-Require` 表达「这台机器必须有证书」。放弃。
 - **干脆不管 MSI**：`light.exe` 在 `TEMP=C:\Users\IUUUUU~1\AppData\Local\Temp`
   下报 `LGHT0001 对路径 … 的访问被拒绝`，且**单独运行 `light.exe` 也报同一错、
   与本次改动无关**（在 `WriteAllText` 到同一目录成功的前提下仍失败）。
@@ -120,7 +125,17 @@ Status: implemented
 - 反向 1：`-SubjectMatch NoSuchSubjectXYZ` → 打印 `SKIP`，exit **0**（显式跳过，不假装成功）。
 - 反向 2：`-SubjectMatch NoSuchSubjectXYZ -Require` → exit **1**（真失败）。
 - 反向 3：`-Path C:\nonexistent\no.exe` → `file not found`，exit **1**。
-- 白名单：构建日志中 `WixUIExtension.dll` / `WixUtilExtension.dll` 均为
-  `skip (not our artifact)`；随后复查这两个 DLL 仍为 `NotSigned`，确认未被误签。
-- 端到端：`tauri build --bundles nsis` 日志显示
-  `Signing … with a custom signing command` → `sign-one: OK landeck.exe (timestamped)`。
+- 白名单：构建日志中 `WixUIExtension.dll` / `WixUtilExtension.dll` /
+  NSIS 插件 DLL 均为 `skip (not our artifact)`；随后复查这些 DLL 仍为
+  `NotSigned`，确认未被误签。
+- 端到端（本机）：`tauri build --bundles nsis` 日志显示
+  `Signing … with a custom signing command` → `sign-one: OK landeck.exe (timestamped)`；
+  解包成品安装包，内嵌 `landeck.exe` 与 `landeck-agent.exe` 均为 `Valid`。
+- 平台隔离：`bundle.windows` 在主配置中为 `{}`；`tauri.windows.conf.json` 提供
+  `signCommand`，Windows 构建合并后确实执行（日志可见），Linux/macOS 不受影响。
+- **CI 回归（这一条是本轮最贵的教训）**：打 `v1.0.12-pre` tag 后，
+  windows-latest job 红在 `Cannot find drive. A drive with the name 'Cert' does not exist`。
+  根因是取证书用了 `Cert:` PSDrive，而该会话没有注册。改用 .NET `X509Store` 后：
+  代码层审计确认可执行语句 0 处引用 `Cert:`；无证书路径输出 `SKIP` + exit 0、
+  不含 DriveNotFound；有证书路径仍 `Valid`；`-Require` 无证书仍 exit 1。
+  **教训：本机绿灯不等于 CI 绿灯 —— 涉及构建链路的改动必须以真实 CI 结果为准。**
