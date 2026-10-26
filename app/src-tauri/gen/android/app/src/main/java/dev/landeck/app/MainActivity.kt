@@ -9,6 +9,7 @@ import android.Manifest
 import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.util.Log
 import org.json.JSONObject
 import java.io.File
 import androidx.core.content.ContextCompat
@@ -77,9 +78,12 @@ class MainActivity : TauriActivity() {
       o.put("os_version", android.os.Build.VERSION.RELEASE ?: "")
       o.put("sdk_int", android.os.Build.VERSION.SDK_INT)
       o.put("device", android.os.Build.DEVICE ?: "")
-      File(filesDir, "device_profile.json").writeText(o.toString())
-    } catch (_: Throwable) {
-      // 读不到就保持静默：Rust 侧会回落，前端如实显示「读不到」
+      val f = File(filesDir, "device_profile.json")
+      f.writeText(o.toString())
+      // 用 logcat 输出，便于 adb 侧确认这段确实执行、路径与数值都对
+      Log.i("LanDeck", "device_profile 写入 ${f.absolutePath} = $o")
+    } catch (t: Throwable) {
+      Log.w("LanDeck", "写 device_profile 失败", t)
     }
   }
 }

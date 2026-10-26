@@ -178,6 +178,9 @@ struct DeviceProfile {
     /// 内存总量（MB，整数；拿不到为 0）
     mem_total_mb: u64,
     cpu_cores: u32,
+    /// 诊断：内存是从哪条路径拿到的（meminfo / activity_manager / none）。
+    /// 界面据此决定要不要显示「系统限制，读不到」，而不是含糊地空着。
+    mem_source: String,
 }
 
 #[cfg(target_os = "android")]
@@ -222,12 +225,28 @@ fn mem_total_mb() -> u64 {
 /// 拿不到就返回 None，由调用方回落 —— 不编造数字。
 #[cfg(target_os = "android")]
 fn read_android_profile_file() -> Option<serde_json::Value> {
-    let path = format!(
-        "/data/user/0/{}/files/device_profile.json",
-        "dev.landeck.app"
-    );
-    let txt = std::fs::read_to_string(path).ok()?;
-    serde_json::from_str(&txt).ok()
+    // 多路径尝试：不同 Android 版本上 /data/data/<pkg> 与 /data/user/0/<pkg>
+    // 有一个会是可读的软链。硬编码单条路径曾在真机上直接失败（EPERM），
+    // 而读不到时界面只会显示空值 —— 所以这里把所有候选都试一遍。
+    let candidates = [
+        "/data/user/0/dev.landeck.app/files/device_profile.json",
+        "/data/data/dev.landeck.app/files/device_profile.json",
+        // filesDir 的另一种布局（部分 ROM / 多用户场景）
+        "/data/user/10/dev.landeck.app/files/device_profile.json",
+    ];
+    for path in candidates {
+        match std::fs::read_to_string(path) {
+            Ok(txt) => {
+                if let Ok(v) = serde_json::from_str(&txt) {
+                    return Some(v);
+                }
+            }
+            Err(e) => {
+                eprintln!("[LanDeck] profile 路径不可读 {path}: {e}");
+            }
+        }
+    }
+    None
 }
 
 #[tauri::command]
@@ -237,6 +256,11 @@ fn device_profile() -> DeviceProfile {
         mem_total_mb: mem_total_mb(),
         ..Default::default()
     };
+    if p.mem_total_mb > 0 {
+        p.mem_source = "meminfo".into();
+    } else {
+        p.mem_source = "none".into();
+    }
 
     #[cfg(target_os = "android")]
     {
@@ -250,6 +274,7 @@ fn device_profile() -> DeviceProfile {
             if let Some(mb) = v.get("mem_total_mb").and_then(|x| x.as_u64()) {
                 if mb > 0 {
                     p.mem_total_mb = mb;
+                    p.mem_source = "activity_manager".into();
                 }
             }
             if p.model.is_empty() {

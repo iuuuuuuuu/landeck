@@ -197,13 +197,25 @@ export function PhoneSelfPanel() {
               hint={info?.memorySource === 'native' ? '系统 API 读取' : '浏览器分档估算'}
             />
           </div>
+          {/* 文案必须跟着实际来源走：拿到系统真值还说"网页读不到"就是在误导用户 */}
           <p className="mt-3 text-[11.5px] leading-relaxed text-faint">
-            {info?.memoryGb
-              ? `内存只有分档值（0.25 / 0.5 / 1 / 2 / 4 / 8 GB），实际可能是 ${info.memoryGb} GB 上下的任意容量。`
-              : '内存：此设备不支持读取（安卓 WebView 基本不实现 navigator.deviceMemory）。'}
-            {' '}
-            CPU 核心来自 navigator.hardwareConcurrency，安卓 WebView 常年固定返回 4，只能当参照。
-            要真实规格需要系统 API（设置 → 关于手机），网页读不到。
+            {info?.memorySource === 'native' ? (
+              <>
+                内存与 CPU 核心来自系统 API（ActivityManager / 内核），是这台设备真实的硬件规格，
+                不是浏览器估算值。
+              </>
+            ) : info?.memoryGb ? (
+              <>
+                内存只有分档值（0.25 / 0.5 / 1 / 2 / 4 / 8 GB），实际可能是 {info.memoryGb} GB
+                上下的任意容量。CPU 核心来自 navigator.hardwareConcurrency，安卓 WebView 常年固定
+                返回 4，只能当参照。
+              </>
+            ) : (
+              <>
+                这台设备没能读到内存与核心数：安卓把 /proc/meminfo 限制为系统专属，浏览器侧也不实现
+                navigator.deviceMemory。可以到「设置 → 关于手机」查看。
+              </>
+            )}
           </p>
         </Card>
 
