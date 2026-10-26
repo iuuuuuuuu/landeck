@@ -1,5 +1,41 @@
 # 更新日志
 
+## v1.0.12 — 2026-10-26（预测试版）
+
+修「未知发布者 / 安全警告」弹窗，并让签名成为构建期的一部分。
+
+### 1. 弹窗的真正成因：签错了对象 + 打包期从未签名
+排查后确认这不是单一问题，而是几处独立缺陷叠加：
+
+- **签错了文件**。桌面 / 开始菜单 / 启动项三处快捷方式都指向
+  `%LOCALAPPDATA%\LanDeck\landeck.exe`（安装后的副本），而签名脚本只签
+  `target\release\` 与 `bundle\` 下的产物 —— 实测安装副本三个 exe 全为
+  `NotSigned`，**签了等于没签**。
+- **打包期完全没有签名**。`bundle.windows` 一直是空对象，从未配过
+  `signCommand`，所以每次构建出的安装包天然未签名。
+- **弹窗是 Windows 自己的**。把该系统 2027 个 MUI/DLL 做字符串比对，
+  那批文案（「来自 Internet 的文件」「未知发布者」「安全警告」）**只命中
+  `ieframe.dll.mui` 与 `shdocvw.dll.mui`**，即 IE/Shell 的「打开文件 - 安全警告」框；
+  且实测所有产物**都没有** `Zone.Identifier`（MOTW）流，火绒日志里也**没有**
+  任何 `landeck` 记录 —— 两条此前的猜测都被证伪。
+
+### 2. 现在的做法
+- `tools/sign-one.ps1`：给单个二进制签名，签完**重新从磁盘复读**校验
+  （`Status=Valid` 且指纹一致才算成功），并对第三方工具链 DLL
+  （WiX / NSIS 插件）按文件名白名单跳过，避免用本地证书污染它们。
+- `app/src-tauri/tauri.windows.conf.json`：把 `signCommand` 放在**平台专属配置**里，
+  只有 Windows 构建才会调用 PowerShell；Linux/macOS 的 CI 不会去跑
+  `powershell.exe`。
+- `tools/build.sh`：不再用 `2>/dev/null || echo "（跳过签名）"` 吞掉真实错误，
+  签名失败直接让构建非零退出。
+
+### 3. 边界（不假装治好）
+- 自签名证书**只对本机/本用户生效**。别人拿到的包仍会显示「未知发布者」，
+  要消除得买 OV/EV 商业证书。
+- 本机缺 `signtool.exe`，因此走 `signCommand` 而非 `certificateThumbprint`。
+- MSI 打包在本机报 WiX `light.exe` 临时目录访问被拒，与本次改动无关
+  （单独运行 `light.exe` 同样报错），本轮用 `--bundles nsis` 绕开。
+
 ## v1.0.1 — 2026-10-24
 
 修用户反馈的五个问题。

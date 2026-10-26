@@ -40,6 +40,11 @@ class MainActivity : TauriActivity() {
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
+    // 必须在 super.onCreate() 之前写：super 会创建 WebView 并加载前端，
+    // 前端一挂载就 invoke('device_profile')。若此时文件还没写出来，
+    // Rust 只能用 /proc/meminfo（安卓读不到）→ 内存永远是空。实测踩到过这个竞态。
+    writeDeviceProfile()
+
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
 
@@ -52,7 +57,6 @@ class MainActivity : TauriActivity() {
     }
 
     ensureLocalNetworkPermission()
-    writeDeviceProfile()
   }
 
   /**

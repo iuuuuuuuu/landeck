@@ -30,7 +30,16 @@ fi
 echo "== 3/3 编译三平台 Agent =="
 mkdir -p agent/dist
 cd agent
-LDFLAGS="-s -w -X main.Version=1.0.0"
+# 版本号从 agent/main.go 的 const Version 读取，不在构建脚本里再写一份。
+# 之前这里硬编码 `-X main.Version=1.0.0`，会把本地构建的 agent 覆盖成 1.0.0，
+# 而 CI 用的 LDFLAGS 不带这个覆盖 —— 同一份代码在两处报不同版本。
+AGENT_VERSION=$(sed -n 's/^const Version = "\(.*\)"/\1/p' main.go | head -1)
+if [ -z "$AGENT_VERSION" ]; then
+  echo "   失败：无法从 agent/main.go 解析 Version" >&2
+  exit 1
+fi
+LDFLAGS="-s -w -X main.Version=$AGENT_VERSION"
+echo "   被控端版本 $AGENT_VERSION"
 build() {
   local goos=$1 goarch=$2 out=$3
   GOOS=$goos GOARCH=$goarch CGO_ENABLED=0 go build -trimpath -ldflags "$LDFLAGS" -o "dist/$out" .
@@ -61,3 +70,23 @@ build darwin  amd64 landeck-agent-darwin-amd64
 echo
 echo "完成：agent/dist/"
 ls -la dist
+
+# Windows 产物自签名：消除「未知发布者」安全警告。
+# 证书由 tools/sign-windows.ps1 -Setup 创建并信任（每台机器/用户一次）。
+#
+# 这里不再吞错误、也不假装「跳过」成功：证书缺失是显式可见的 SKIP，
+# 证书存在却签不上则直接让构建失败（之前用 2>/dev/null || echo 掩盖过
+# 真实错误，报出来的是「跳过」而实际是脚本根本没能运行 —— 假绿）。
+if [ "$(uname -s)" = "MINGW64_NT"* ] || [ "$(uname -s)" = "MSYS_NT"* ]; then
+  if command -v powershell.exe >/dev/null 2>&1; then
+    echo "== 签名 Windows 产物 =="
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(dirname "$0")/sign-windows.ps1"
+    rc=$?
+    if [ "$rc" -ne 0 ]; then
+      echo "   签名失败（exit $rc）。证书未就绪时先运行：tools/sign-windows.ps1 -Setup" >&2
+      exit "$rc"
+    fi
+  else
+    echo "（未找到 powershell.exe，跳过签名）"
+  fi
+fi

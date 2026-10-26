@@ -193,6 +193,47 @@ fn android_getprop(key: &str) -> String {
         .unwrap_or_default()
 }
 
+/// Windows：GlobalMemoryStatusEx 拿物理内存总量（MB）。
+/// 之前只读 /proc/meminfo，Windows 上恒为 0，桌面端「本机」页内存一直是空的。
+#[cfg(windows)]
+fn mem_total_mb() -> u64 {
+    #[repr(C)]
+    #[allow(non_snake_case)]
+    struct MEMORYSTATUSEX {
+        dwLength: u32,
+        dwMemoryLoad: u32,
+        ullTotalPhys: u64,
+        ullAvailPhys: u64,
+        ullTotalPageFile: u64,
+        ullAvailPageFile: u64,
+        ullTotalVirtual: u64,
+        ullAvailVirtual: u64,
+        ullAvailExtendedVirtual: u64,
+    }
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GlobalMemoryStatusEx(lpBuffer: *mut MEMORYSTATUSEX) -> i32;
+    }
+    let mut st = MEMORYSTATUSEX {
+        dwLength: std::mem::size_of::<MEMORYSTATUSEX>() as u32,
+        dwMemoryLoad: 0,
+        ullTotalPhys: 0,
+        ullAvailPhys: 0,
+        ullTotalPageFile: 0,
+        ullAvailPageFile: 0,
+        ullTotalVirtual: 0,
+        ullAvailVirtual: 0,
+        ullAvailExtendedVirtual: 0,
+    };
+    // SAFETY: 结构体已按 Win32 ABI 布局，dwLength 为自身大小，指针仅在本调用内使用。
+    let ok = unsafe { GlobalMemoryStatusEx(&mut st) };
+    if ok == 0 {
+        return 0;
+    }
+    st.ullTotalPhys / (1024 * 1024)
+}
+
+#[cfg(not(windows))]
 fn mem_total_mb() -> u64 {
     // 路径一：/proc/meminfo（桌面 / Linux 通用）。
     // 安卓 10+ 上该文件 SELinux 标签是 proc_meminfo，untrusted_app 通常读不到，
