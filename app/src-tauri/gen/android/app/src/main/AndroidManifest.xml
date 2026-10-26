@@ -2,6 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+      Android 16（SDK 36）起，targetSdk >= 36 的应用默认**无法访问局域网**：
+      连本网段的 TCP/UDP 都会被系统拦掉（表现为"所有探测全部连接失败"，
+      而 adb shell 里的 curl 却能通）。本项目 targetSdk=37，必须声明并申请这个权限，
+      否则「扫描局域网设备」永远扫不到东西。
+      旧系统没有这个权限定义，声明了会被忽略，不影响安装。
+    -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
 

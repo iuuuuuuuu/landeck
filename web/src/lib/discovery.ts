@@ -1,4 +1,4 @@
-import { probeNode } from './api'
+import { probeNode, probeNodeDetailed } from './api'
 import { detectRuntime, isPhoneOS } from './runtime'
 import type { NodeInfo } from './types'
 
@@ -173,6 +173,27 @@ async function scanNative(invoke: TauriInvoke): Promise<NodeInfo[]> {
   }
 }
 
+/**
+ * 当前平台实际使用的扫描参数。界面要把它们如实显示出来 ——
+ * 之前页脚写死「并发 64 · 8420/8443」，与手机端实际（8 并发、只探 8420）不符，
+ * 排查「扫不到设备」时这类假信息会把人带偏。
+ */
+export function scanProfile(hintHost: string | null): {
+  concurrency: number
+  ports: number[]
+  subnet: string | null
+  mobile: boolean
+} {
+  const runtime = detectRuntime()
+  const mobile = runtime === 'android' || runtime === 'ios' || isPhoneOS()
+  const concurrency = mobile ? 8 : runtime === 'desktop' ? 24 : 48
+  const exact = !!hintHost && isPrivateV4(hintHost)
+  const ports = exact ? COMMON_PORTS.map((p) => p.port) : [COMMON_PORTS[0].port]
+  const parts = exact && hintHost ? hintHost.split('.') : null
+  const subnet = parts && parts.length >= 3 ? `${parts[0]}.${parts[1]}.${parts[2]}.0/24` : null
+  return { concurrency, ports, subnet, mobile }
+}
+
 export async function scanLan(opts: ScanOptions): Promise<NodeInfo[]> {
   // concurrency 已按平台在下面定（手机 8 / 桌面 24 / 浏览器 48），这里不再从参数取
   const { onNode, onProgress, timeoutMs = 620 } = opts
@@ -290,6 +311,90 @@ export async function scanLan(opts: ScanOptions): Promise<NodeInfo[]> {
 
   await Promise.all(jobs)
   return [...found.values()]
+}
+
+/**
+ * 手动按网段/区间批量探测（只走 HTTP，不做原生广播）。
+ *
+ * 用户在网络环境特殊（双 Wi-Fi、VLAN、跨网段）时，自动扫段可能拿不到结果，
+ * 这时"我自己填网段 + 端口"是最可靠的路子。所以这里做成一个可复用的批量探测：
+ * 只要给出主机列表与端口，就并发探测并把命中实时回调出去。
+ */
+export async function probeRange(
+  hosts: string[],
+  port: number,
+  opts: {
+    onNode?: (n: NodeInfo) => void
+    onProgress?: (done: number, total: number) => void
+    signal?: AbortSignal
+    timeoutMs?: number
+  } = {},
+): Promise<NodeInfo[]> {
+  const runtime = detectRuntime()
+  const concurrency = runtime === 'android' || runtime === 'ios' || isPhoneOS() ? 8 : 24
+  const timeoutMs = opts.timeoutMs ?? 700
+  const total = hosts.length
+  const hits: NodeInfo[] = []
+  // 记录失败原因分布：全都失败时界面能直接说出"为什么"，而不是只显示 0 台
+  const errorKinds: Record<string, number> = {}
+  let done = 0
+  let cursor = 0
+  opts.onProgress?.(0, total)
+
+  async function worker() {
+    while (cursor < total) {
+      if (opts.signal?.aborted) return
+      const host = hosts[cursor++]
+      const { node, error } = await probeNodeDetailed(host, port, false, timeoutMs, opts.signal)
+      if (!node && error && !opts.signal?.aborted) {
+        errorKinds[error] = (errorKinds[error] ?? 0) + 1
+      }
+      done++
+      if (node && !opts.signal?.aborted) {
+        const full = { ...node, ip: node.ip || host, port: node.port || port }
+        hits.push(full)
+        opts.onNode?.(full)
+      }
+      opts.onProgress?.(done, total)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, total) }, worker))
+  opts.onProgress?.(total, total)
+  const top = Object.entries(errorKinds).sort((a, b) => b[1] - a[1])[0]
+  if (top) {
+    // 把最常见的原因挂到返回值上（调用方拿来展示）
+    ;(hits as unknown as { topError?: { message: string; count: number } }).topError = {
+      message: top[0],
+      count: top[1],
+    }
+  }
+  return hits
+}
+
+/** 把 `10.168.1` / `10.168.1.` / `10.168.1.1-80` 解析成主机列表 */
+export function expandHostSpec(raw: string): { hosts: string[]; subnet: string } | null {
+  const v = raw.trim().replace(/\/$/, '')
+  // 网段：三段 + 可选点，或四段最后一段留空
+  const seg = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.?(?:\*)?$/.exec(v)
+  if (seg) {
+    const base = `${Number(seg[1])}.${Number(seg[2])}.${Number(seg[3])}`
+    const hosts: string[] = []
+    for (let i = 1; i <= 254; i++) hosts.push(`${base}.${i}`)
+    return { hosts, subnet: `${base}.0/24` }
+  }
+  // 区间：a.b.c.x-y
+  const rng = /^(\d{1,3}\.\d{1,3}\.\d{1,3})\.(\d{1,3})-(\d{1,3})$/.exec(v)
+  if (rng) {
+    const base = rng[1]
+    const from = Number(rng[2])
+    const to = Number(rng[3])
+    if (from >= 1 && to <= 254 && from <= to) {
+      const hosts: string[] = []
+      for (let i = from; i <= to; i++) hosts.push(`${base}.${i}`)
+      return { hosts, subnet: `${base}.${from}-${to}` }
+    }
+  }
+  return null
 }
 
 /** 手动添加 / 刷新单台设备 */

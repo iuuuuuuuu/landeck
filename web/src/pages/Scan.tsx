@@ -16,7 +16,7 @@ import {
   Skeleton,
   Stat,
 } from '../components/ui'
-import { nativeLocalIP, resolveHint, scanLan } from '../lib/discovery'
+import { nativeLocalIP, resolveHint, scanLan, scanProfile } from '../lib/discovery'
 import type { NodeInfo } from '../lib/types'
 import { useApp } from '../store/app'
 
@@ -67,6 +67,21 @@ const ResultList = memo(function ResultList({
   )
 })
 
+const RECENT_SCAN_MS = 60_000
+
+type ScanCache = { at: number; nodes: NodeInfo[]; done: number; total: number; elapsedMs: number }
+let recentScan: ScanCache | null = null
+
+function readRecentScan(): ScanCache | null {
+  if (!recentScan) return null
+  if (Date.now() - recentScan.at > RECENT_SCAN_MS) return null
+  return recentScan
+}
+
+function writeRecentScan(v: Omit<ScanCache, 'at'>) {
+  recentScan = { ...v, at: Date.now() }
+}
+
 /** 发现页：进页面即自动扫段，雷达 + 进度为主角，下面给结果与手动兜底 */
 export default function Scan() {
   const devices = useApp((s) => s.devices)
@@ -83,7 +98,10 @@ export default function Scan() {
   const [total, setTotal] = useState(0)
   const [elapsedMs, setElapsedMs] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const [hasHint, setHasHint] = useState(() => !!resolveHint())
+  const [hintHost, setHintHost] = useState<string | null>(() => resolveHint() ?? null)
+
+  // 界面上要显示真实的扫描参数与目标网段（排查「扫不到」时最关键的信息）
+  const profile = scanProfile(hintHost)
 
   // —— 扫描的生命周期由页面自己攥住 ——
   // 之前这套状态放在 useLanScan 里，页面卸载时手上没有能 abort 的把手：
@@ -94,6 +112,8 @@ export default function Scan() {
   const progressRef = useRef({ done: 0, total: 0 })
   const seenRef = useRef<Set<string>>(new Set())
   const startedAtRef = useRef(0)
+  const fromCacheRef = useRef(false)
+  const nodesRef = useRef<NodeInfo[]>([])
   const aliveRef = useRef(true) // 卸载后一律不再 setState
 
   const stopTicker = useCallback(() => {
@@ -108,7 +128,8 @@ export default function Scan() {
     const queued = queueRef.current
     if (queued.length > 0) {
       queueRef.current = []
-      setNodes((prev) => [...prev, ...queued])
+      nodesRef.current = [...nodesRef.current, ...queued]
+      setNodes(nodesRef.current)
     }
     const p = progressRef.current
     setDone(p.done)
@@ -128,12 +149,15 @@ export default function Scan() {
     progressRef.current = { done: 0, total: 0 }
     startedAtRef.current = performance.now()
 
+    nodesRef.current = []
     setNodes([])
     setDone(0)
     setTotal(0)
     setElapsedMs(0)
     setError(null)
     setStatus('scanning')
+
+    fromCacheRef.current = false
 
     // 全页唯一的定时器：每 FLUSH_MS 提交一次缓冲，顺带刷新耗时
     tickerRef.current = window.setInterval(() => {
@@ -144,7 +168,7 @@ export default function Scan() {
 
     // 先问原生层要本机地址（Tauri 安卓上页面 hostname 是 tauri.localhost，推不出网段）
     void nativeLocalIP().then((ip) => {
-      if (aliveRef.current && !ctrl.signal.aborted) setHasHint(!!resolveHint(ip))
+      if (aliveRef.current && !ctrl.signal.aborted) setHintHost(resolveHint(ip) ?? null)
     })
 
     void scanLan({
@@ -166,8 +190,18 @@ export default function Scan() {
         if (!aliveRef.current) return
         flush()
         stopTicker()
-        setElapsedMs(performance.now() - startedAtRef.current)
-        if (!ctrl.signal.aborted) setStatus('done')
+        const elapsed = performance.now() - startedAtRef.current
+        setElapsedMs(elapsed)
+        if (!ctrl.signal.aborted) {
+          setStatus('done')
+          // 记下这一轮结果：60 秒内再进页面直接复用，避免每次切页都整轮重扫
+          writeRecentScan({
+            nodes: nodesRef.current,
+            done: progressRef.current.done,
+            total: progressRef.current.total,
+            elapsedMs: elapsed,
+          })
+        }
       })
   }, [flush, stopTicker])
 
@@ -180,8 +214,33 @@ export default function Scan() {
     setStatus('done')
   }, [flush, stopTicker])
 
+  /**
+   * 进页面自动扫描，但**短时间内重复进入不重扫**。
+   *
+   * 原来的行为是每次 mount 都整轮重扫。手机上一轮扫描要发几百个请求 +
+   * 每 200ms 一次 setState，用户从「发现」切到别的页面时，这轮还没跑完的工作
+   * 会和页面切换抢主线程，表现为"切页面特别卡"。现在 60 秒内的结果直接复用，
+   * 想刷新有显式的「重新扫描」按钮。
+   */
   useEffect(() => {
     aliveRef.current = true
+    const cached = readRecentScan()
+    if (cached) {
+      fromCacheRef.current = true
+      nodesRef.current = cached.nodes
+      setNodes(cached.nodes)
+      setDone(cached.done)
+      setTotal(cached.total)
+      setElapsedMs(cached.elapsedMs)
+      setStatus('done')
+      return () => {
+        aliveRef.current = false
+        abortRef.current?.abort()
+        stopTicker()
+        queueRef.current = []
+      }
+    }
+    fromCacheRef.current = false
     start()
     // 离开页面：中止扫描 + 清掉那个唯一的定时器 + 丢掉未提交的缓冲，不留任何后台循环
     return () => {
@@ -272,7 +331,11 @@ export default function Scan() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-[11.5px] leading-relaxed text-faint">
-              <span>TCP 8420 / 8443 · 并发 64 · 单地址 0.6s</span>
+              <span>
+                TCP {profile.ports.join(' / ')} · 并发 {profile.concurrency} · 单地址{' '}
+                {profile.mobile ? '0.45s' : '0.6s'}
+                {profile.subnet ? ` · 网段 ${profile.subnet}` : ' · 未识别到本机网段'}
+              </span>
               <span className="text-faint">·</span>
               <span>扫到设备后右侧可直接配对</span>
             </div>
@@ -340,7 +403,7 @@ export default function Scan() {
               setPairTarget(node)
             }}
           />
-          <ScanHints noHint={!hasHint} />
+          <ScanHints noHint={!hintHost} />
         </aside>
       </div>
 

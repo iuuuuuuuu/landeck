@@ -171,6 +171,30 @@ export async function probeNode(
   }
 }
 
+/**
+ * 带失败原因的探测。`probeNode` 把异常吞成 null，导致「扫不到设备」时
+ * 界面只能显示 0 台、看不出为什么（超时？连不上？被拦？），排查全靠猜。
+ * 这个版本把错误原文带出来，供界面提示与用户反馈使用。
+ */
+export async function probeNodeDetailed(
+  host: string,
+  port: number,
+  tls: boolean,
+  timeoutMs = 700,
+  signal?: AbortSignal,
+): Promise<{ node: NodeInfo | null; error: string | null; code: string | null }> {
+  try {
+    const node = await request<NodeInfo>(`${baseUrl({ host, port, tls })}/hello`, {
+      timeoutMs,
+      signal,
+    })
+    return { node, error: null, code: null }
+  } catch (e) {
+    const err = e as { message?: string; code?: string }
+    return { node: null, error: err?.message ?? '未知错误', code: err?.code ?? null }
+  }
+}
+
 export class AgentClient {
   readonly target: Target
   readonly token?: string

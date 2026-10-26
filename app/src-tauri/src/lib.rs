@@ -62,6 +62,18 @@ fn iface_rank(name: &str, ip: Ipv4Addr) -> i32 {
             break;
         }
     }
+    // ZeroTier / Tailscale / WireGuard 这类"看着像普通网卡、其实是隧道"的要一并罚分。
+    // 实测踩到：本机装了 ZeroTier，网卡名 "ZeroTier One [id]"，地址 192.168.192.75，
+    // 命中下面 192.168 的加分后反超了真正的以太网，导致 local_ip 返回 VPN 地址。
+    for k in [
+        "zerotier", "tailscale", "wireguard", "wintun", "openvpn", "nordlynx", "hamachi",
+        "radmin", "pptp", "l2tp", "sstp", "vpn",
+    ] {
+        if n.contains(k) {
+            score -= 80;
+            break;
+        }
+    }
     for k in ["tun", "tap", "ppp", "ipsec", "utun", "ip6tnl"] {
         if n.contains(k) {
             score -= 60;
@@ -86,18 +98,21 @@ fn iface_rank(name: &str, ip: Ipv4Addr) -> i32 {
         }
     }
     // 有线网卡（桌面 / 电视盒子 / 部分安卓盒子）
-    if n.starts_with("eth") || n.starts_with("en") || n.starts_with("em") || n.starts_with("ethernet")
+    if n.starts_with("eth")
+        || n.starts_with("en")
+        || n.starts_with("em")
+        || n.starts_with("ethernet")
+        // Windows 中文系统的有线网卡叫「以太网」「以太网 2」，纯英文前缀匹配会漏掉
+        || name.contains("以太网")
+        || name.contains("本地连接")
     {
         score += 20;
     }
 
-    // 家用路由器几乎都在 192.168.x.x；10.x 次之；172.16/12 常被 Docker/VPN 占用，最低
-    let o = ip.octets();
-    if o[0] == 192 && o[1] == 168 {
-        score += 30;
-    } else if o[0] == 10 {
-        score += 10;
-    }
+    // 不再按网段加分：曾经给 192.168.x 加 +30（"家用路由器大多在这段"），
+    // 结果 ZeroTier 的 192.168.192.75 反超真实以太网的 10.168.1.115。
+    // 网段是"猜测"，网卡类型才是证据，只保留基于网卡名的判断。
+    let _ = ip;
     score
 }
 
@@ -651,6 +666,19 @@ mod tests {
             || (o[0] == 192 && o[1] == 168);
         assert!(private, "返回的不是私有地址: {ip}");
         println!("local_ip = {ip}");
+
+        // 只断言「是私有地址」太弱：ZeroTier 的 192.168.192.x 也是私有地址，
+        // 当初就是这条弱断言让「local_ip 返回 VPN 地址」的 bug 溜过去了。
+        // 真正的判据是「这个地址必须属于一块非隧道/非虚拟的物理网卡」。
+        let winner = preferred_lan_iface().expect("应有首选网卡");
+        let name = winner.0.to_ascii_lowercase();
+        for bad in ["zerotier", "tailscale", "wireguard", "wintun", "vethernet", "virtual", "vpn"] {
+            assert!(
+                !name.contains(bad),
+                "首选网卡是隧道/虚拟网卡（{name} → {ip}），应选真实局域网网卡"
+            );
+        }
+        println!("首选网卡 = {} ({})", winner.0, winner.1);
     }
 
     /// 实机验证：自启开关的行为。
