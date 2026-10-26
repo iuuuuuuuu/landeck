@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 
 export function Card({
   children,
@@ -101,10 +101,17 @@ export function DeviceAvatar({
   os,
   size = 44,
   online,
+  iconSrc,
 }: {
   os?: string
   size?: number
   online?: boolean
+  /**
+   * 设备真实图标（被控端自身 exe 的图标）。给了就优先显示它 ——
+   * 用户反馈「不是可以获取到头像吗，用头像当设备 logo」，
+   * 比现在一律显示 ⊞ 符号有辨识度。加载失败自动回退符号。
+   */
+  iconSrc?: string
 }) {
   const glyph = os === 'darwin' ? '⌘' : os === 'linux' ? '❯' : '⊞'
   const ring =
@@ -113,16 +120,32 @@ export function DeviceAvatar({
       : os === 'linux'
         ? 'from-[#fbbf24]/25 to-elevated text-warn'
         : 'from-[#22d3ee]/25 to-elevated text-cyan'
+  const [imgFailed, setImgFailed] = useState(false)
+  const showImg = Boolean(iconSrc) && !imgFailed
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <div
         className={clsx(
-          'grid h-full w-full place-items-center rounded-[14px] border border-line bg-gradient-to-br',
+          'grid h-full w-full place-items-center overflow-hidden rounded-[14px] border border-line bg-gradient-to-br',
           ring,
         )}
         style={{ fontSize: size * 0.42 }}
       >
-        <span className="num leading-none">{glyph}</span>
+        {showImg ? (
+          <img
+            src={iconSrc}
+            alt=""
+            width={size}
+            height={size}
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            onError={() => setImgFailed(true)}
+            className="h-full w-full object-contain"
+          />
+        ) : (
+          <span className="num leading-none">{glyph}</span>
+        )}
       </div>
       {online !== undefined && (
         <span

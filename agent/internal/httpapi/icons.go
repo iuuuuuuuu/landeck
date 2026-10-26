@@ -49,6 +49,11 @@ func (s *Server) handleAppIcon(w http.ResponseWriter, r *http.Request, c *config
 		iconNotFound(w)
 		return
 	}
+	writeIconData(w, data, mime)
+}
+
+// writeIconData 统一写图标响应：mime 兜底、缓存一天、显式 Content-Length。
+func writeIconData(w http.ResponseWriter, data []byte, mime string) {
 	if mime == "" {
 		mime = icons.MimeICO
 	}
@@ -67,4 +72,32 @@ func iconNotFound(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusNotFound)
 	_, _ = w.Write([]byte("no icon"))
+}
+
+// handleSelfIcon 返回被控端**自身**的可执行文件图标。
+//
+// 用途：设备列表里每台设备目前只显示首字母色块，用户希望能看到"真实的样子"。
+// 被控端自己的 exe 图标就是这台机器上最自然的身份标识（桌面上也是这个图标）。
+// 与 /apps/icon 的区别：不需要传路径，端点自己取 os.Executable()，
+// 也不依赖「允许结束进程」这个功能开关 —— 设备身份不属于进程管理能力。
+func (s *Server) handleSelfIcon(w http.ResponseWriter, r *http.Request, c *config.Client) {
+	_ = r
+	_ = c
+	exe, err := os.Executable()
+	if err != nil {
+		iconNotFound(w)
+		return
+	}
+	data, mime, err := icons.Extract(exe)
+	if err != nil || len(data) == 0 {
+		// exe 里没有图标资源（Go 默认构建就是这种情况）→ 用内嵌图标兜底，
+		// 保证设备列表总有一枚真实 logo，而不是退回符号块。
+		if len(icons.SelfIcon) > 0 {
+			writeIconData(w, icons.SelfIcon, icons.MimeICO)
+			return
+		}
+		iconNotFound(w)
+		return
+	}
+	writeIconData(w, data, mime)
 }

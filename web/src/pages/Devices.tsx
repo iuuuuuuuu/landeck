@@ -151,6 +151,7 @@ export default function Devices() {
             <DeviceGridCard
               key={d.id}
               device={d}
+              token={d.token}
               probe={probe[d.id]}
               onOpen={() => open(d)}
               onRename={() => {

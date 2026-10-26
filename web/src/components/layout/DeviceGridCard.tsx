@@ -1,9 +1,11 @@
 import clsx from 'clsx'
-import { ArrowRight, EllipsisVertical, Pencil, Unplug } from 'lucide-react'
+import { EllipsisVertical, Lock, MonitorOff, Moon, Pencil, RotateCcw, Unplug } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { osLabel, relative } from '../../lib/format'
 import type { PairedDevice } from '../../store/app'
-import { Badge, Card, DeviceAvatar } from '../ui'
+import { Badge, Button, Card, DeviceAvatar, Modal } from '../ui'
+import { AgentClient } from '../../lib/api'
+import { useActionRunner } from '../device/useActionRunner'
 import type { ProbeState } from './useDeviceProbe'
 
 /** 毫秒时间戳 → 「3 分钟前」 */
@@ -40,17 +42,41 @@ export function DeviceGridCard({
   device,
   probe,
   onOpen,
+  token,
   onRename,
   onRemove,
 }: {
   device: PairedDevice
   probe?: ProbeState
   onOpen: () => void
+  /** 设备令牌：用于拉取设备 logo（被控端自身图标） */
+  token?: string
   onRename: () => void
   onRemove: () => void
 }) {
   const online = probe?.online ?? null
   const [menu, setMenu] = useState(false)
+  const [confirm, setConfirm] = useState<null | { action: string; label: string; param?: Record<string, unknown> }>(null)
+  const client = useState(() =>
+    AgentClient.fromDevice({
+      host: device.host,
+      port: device.port,
+      tls: device.tls,
+      token: token ?? '',
+      local: device.local,
+    }),
+  )[0]
+  const runner = useActionRunner(client)
+  const logoUrl = client.selfIconUrl()
+
+  // 快捷操作：只放最常用、且都能撤销或二次确认的动作。
+  // 关机/重启走确认弹窗（与详情页一致的语义），避免误触把机器关掉。
+  const QUICK = [
+    { action: 'power.lock', label: '锁屏', Icon: Lock, confirm: false },
+    { action: 'power.screenOff', label: '关屏', Icon: MonitorOff, confirm: false },
+    { action: 'power.sleep', label: '睡眠', Icon: Moon, confirm: false },
+    { action: 'power.reboot', label: '重启', Icon: RotateCcw, confirm: true },
+  ] as const
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -91,7 +117,7 @@ export function DeviceGridCard({
         )}
       >
         <div className="flex items-start gap-3">
-          <DeviceAvatar os={device.os} size={44} online={online ?? undefined} />
+          <DeviceAvatar os={device.os} size={44} online={online ?? undefined} iconSrc={logoUrl} />
           <div className="min-w-0 flex-1 pr-9">
             <div className="truncate text-[14.5px] font-medium text-fg">{device.name}</div>
             <div className="num mt-0.5 truncate text-[11.5px] text-muted">
@@ -115,12 +141,26 @@ export function DeviceGridCard({
           <ThinMeter label="内存" value={probe?.online ? (probe.mem ?? undefined) : undefined} cyan />
         </div>
 
-        <div className="mt-3 flex items-center justify-end gap-1 border-t border-line-soft pt-2.5 text-[12px] font-medium text-accent-soft">
-          控制设备
-          <ArrowRight
-            size={13}
-            className="transition-transform duration-200 group-hover:translate-x-0.5"
-          />
+        {/* 快捷操作：不用进详情页就能做常用动作 */}
+        <div className="mt-3 flex items-center gap-1 border-t border-line-soft pt-2.5">
+          {QUICK.map((q) => (
+            <button
+              key={q.action}
+              type="button"
+              aria-label={q.label}
+              title={q.label}
+              disabled={online === false || runner.pending !== null}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (q.confirm) setConfirm({ action: q.action, label: q.label })
+                else void runner.run(q.action, {}, `已发送${q.label}指令`)
+              }}
+              className="grid h-8 w-8 place-items-center rounded-lg text-muted transition-colors hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              <q.Icon size={15} />
+            </button>
+          ))}
+          <span className="ml-auto shrink-0 text-[12px] font-medium text-accent-soft">控制设备</span>
         </div>
 
         <div className="absolute right-1.5 top-1.5" ref={menuRef}>
@@ -166,6 +206,39 @@ export function DeviceGridCard({
           )}
         </div>
       </Card>
+
+      {/* 危险动作二次确认：与详情页语义一致，避免误触关机/重启 */}
+      {confirm && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <Modal
+            open
+            title={`确认${confirm.label}`}
+            onClose={() => setConfirm(null)}
+            footer={
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setConfirm(null)}>
+                  取消
+                </Button>
+                <Button
+                  variant="danger"
+                  loading={runner.pending !== null}
+                  onClick={async () => {
+                    const c = confirm
+                    setConfirm(null)
+                    await runner.run(c.action, c.param ?? {}, `已发送${c.label}指令`)
+                  }}
+                >
+                  {confirm.label}
+                </Button>
+              </div>
+            }
+          >
+            <p className="text-[12.5px] leading-relaxed text-muted">
+              将对「{device.name}」执行{confirm.label}，之后它需要手动开机。
+            </p>
+          </Modal>
+        </div>
+      )}
     </div>
   )
 }

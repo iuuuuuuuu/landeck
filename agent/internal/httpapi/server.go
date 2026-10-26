@@ -97,6 +97,8 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /api/v1/apps/kill", s.protect(s.handleKillApp))
 	// 应用图标：从 exe 的 PE 资源段里抠出来（鉴权同其它端点，图片请求靠 ?token= 带令牌）
 	m.HandleFunc("GET /api/v1/apps/icon", s.protect(s.handleAppIcon))
+	// 被控端自身图标：设备列表用它当 logo（不依赖进程管理能力开关）
+	m.HandleFunc("GET /api/v1/self/icon", s.protect(s.handleSelfIcon))
 
 	m.HandleFunc("GET /api/v1/files/roots", s.protect(s.handleFilesRoots))
 	m.HandleFunc("GET /api/v1/files/list", s.protect(s.handleFilesList))

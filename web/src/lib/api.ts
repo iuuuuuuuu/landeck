@@ -81,6 +81,16 @@ export function appIconUrl(
  * 只在「页面确实由 Agent 提供」时才成立：Tauri 壳里 origin 是 tauri.localhost，
  * 那是 WebView 自己的资源服务器，打过去只会拿到 index.html，所以直接返回空。
  */
+/** 被控端自身图标（设备 logo）。令牌放在 query，因为 <img> 发不出 Authorization。 */
+export function selfIconUrl(
+  target: Pick<Target, 'host' | 'port' | 'tls' | 'local'>,
+  token: string | undefined,
+): string {
+  let url = `${baseUrl(target)}/self/icon`
+  if (token) url += `?token=${encodeURIComponent(token)}`
+  return url
+}
+
 export function sameOriginIconUrl(exe: string): string {
   if (!exe || typeof location === 'undefined') return ''
   if (location.protocol !== 'http:' && location.protocol !== 'https:') return ''
@@ -332,6 +342,11 @@ export class AgentClient {
   /** 应用图标地址：本机走 127.0.0.1 且不带令牌，远程设备把令牌放进 query */
   appIconUrl(exe: string): string {
     return appIconUrl(this.target, this.target.local ? undefined : this.token, exe)
+  }
+
+  /** 本设备的 logo（被控端自身图标） */
+  selfIconUrl(): string {
+    return selfIconUrl(this.target, this.target.local ? undefined : this.token)
   }
 
   fileRoots() {

@@ -191,7 +191,16 @@ fn android_getprop(key: &str) -> String {
 }
 
 fn mem_total_mb() -> u64 {
-    let txt = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
+    // 路径一：/proc/meminfo（桌面 / Linux 通用）。
+    // 安卓 10+ 上该文件 SELinux 标签是 proc_meminfo，untrusted_app 通常读不到，
+    // 所以下面还有路径二。
+    let txt = match std::fs::read_to_string("/proc/meminfo") {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("[LanDeck] 读 /proc/meminfo 失败：{e}");
+            String::new()
+        }
+    };
     for line in txt.lines() {
         if let Some(rest) = line.strip_prefix("MemTotal:") {
             if let Some(kb) = rest.split_whitespace().next() {
@@ -201,7 +210,24 @@ fn mem_total_mb() -> u64 {
             }
         }
     }
+    // 读不到就返回 0：前端会如实显示「系统限制，读不到」，
+    // 绝不拿浏览器分档值（上限 8GB）冒充 16GB 的真实容量。
     0
+}
+
+/// 读 MainActivity 写下的系统真值（安卓）。
+///
+/// 交接方式：Kotlin 用 ActivityManager.MemoryInfo 拿到权威内存，写进应用私有目录的
+/// device_profile.json；这里按包名拼出同一路径读回来。
+/// 拿不到就返回 None，由调用方回落 —— 不编造数字。
+#[cfg(target_os = "android")]
+fn read_android_profile_file() -> Option<serde_json::Value> {
+    let path = format!(
+        "/data/user/0/{}/files/device_profile.json",
+        "dev.landeck.app"
+    );
+    let txt = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str(&txt).ok()
 }
 
 #[tauri::command]
@@ -218,6 +244,30 @@ fn device_profile() -> DeviceProfile {
         p.os_version = android_getprop("ro.build.version.release");
         p.model = android_getprop("ro.product.model");
         p.vendor = android_getprop("ro.product.manufacturer");
+
+        // 系统真值优先：内存只有 ActivityManager 准（/proc/meminfo 被 SELinux 拦）
+        if let Some(v) = read_android_profile_file() {
+            if let Some(mb) = v.get("mem_total_mb").and_then(|x| x.as_u64()) {
+                if mb > 0 {
+                    p.mem_total_mb = mb;
+                }
+            }
+            if p.model.is_empty() {
+                if let Some(m) = v.get("model").and_then(|x| x.as_str()) {
+                    p.model = m.to_string();
+                }
+            }
+            if p.vendor.is_empty() {
+                if let Some(m) = v.get("vendor").and_then(|x| x.as_str()) {
+                    p.vendor = m.to_string();
+                }
+            }
+            if p.os_version.is_empty() {
+                if let Some(m) = v.get("os_version").and_then(|x| x.as_str()) {
+                    p.os_version = m.to_string();
+                }
+            }
+        }
     }
     #[cfg(target_os = "ios")]
     {
@@ -228,6 +278,10 @@ fn device_profile() -> DeviceProfile {
         p.os = std::env::consts::OS.to_string();
         p.os_version = String::new();
     }
+    eprintln!(
+        "[LanDeck] device_profile: os={} ver={} model={} mem={}MB cores={}",
+        p.os, p.os_version, p.model, p.mem_total_mb, p.cpu_cores
+    );
     p
 }
 

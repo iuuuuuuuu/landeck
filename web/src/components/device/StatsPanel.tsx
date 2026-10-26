@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { Badge, Card, EmptyState, MeterRow, MiniBars, ProgressBar, SectionTitle, Skeleton } from '../ui'
 import type { StatsOverview } from '../../lib/types'
-import { bytes, relative } from '../../lib/format'
+import { relative } from '../../lib/format'
 import { StatsHero } from './StatsHero'
 
 /**
@@ -80,7 +80,9 @@ export function StatsPanel({ data, loading }: { data: StatsOverview | null; load
           title="磁盘占用"
           desc={
             disks.length > 0
-              ? `共 ${disks.length} 个分区 · 合计 ${bytes(usedDisk)} / ${bytes(totalDisk)}`
+              // 注意：API 返回的 used/total 单位是 **GB**（LiveStats 也是按 GB 显示的），
+              // 之前这里错用 bytes() 当字节格式化，1.9 GB 被显示成「1.9 KB」。
+              ? `共 ${disks.length} 个分区 · 合计 ${usedDisk.toFixed(0)} / ${totalDisk.toFixed(0)} GB`
               : '未读到磁盘信息'
           }
           icon={<HardDrive size={16} />}

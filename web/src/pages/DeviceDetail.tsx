@@ -53,6 +53,33 @@ export default function DeviceDetail() {
   )
   const { pending: canceling, run } = useActionRunner(client, markAuthLost)
 
+  /**
+   * 离线时自动重试 system()。
+   *
+   * 用户反馈：进详情页时设备还没连上，之后设备上线了，这一页的状态永远不刷新，
+   * 必须退回列表再进来才行 —— 因为 sys 是「一次性拉取」，失败后没人再触发它。
+   * 这里在「有错误且未鉴权失效」时挂一个退避重试（3s→6s→12s，上限 12s），
+   * 一旦成功就停；标签页不可见时不重试，避免后台耗电。
+   */
+  useEffect(() => {
+    if (!sys.error || authLost) return
+    let alive = true
+    let timer: number | undefined
+    let attempt = 0
+    const tick = () => {
+      if (!alive || document.hidden) return
+      attempt += 1
+      sys.reload()
+      timer = window.setTimeout(tick, Math.min(3000 * attempt, 12000))
+    }
+    timer = window.setTimeout(tick, 3000)
+    return () => {
+      alive = false
+      if (timer) window.clearTimeout(timer)
+    }
+    // sys.reload 是稳定引用；只在「从有错变无错」时重建
+  }, [sys.error, sys.reload, authLost])
+
   const onScheduled = useCallback((label: string, seconds: number) => {
     setCountdown({ label, until: Date.now() + seconds * 1000 })
   }, [])

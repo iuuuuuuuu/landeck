@@ -6,7 +6,11 @@ import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import android.Manifest
+import android.app.ActivityManager
+import android.content.Context
 import android.content.pm.PackageManager
+import org.json.JSONObject
+import java.io.File
 import androidx.core.content.ContextCompat
 
 /**
@@ -47,5 +51,35 @@ class MainActivity : TauriActivity() {
     }
 
     ensureLocalNetworkPermission()
+    writeDeviceProfile()
+  }
+
+  /**
+   * 把系统真值写到应用私有文件，交给 Rust 的 device_profile 命令读取。
+   *
+   * 为什么不直接在 Rust 里读：安卓 10+ 把 /proc/meminfo 标成 proc_meminfo，
+   * untrusted_app 读不到（返回 EACCES），于是「16GB 内存」只能显示浏览器分档的 8GB。
+   * ActivityManager.MemoryInfo.totalMem 才是权威值。而 Tauri 的插件机制需要
+   * Rust 侧 plugin builder + Kotlin 注解 + 权限清单三处配合，对一个只读字段过重；
+   * 同一进程内用文件交接最直接，也方便 adb 侧核对。
+   *
+   * 注意：Rust 侧按固定包名拼路径（dev.landeck.app），改包名需同步。
+   */
+  private fun writeDeviceProfile() {
+    try {
+      val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+      val mi = ActivityManager.MemoryInfo()
+      am.getMemoryInfo(mi)
+      val o = JSONObject()
+      o.put("mem_total_mb", mi.totalMem / (1024 * 1024))
+      o.put("model", android.os.Build.MODEL ?: "")
+      o.put("vendor", android.os.Build.MANUFACTURER ?: "")
+      o.put("os_version", android.os.Build.VERSION.RELEASE ?: "")
+      o.put("sdk_int", android.os.Build.VERSION.SDK_INT)
+      o.put("device", android.os.Build.DEVICE ?: "")
+      File(filesDir, "device_profile.json").writeText(o.toString())
+    } catch (_: Throwable) {
+      // 读不到就保持静默：Rust 侧会回落，前端如实显示「读不到」
+    }
   }
 }
