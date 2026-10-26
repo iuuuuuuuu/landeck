@@ -1,7 +1,7 @@
 {
   "name": "landeck",
   "private": true,
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "LanDeck — 局域网 PC 控制台（Agent + Web UI + App）",
   "scripts": {
     "verify-agent-note-tree": "node .agents/skills/agent-notes/scripts/verify-agent-note-tree.ts",
