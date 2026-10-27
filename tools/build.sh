@@ -74,19 +74,36 @@ ls -la dist
 # Windows 产物自签名：消除「未知发布者」安全警告。
 # 证书由 tools/sign-windows.ps1 -Setup 创建并信任（每台机器/用户一次）。
 #
-# 这里不再吞错误、也不假装「跳过」成功：证书缺失是显式可见的 SKIP，
+# 这里不吞错误、也不假装「跳过」成功：证书缺失是显式可见的 SKIP，
 # 证书存在却签不上则直接让构建失败（之前用 2>/dev/null || echo 掩盖过
 # 真实错误，报出来的是「跳过」而实际是脚本根本没能运行 —— 假绿）。
-if [ "$(uname -s)" = "MINGW64_NT"* ] || [ "$(uname -s)" = "MSYS_NT"* ]; then
-  if command -v powershell.exe >/dev/null 2>&1; then
-    echo "== 签名 Windows 产物 =="
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(dirname "$0")/sign-windows.ps1"
-    rc=$?
-    if [ "$rc" -ne 0 ]; then
-      echo "   签名失败（exit $rc）。证书未就绪时先运行：tools/sign-windows.ps1 -Setup" >&2
-      exit "$rc"
+#
+# 判定用 `case` 而不是 `[ "$x" = "PREFIX"* ]`：
+#   在 POSIX test 的 `[ ]` 里，`*` 是**字面量**，不做通配展开，
+#   所以原来的写法恒为假，Windows 上签名被静默跳过且没有任何输出 ——
+#   正是上面那段注释想避免的「假绿」，只是换了个形式。
+#   实测踩到：uname -s 返回 MINGW64_NT-10.0-19045，与 "MINGW64_NT" 不等，
+#   构建「成功」但产物是 NotSigned。
+OS_NAME=$(uname -s)
+case "$OS_NAME" in
+  MINGW*|MSYS*|CYGWIN*)
+    if command -v powershell.exe >/dev/null 2>&1; then
+      echo "== 签名 Windows 产物 =="
+      # 用 $ROOT（脚本开头 cd 后算好的仓库根）而不是 $(dirname "$0")：
+      # 开头已经 `cd "$(dirname "$0")/.."` 切到仓库根，此时 $0 仍是调用时的相对路径，
+      # 再 dirname 一次会拼出 tools/tools/... 这种不存在的路径。
+      # 实测踩到：修好平台判定后签名第一次真的执行，就报 sign-windows.ps1 does not exist。
+      powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$ROOT/tools/sign-windows.ps1"
+      rc=$?
+      if [ "$rc" -ne 0 ]; then
+        echo "   签名失败（exit $rc）。证书未就绪时先运行：tools/sign-windows.ps1 -Setup" >&2
+        exit "$rc"
+      fi
+    else
+      echo "   跳过签名：未找到 powershell.exe" >&2
     fi
-  else
-    echo "（未找到 powershell.exe，跳过签名）"
-  fi
-fi
+    ;;
+  *)
+    echo "== 跳过签名：当前平台 $OS_NAME 不是 Windows =="
+    ;;
+esac
