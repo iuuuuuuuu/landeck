@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion'
 import type { ReactNode } from 'react'
 import clsx from 'clsx'
 
@@ -43,23 +42,33 @@ export function Button({
   ...rest
 }: ButtonProps) {
   return (
-    <motion.button
-      whileTap={{ scale: 0.97 }}
-      transition={{ type: 'spring', stiffness: 600, damping: 30 }}
+    // 刻意【不用】motion.button。
+    //
+    // 原来这里是 motion.button + whileTap={{ scale: 0.97 }}，只为一个按压反馈。
+    // 但全站有 94 个 <Button>，每个 motion.button 都会实例化 framer-motion 的
+    // 动画引擎并注册布局测量；切页时整页重挂载，几十个 Button 一起初始化 ——
+    // 真机 CPU profile 里 measureScroll 40.6ms、外加成片的 (anon) 原生耗时，
+    // 表现就是「切页还有一点卡」。
+    //
+    // 按压反馈改用 CSS 的 active:scale-[0.97]（见下方 className），
+    // 只动 transform、走合成层，零 JS 成本，视觉几乎一致。
+    <button
       disabled={disabled || loading}
       className={clsx(
         'inline-flex items-center justify-center font-medium select-none transition-colors duration-150',
+        // 按压反馈：替代原来的 whileTap spring 动画
+        'active:scale-[0.97] motion-reduce:active:scale-100',
         'disabled:opacity-45 disabled:pointer-events-none',
         VARIANTS[variant],
         SIZES[size],
         fullWidth && 'w-full',
         className,
       )}
-      {...(rest as React.ComponentProps<typeof motion.button>)}
+      {...(rest as React.ComponentProps<'button'>)}
     >
       {loading ? <Spinner size={size === 'sm' ? 13 : 16} /> : icon}
       {children}
-    </motion.button>
+    </button>
   )
 }
 
@@ -104,21 +113,22 @@ export function IconButton({
   ...rest
 }: IconButtonProps) {
   return (
-    <motion.button
-      whileTap={{ scale: 0.94 }}
+    // 同 Button：按压反馈用 CSS active:scale，不引入 motion.button。
+    <button
       aria-label={label}
       title={label}
       className={clsx(
         'inline-flex items-center justify-center transition-colors duration-150',
+        'active:scale-[0.94] motion-reduce:active:scale-100',
         'disabled:opacity-40 disabled:pointer-events-none',
         VARIANTS[variant],
         ICON_SIZE[size],
         active && 'ring-1 ring-accent/60 text-fg bg-accent/15',
         className,
       )}
-      {...(rest as React.ComponentProps<typeof motion.button>)}
+      {...(rest as React.ComponentProps<'button'>)}
     >
       {children}
-    </motion.button>
+    </button>
   )
 }

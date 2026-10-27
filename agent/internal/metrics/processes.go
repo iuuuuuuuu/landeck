@@ -37,6 +37,15 @@ var (
 	procListAt time.Time
 )
 
+// AppProcCount 的独立缓存：与进程列表的 procList 分开，
+// 因为两者的更新频率诉求完全不同（统计页只要个数且变化慢，列表页要真实 CPU）。
+var (
+	appMu          sync.Mutex
+	appCountCached = -1
+	procCountCached int
+	appCountAt     time.Time
+)
+
 // ListProcesses 返回进程列表。CPU 用两次采样（间隔 200ms）算瞬时占用，
 // 结果缓存 2s，避免连续刷新把被控机拖慢。
 func ListProcesses(q ProcessQuery) ([]ProcessInfo, error) {
@@ -94,6 +103,44 @@ func cachedProcesses() ([]ProcessInfo, error) {
 	procList = list
 	procListAt = time.Now()
 	return list, nil
+}
+
+// AppProcCount 只返回「应用数 / 进程数」两个数字，供 /api/v1/stats 使用。
+//
+// 为什么不能直接用 ListApps：ListApps 走 cachedProcesses() → sampleProcesses()，
+// 里面有一次 time.Sleep(200ms)（算 CPU 百分比要两次采样的间隔）再遍历 480 个进程
+// 取 Name/Percent/MemoryInfo/Exe/...，实测 290~330ms；而它的缓存 TTL 只有 2s，
+// 手机端切到统计页时经常正好过期，于是「切页卡一下」。
+//
+// 统计页其实只要个数，不需要 CPU/内存/用户/启动时间这些重字段。
+// 这里用轻量路径：只枚举进程取名字，并带 30s 缓存（进程数变化本来就慢）。
+// 进程列表页仍然走 ListProcesses（保留 2s 缓存与真实 CPU 采样），互不影响。
+func AppProcCount() (apps int, procs int) {
+	appMu.Lock()
+	defer appMu.Unlock()
+	if appCountCached >= 0 && time.Since(appCountAt) < 30*time.Second {
+		return appCountCached, procCountCached
+	}
+
+	list, err := process.Processes()
+	if err != nil {
+		return appCountCached, procCountCached
+	}
+	procs = len(list)
+	seen := make(map[string]struct{}, len(list))
+	for _, p := range list {
+		name, err := p.Name()
+		if err != nil || name == "" {
+			continue
+		}
+		seen[strings.ToLower(strings.TrimSuffix(name, ".exe"))] = struct{}{}
+	}
+	apps = len(seen)
+
+	appCountCached = apps
+	procCountCached = procs
+	appCountAt = time.Now()
+	return apps, procs
 }
 
 func sampleProcesses() ([]ProcessInfo, error) {

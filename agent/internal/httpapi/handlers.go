@@ -926,14 +926,14 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, c *config.C
 	uptime := metrics.CachedHistory(days)
 	acts := s.Acts.Aggregate(days)
 
-	// 应用与进程数量（走 2s 缓存，不会额外采样）
-	appCount, procCount := 0, 0
-	if apps, err := metrics.ListApps(metrics.AppQuery{Limit: 300}); err == nil {
-		appCount = len(apps)
-		for _, a := range apps {
-			procCount += a.Count
-		}
-	}
+	// 应用与进程数量：走 AppProcCount 的轻量路径（30s 缓存，只枚举进程名）。
+	//
+	// 原来这里用 metrics.ListApps(Limit:300)，它内部走 cachedProcesses() →
+	// sampleProcesses()，含一次 time.Sleep(200ms) 再遍历 480 个进程取
+	// Name/CPU/内存/用户/启动时间，实测 290~330ms，且缓存 TTL 只有 2s。
+	// 手机端切到统计页时经常正好过期，于是每次切页卡一下。
+	// 统计页只需要「个数」，不需要那些重字段。
+	appCount, procCount := metrics.AppProcCount()
 
 	cfg := s.Cfg.Get()
 	out := map[string]any{
