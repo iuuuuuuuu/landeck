@@ -44,12 +44,13 @@ const RadarPane = memo(function RadarPane({
 /** 结果列表同样单独 memo：只有节点集合变化才重建 */
 const ResultList = memo(function ResultList({
   nodes,
-  pairedIds,
+  isPaired,
   onPair,
   onEnter,
 }: {
   nodes: NodeInfo[]
-  pairedIds: Set<string>
+  /** 判定函数由外层统一提供，保证雷达与列表用的是同一套「是否已配对」规则 */
+  isPaired: (node: NodeInfo) => boolean
   onPair: (node: NodeInfo) => void
   onEnter: (node: NodeInfo) => void
 }) {
@@ -59,7 +60,7 @@ const ResultList = memo(function ResultList({
         <ScanResultCard
           key={node.id}
           node={node}
-          paired={pairedIds.has(node.id) || !!node.self}
+          paired={isPaired(node) || !!node.self}
           onPair={() => onPair(node)}
           onEnter={() => onEnter(node)}
         />
@@ -263,10 +264,34 @@ export default function Scan() {
     return [...map.values()]
   }, [nodes, manual])
 
-  const pairedIds = useMemo(() => new Set(devices.map((d) => d.id)), [devices])
+  // 配对判定不能只看 id。
+  // 实测踩过：agent 的 deviceId 会随数据目录重建而变（config.json 丢了就 GenerateID），
+  // 而 store 里存的是配对那一刻的旧 id —— 于是同一台机器扫描出来仍显示「未配对」，
+  // 用户看到的是一台已经配对的 M600 被当成新设备，还能再配一次。
+  // host:port 是稳定标识（agent 换 id 也不会换地址），所以两个条件取或。
+  const pairedKeys = useMemo(() => {
+    const ids = new Set<string>()
+    const addrs = new Set<string>()
+    for (const d of devices) {
+      ids.add(d.id)
+      addrs.add(`${d.host}:${d.port}`)
+    }
+    return { ids, addrs }
+  }, [devices])
+
+  const isPaired = useCallback(
+    (n: NodeInfo) => {
+      if (pairedKeys.ids.has(n.id)) return true
+      // 只按地址匹配时要求主机名非空，避免把「都叫 127.0.0.1」的不同机器误判成同一台
+      const host = n.ip || ''
+      return !!host && pairedKeys.addrs.has(`${host}:${n.port}`)
+    },
+    [pairedKeys],
+  )
+
   const radarNodes = useMemo(
-    () => all.map((n) => ({ id: n.id, paired: pairedIds.has(n.id) })),
-    [all, pairedIds],
+    () => all.map((n) => ({ id: n.id, paired: isPaired(n) })),
+    [all, isPaired],
   )
 
   const onPair = useCallback((node: NodeInfo) => setPairTarget(node), [])
@@ -274,7 +299,7 @@ export default function Scan() {
   const onEnter = useCallback(
     (node: NodeInfo) => {
       // 本机自己：不需要配对，直接落进 store 并进入详情
-      if (node.self && !pairedIds.has(node.id)) {
+      if (node.self && !isPaired(node)) {
         addDevice({
           id: node.id,
           host: node.ip || location.hostname,
@@ -297,7 +322,7 @@ export default function Scan() {
       setActive(node.id)
       navigate(`/devices/${node.id}`)
     },
-    [addDevice, navigate, pairedIds, setActive, toast],
+    [addDevice, navigate, isPaired, setActive, toast],
   )
 
   const scanning = status === 'scanning'
@@ -400,7 +425,7 @@ export default function Scan() {
             all.length === 0 &&
             [0, 1, 2].map((i) => <Skeleton key={i} className="h-[76px] w-full" />)}
 
-          <ResultList nodes={all} pairedIds={pairedIds} onPair={onPair} onEnter={onEnter} />
+          <ResultList nodes={all} isPaired={isPaired} onPair={onPair} onEnter={onEnter} />
 
           {status === 'done' && all.length === 0 && (
             <Card>

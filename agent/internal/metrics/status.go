@@ -101,6 +101,22 @@ type Sampler struct {
 	batCache  *BatteryStat
 	batAt     time.Time
 
+	// 网卡身份（名称 / 私有 IPv4 / MAC）缓存。
+	//
+	// 为什么必须缓存：实测 net.Interfaces() + 逐张 i.Addrs() 在这台 Windows 上
+	// 稳定吃 114~140ms（每轮都跑），而这块信息几乎不变（除非插拔网卡/切网络）。
+	// /api/v1/status 是高频轮询接口，手机端每 2s 拉一次，140ms 的固定开销
+	// 会和其他请求叠加成可见卡顿 —— 真机实测出现过 2306ms 的单帧冻结。
+	// 缓存 30s 对用户完全无感（换网最多半分钟后刷新），换来轮询接口近乎零成本。
+	ifaceCache NetStat
+	ifaceAt    time.Time
+
+	// 交换分区缓存：首次调用 mem.SwapMemory() 实测 407ms（Windows 要查页面文件），
+	// 之后降到 8~10ms。换页量本身变化缓慢，15s 缓存足够。
+	swapUsed  uint64
+	swapTotal uint64
+	swapAt    time.Time
+
 	cpuModel   string
 	cpuCores   int
 	cpuThreads int
@@ -165,10 +181,16 @@ func (s *Sampler) Snapshot() Status {
 	if vm, err := mem.VirtualMemory(); err == nil {
 		out.Mem = MemStat{Used: vm.Total - vm.Available, Total: vm.Total, Percent: round1(vm.UsedPercent)}
 	}
-	if sw, err := mem.SwapMemory(); err == nil {
-		out.Mem.SwapUsed = sw.Used
-		out.Mem.SwapTotal = sw.Total
+	// 交换分区走 15s 缓存：首次 mem.SwapMemory() 实测 407ms（Windows 查页面文件），
+	// 之后 8~10ms。换页量变化缓慢，缓存对显示无影响。
+	if s.swapAt.IsZero() || time.Since(s.swapAt) > 15*time.Second {
+		if sw, err := mem.SwapMemory(); err == nil {
+			s.swapUsed, s.swapTotal = sw.Used, sw.Total
+			s.swapAt = time.Now()
+		}
 	}
+	out.Mem.SwapUsed = s.swapUsed
+	out.Mem.SwapTotal = s.swapTotal
 
 	// 磁盘（15s 缓存）
 	if s.diskCache == nil || time.Since(s.diskAt) > 15*time.Second {
@@ -180,8 +202,15 @@ func (s *Sampler) Snapshot() Status {
 	// 网络速率（差分）
 	out.Net = s.netStat()
 
-	// 电池（30s 缓存）
-	if s.batCache == nil || time.Since(s.batAt) > 30*time.Second {
+	// 电池：读一次要起 powershell.exe 查 WMI，实测 259~334ms（这台台式机没有电池，
+	// 结果永远是空）。/api/v1/status 是 2s 一次的轮询接口，原来 30s 缓存意味着
+	// 每 15 次请求就有一次白烧 300ms，手机端会看到明显掉帧（真机实测单帧 2306ms）。
+	//
+	// 现在的策略：
+	//   - 读到电池：2 分钟刷新一次（电量变化本来就慢，2 分钟足够）
+	//   - 读不到（台式机/无电池）：缓存 10 分钟再试，避免持续为一个恒空的结果付 300ms
+	// 代价：插上/拔掉电源最多延迟 2 分钟才反映出来 —— 比每 30s 卡一次值得。
+	if s.batAt.IsZero() || time.Since(s.batAt) > s.batteryTTL() {
 		s.batCache = readBattery()
 		s.batAt = time.Now()
 	}
@@ -231,6 +260,22 @@ func (s *Sampler) netStat() NetStat {
 	}
 	s.lastNetRx, s.lastNetTx, s.lastNetAt = rx, tx, now
 
+	// 网卡身份走 30s 缓存：net.Interfaces()+Addrs() 实测每轮 114~140ms，
+	// 而名称/IP/MAC 基本不变。见 Sampler.ifaceCache 的注释。
+	if s.ifaceAt.IsZero() || now.Sub(s.ifaceAt) > 30*time.Second {
+		s.ifaceCache = collectIfaceIdentity()
+		s.ifaceAt = now
+	}
+	out.Iface = s.ifaceCache.Iface
+	out.IP = s.ifaceCache.IP
+	out.MAC = s.ifaceCache.MAC
+	return out
+}
+
+// collectIfaceIdentity 找第一张「已启用、非回环、带私有 IPv4」的网卡身份。
+// 只在缓存过期时调用，所以这里的开销不影响轮询延迟。
+func collectIfaceIdentity() NetStat {
+	out := NetStat{}
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return out
@@ -322,4 +367,14 @@ func collectProcesses() ProcessStat {
 
 func round1(f float64) float64 {
 	return float64(int(f*10+0.5)) / 10
+}
+
+// batteryTTL 决定电池缓存多久过期。
+// 有电池时 2 分钟；没有电池（台式机）时 10 分钟 —— 后者是为了不再为
+// 一个恒空的结果反复付 300ms 的 powershell 启动成本。
+func (s *Sampler) batteryTTL() time.Duration {
+	if s.batCache == nil {
+		return 10 * time.Minute
+	}
+	return 2 * time.Minute
 }

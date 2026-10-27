@@ -17,7 +17,16 @@ import { StatsHero } from './StatsHero'
  *   2. 规模与活动：应用/进程、客户端、定时、操作总数 —— 紧凑指标网格
  *   3. 明细：磁盘、操作趋势、操作分类、操作来源 —— 两列、items-start 不强拉齐
  */
-export function StatsPanel({ data, loading }: { data: StatsOverview | null; loading: boolean }) {
+export function StatsPanel({
+  data,
+  loading,
+  isSelf = false,
+}: {
+  data: StatsOverview | null
+  loading: boolean
+  /** 当前统计目标是否为本机；决定主视觉卡片挂「本机画像」还是「远程设备」 */
+  isSelf?: boolean
+}) {
   const days = data?.activity?.days ?? []
   // data 只会在重新拉取时整体替换，这里不必再 memo
   const bars = days.map((d) => ({
@@ -47,7 +56,7 @@ export function StatsPanel({ data, loading }: { data: StatsOverview | null; load
   return (
     <div className="space-y-3">
       {/* 第一层：主视觉 */}
-      <StatsHero data={data} />
+      <StatsHero data={data} isSelf={isSelf} />
 
       {/* 第二层：规模与活动 */}
       <Card>

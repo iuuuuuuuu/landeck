@@ -83,7 +83,7 @@ export default function Stats() {
           </div>
         </Card>
       ) : (
-        <StatsPanel data={stats.data} loading={stats.loading} />
+        <StatsPanel data={stats.data} loading={stats.loading} isSelf={!!device.local} />
       )}
     </div>
   )

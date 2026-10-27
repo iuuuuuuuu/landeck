@@ -19,7 +19,14 @@ function toneOf(pct: number): Tone {
  * 右侧 CPU / 内存双环回答「现在累不累」。其余内容都往下沉到第二、三层，
  * 避免像旧版那样六块卡片平铺、每块都在喊同样大声。
  */
-export function StatsHero({ data }: { data: StatsOverview }) {
+export function StatsHero({
+  data,
+  isSelf = false,
+}: {
+  data: StatsOverview
+  /** 当前统计目标是不是「本机」。由调用方按 store 里设备的 local 标记传入 —— 那是唯一权威来源。 */
+  isSelf?: boolean
+}) {
   const { device, realtime, uptime } = data
   const days = uptime?.days ?? []
   const totals = uptime?.totals
@@ -38,9 +45,17 @@ export function StatsHero({ data }: { data: StatsOverview }) {
         desc={`${osLabel(device.platform)} · Agent ${device.agentVersion || '—'} · 生成于 ${dateTime(data.generatedAt)}`}
         icon={<Activity size={16} />}
         action={
-          <Badge tone="accent" dot className="hidden shrink-0 sm:inline-flex">
-            本机画像
-          </Badge>
+          // 「本机画像」只在真的看本机时才成立。之前这里写死显示，
+          // 选中已配对的「公司电脑-M600」时也挂着「本机画像」，语义是错的。
+          isSelf ? (
+            <Badge tone="accent" dot className="hidden shrink-0 sm:inline-flex">
+              本机画像
+            </Badge>
+          ) : (
+            <Badge tone="neutral" dot className="hidden shrink-0 sm:inline-flex">
+              远程设备
+            </Badge>
+          )
         }
       />
 
