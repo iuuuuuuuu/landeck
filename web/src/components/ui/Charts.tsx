@@ -210,7 +210,7 @@ export function MiniBars({
               ? 'var(--tone-cyan-a)'
               : 'var(--tone-accent-a)'
         return (
-          <div key={d.label} className="group relative flex h-full flex-1 flex-col justify-end">
+          <div key={d.label} className="group relative flex h-full min-w-0 flex-1 flex-col justify-end">
             <div
               className="w-full rounded-[5px] transition-all duration-500"
               style={{
@@ -220,7 +220,11 @@ export function MiniBars({
               }}
             />
             <span className="mt-1.5 truncate text-center text-[9.5px] text-faint">{d.label}</span>
-            <div className="pointer-events-none absolute -top-7 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-md border border-line bg-popover px-2 py-1 text-[10px] text-fg opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+            {/* tooltip：不再用 left-1/2 硬居中。居中 + whitespace-nowrap 会让
+                最后一根柱子的提示框伸出容器右边界（385px 视口实测到 right:495px），
+                从而把整页顶出横向滚动条。改成贴右对齐 + max-w 收敛，
+                任何位置都不会超出所在柱的右边缘。 */}
+            <div className="pointer-events-none absolute -top-7 right-0 z-10 max-w-[9rem] truncate rounded-md border border-line bg-popover px-2 py-1 text-[10px] text-fg opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
               {d.hint ?? (format ? format(d.value) : d.value)}
             </div>
           </div>
