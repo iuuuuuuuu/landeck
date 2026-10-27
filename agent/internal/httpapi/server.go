@@ -90,8 +90,9 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/v1/settings", s.protect(s.handleSettingsGet))
 	m.HandleFunc("PUT /api/v1/settings", s.protect(s.handleSettingsPut))
 
-	m.HandleFunc("GET /api/v1/activity", s.protect(s.handleActivity))
-	m.HandleFunc("GET /api/v1/stats", s.protect(s.handleStats))
+	// 统计 / 活动页已下线（用户反馈用不到）：对应端点一并移除，
+	// 少两个聚合接口 = 少两处采样开销与攻击面。旧的 /api/v1/stats、/api/v1/activity
+	// 现在会得到 404；前端路由也重定向到设备页，不会留下死链。
 
 	m.HandleFunc("GET /api/v1/apps", s.protect(s.handleApps))
 	m.HandleFunc("POST /api/v1/apps/kill", s.protect(s.handleKillApp))

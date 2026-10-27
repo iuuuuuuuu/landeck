@@ -131,6 +131,8 @@ export default function DeviceDetail() {
         connected={live.connected}
         reachable={reachable}
         onUnpair={unpair}
+        // 与设备列表卡片用同一个图标源，避免「列表有真实 logo、详情页变默认图标」
+        iconSrc={client?.selfIconUrl()}
       />
 
       {countdown && (

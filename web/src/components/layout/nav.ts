@@ -1,6 +1,4 @@
 import {
-  ChartColumn,
-  History,
   Monitor,
   MonitorSmartphone,
   Radar,
@@ -74,8 +72,6 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/local', label: '本机', icon: MonitorSmartphone, desc: '当前这台机器的硬件与运行状态' },
   { to: '/devices', label: '设备', icon: Monitor, desc: '已配对主机的状态与快捷入口' },
   { to: '/scan', label: '发现', icon: Radar, desc: '扫描局域网并配对新的 Agent' },
-  { to: '/stats', label: '统计', icon: ChartColumn, desc: '运行时长、资源水位与操作统计' },
-  { to: '/activity', label: '活动', icon: History, desc: '谁在什么时候做了什么' },
   { to: '/settings', label: '设置', icon: Settings, desc: '身份、被控端参数与安全策略' },
 ]
 

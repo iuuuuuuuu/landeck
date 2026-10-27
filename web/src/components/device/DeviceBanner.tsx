@@ -17,6 +17,7 @@ export function DeviceBanner({
   connected,
   reachable,
   onUnpair,
+  iconSrc,
 }: {
   device: PairedDevice
   system: SystemInfo | null
@@ -25,6 +26,14 @@ export function DeviceBanner({
   /** HTTP 是否可达：null = 未知 */
   reachable: boolean | null
   onUnpair: () => void
+  /**
+   * 被控端自身图标（/api/v1/self/icon）。
+   *
+   * 为什么需要：设备列表卡片传了 iconSrc，详情页这里没传，于是同一台设备
+   * 在列表里显示真实 exe 图标、点进来却变成默认的 OS 图标 —— 用户一眼看出不一致。
+   * 由调用方用 client.selfIconUrl() 生成并传入，两处头像才统一。
+   */
+  iconSrc?: string
 }) {
   const navigate = useNavigate()
   const [menu, setMenu] = useState(false)
@@ -72,7 +81,7 @@ export function DeviceBanner({
           <span className="hidden sm:inline">返回设备列表</span>
         </button>
 
-        <DeviceAvatar os={platform} size={44} />
+        <DeviceAvatar os={platform} size={44} iconSrc={iconSrc} />
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">

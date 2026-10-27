@@ -6,7 +6,6 @@ import type {
   MediaInfo,
   ProcessInfo,
   ActionMeta,
-  ActivityItem,
   AgentSettings,
   HardwareInfo,
   NodeInfo,
@@ -15,7 +14,6 @@ import type {
   PairResponse,
   Schedule,
   SessionInfo,
-  StatsOverview,
   StatusSnapshot,
   SystemInfo,
   UptimeHistory,
@@ -81,14 +79,33 @@ export function appIconUrl(
  * 只在「页面确实由 Agent 提供」时才成立：Tauri 壳里 origin 是 tauri.localhost，
  * 那是 WebView 自己的资源服务器，打过去只会拿到 index.html，所以直接返回空。
  */
+/**
+ * 设备 logo URL 的缓存版本号。
+ *
+ * 改动头像来源（例如从 exe 图标换成系统账户头像）时把它 +1，
+ * 老客户端与浏览器里那份按 max-age 缓存的旧图会立刻失效，不必让用户清缓存。
+ * 服务端已是 no-cache + ETag（每次重验证），这个参数只用来打破「历史遗留」的缓存。
+ */
+const SELF_ICON_CACHE_VERSION = '3'
+
 /** 被控端自身图标（设备 logo）。令牌放在 query，因为 <img> 发不出 Authorization。 */
 export function selfIconUrl(
   target: Pick<Target, 'host' | 'port' | 'tls' | 'local'>,
   token: string | undefined,
+  cacheKey?: string,
 ): string {
-  let url = `${baseUrl(target)}/self/icon`
-  if (token) url += `?token=${encodeURIComponent(token)}`
-  return url
+  const params = new URLSearchParams()
+  if (token) params.set('token', token)
+  // cacheKey：打破浏览器里已缓存的旧图标。
+  //
+  // 背景：这个端点原来带 Cache-Control: max-age=86400，服务端已经换成新头像
+  // （PNG）后，手机上的 <img> 还会拿一天的旧缓存继续显示老图标。
+  // 服务端现在改成 no-cache + ETag（每次都重验证），但**已经存在**的旧缓存
+  // 仍会按当初那天的 max-age 生效，所以 URL 上再加一个版本参数，立刻绕开它。
+  // 传 agent 版本最合适：升级后图标本就可能变，且版本变了才需要重新取。
+  if (cacheKey) params.set('v', cacheKey)
+  const q = params.toString()
+  return `${baseUrl(target)}/self/icon${q ? `?${q}` : ''}`
 }
 
 export function sameOriginIconUrl(exe: string): string {
@@ -344,9 +361,13 @@ export class AgentClient {
     return appIconUrl(this.target, this.target.local ? undefined : this.token, exe)
   }
 
-  /** 本设备的 logo（被控端自身图标） */
+  /** 本设备的 logo（系统账户头像 / exe 图标） */
   selfIconUrl(): string {
-    return selfIconUrl(this.target, this.target.local ? undefined : this.token)
+    return selfIconUrl(
+      this.target,
+      this.target.local ? undefined : this.token,
+      SELF_ICON_CACHE_VERSION,
+    )
   }
 
   fileRoots() {
@@ -424,15 +445,7 @@ export class AgentClient {
     })
   }
 
-  stats(days = 14) {
-    return this.req<StatsOverview>(`/stats?days=${days}`, { timeoutMs: 20000 })
-  }
 
-  activity(limit = 100, before?: string) {
-    const q = new URLSearchParams({ limit: String(limit) })
-    if (before) q.set('before', before)
-    return this.req<{ items: ActivityItem[] }>(`/activity?${q}`)
-  }
 
   streamUrl() {
     return this.token ? wsUrl(this.target, this.token) : ''

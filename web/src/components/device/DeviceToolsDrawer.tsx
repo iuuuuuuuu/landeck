@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'framer-motion'
 import clsx from 'clsx'
 import { CalendarClock, FolderOpen, PanelsTopLeft, X } from 'lucide-react'
 import { IconButton, Segmented } from '../ui'
@@ -76,27 +75,23 @@ export function DeviceToolsDrawer({
   }, [open, onClose])
 
   return createPortal(
-    <AnimatePresence>
-      {open && (
-        <div className="fixed inset-0 z-40">
-          <motion.div
-            className="absolute inset-0 bg-scrim backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            onClick={onClose}
-          />
-          <motion.aside
-            role="dialog"
-            aria-modal="true"
-            aria-label="管理工具"
-            initial={{ x: 28, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 28, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 34 }}
-            className="absolute inset-y-0 right-0 flex w-full max-w-full flex-col border-l border-line bg-popover shadow-lift backdrop-blur-xl sm:w-[min(760px,94vw)]"
-          >
+    // 刻意不用 AnimatePresence + motion.aside。
+    //
+    // 实测：抽屉用 spring 做 x 位移 + opacity，再叠 backdrop-blur-xl，
+    // 打开瞬间要重建合成层并触发 framer-motion 的布局测量，手机上明显掉帧。
+    // 这与之前 AppShell / Radar / Button 的问题是同一类。
+    // 现在用纯 CSS 动画（drawer-scrim / drawer-panel，见 index.css）：
+    // 只动 opacity 与 transform，走合成层；退场动画由 CSS 的 animation-fill-mode 完成。
+    // 关闭时的「滑出」效果省掉了（只做快速淡出），换来打开瞬间不卡。
+    open && (
+      <div className="fixed inset-0 z-40">
+        <div className="drawer-scrim absolute inset-0 bg-scrim" onClick={onClose} />
+        <aside
+          role="dialog"
+          aria-modal="true"
+          aria-label="管理工具"
+          className="drawer-panel absolute inset-y-0 right-0 flex w-full max-w-full flex-col border-l border-line bg-popover shadow-lift sm:w-[min(760px,94vw)]"
+        >
             {/* pt-safe：抽屉是 absolute inset-y-0 铺满全屏，手机上会顶到状态栏下面。
                 原来只有 py-3，操作栏被状态栏压住 —— 加 pt-safe 让内容避让刘海/状态栏。 */}
             <header className="pt-safe flex items-start gap-3 border-b border-line-soft px-4 pb-3">
@@ -140,10 +135,9 @@ export function DeviceToolsDrawer({
                 )}
               </div>
             </div>
-          </motion.aside>
-        </div>
-      )}
-    </AnimatePresence>,
+        </aside>
+      </div>
+    ),
     document.body,
   )
 }

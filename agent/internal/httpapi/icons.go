@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -49,17 +51,36 @@ func (s *Server) handleAppIcon(w http.ResponseWriter, r *http.Request, c *config
 		iconNotFound(w)
 		return
 	}
-	writeIconData(w, data, mime)
+	writeIconData(w, r, data, mime)
 }
 
-// writeIconData 统一写图标响应：mime 兜底、缓存一天、显式 Content-Length。
-func writeIconData(w http.ResponseWriter, data []byte, mime string) {
+// writeIconData 统一写图标响应：mime 兜底、ETag 重验证、显式 Content-Length。
+//
+// 为什么不用 max-age 而用 no-cache + ETag：
+//   图标的**内容会变** —— 用户换了 Windows 账户头像、或 agent 升级后 exe 图标变了。
+//   原来设 public, max-age=86400，后果是：服务端已经返回新头像（2392 字节 PNG），
+//   手机上的 <img> 却拿一天的旧缓存继续显示老图标。
+//   （实测踩到：改完头像支持后手机上仍是旧的 ico，而接口本身返回的已是 PNG。）
+//   改成 no-cache 后浏览器每次带 If-None-Match 来问一句：
+//   没变回 304（几乎零成本），变了立刻拿到新图。
+//   用 ETag 而不是 Last-Modified，因为头像可能来自 ProgramData / 注册表，
+//   mtime 不一定可靠。
+func writeIconData(w http.ResponseWriter, r *http.Request, data []byte, mime string) {
 	if mime == "" {
 		mime = icons.MimeICO
 	}
+	sum := sha256.Sum256(data)
+	etag := `"` + hex.EncodeToString(sum[:8]) + `"`
+	w.Header().Set("ETag", etag)
+	// no-cache = 可缓存，但每次必须回源重验证（配合 ETag 走 304）
+	w.Header().Set("Cache-Control", "no-cache")
+
+	if r != nil && strings.TrimSpace(r.Header.Get("If-None-Match")) == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
 	w.Header().Set("Content-Type", mime)
-	// 图标基本不随运行变化，让浏览器与中间层缓存一天；换了版本 exe 的 mtime 变了，服务端会重读
-	w.Header().Set("Cache-Control", "public, max-age=86400")
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(data)
@@ -74,15 +95,27 @@ func iconNotFound(w http.ResponseWriter) {
 	_, _ = w.Write([]byte("no icon"))
 }
 
-// handleSelfIcon 返回被控端**自身**的可执行文件图标。
+// handleSelfIcon 返回这台机器的身份头像。
 //
-// 用途：设备列表里每台设备目前只显示首字母色块，用户希望能看到"真实的样子"。
-// 被控端自己的 exe 图标就是这台机器上最自然的身份标识（桌面上也是这个图标）。
-// 与 /apps/icon 的区别：不需要传路径，端点自己取 os.Executable()，
-// 也不依赖「允许结束进程」这个功能开关 —— 设备身份不属于进程管理能力。
+// 用途：设备列表 / 详情页的头像。用户要求「从系统中获取头像」。
+//
+// 三级优先级：
+//  1. Windows 账户头像（用户自己设置过的）—— 最能代表「这台机器是谁的」
+//  2. 系统默认账户头像（user-192.png，未设置头像时的占位图）
+//  3. 被控端 exe 里的图标资源 → 内嵌 landeck.ico 兜底
+//
+// 前两级由 icons.AccountAvatar() 负责；第三级是原有逻辑。
+// 不依赖「允许结束进程」这个功能开关 —— 设备身份不属于进程管理能力。
 func (s *Server) handleSelfIcon(w http.ResponseWriter, r *http.Request, c *config.Client) {
-	_ = r
 	_ = c
+
+	// 1 & 2：系统账户头像（真实头像 or 系统默认）
+	if data, mime, _ := icons.AccountAvatar(); len(data) > 0 {
+		writeIconData(w, r, data, mime)
+		return
+	}
+
+	// 3：exe 图标 → 内嵌图标
 	exe, err := os.Executable()
 	if err != nil {
 		iconNotFound(w)
@@ -93,11 +126,11 @@ func (s *Server) handleSelfIcon(w http.ResponseWriter, r *http.Request, c *confi
 		// exe 里没有图标资源（Go 默认构建就是这种情况）→ 用内嵌图标兜底，
 		// 保证设备列表总有一枚真实 logo，而不是退回符号块。
 		if len(icons.SelfIcon) > 0 {
-			writeIconData(w, icons.SelfIcon, icons.MimeICO)
+			writeIconData(w, r, icons.SelfIcon, icons.MimeICO)
 			return
 		}
 		iconNotFound(w)
 		return
 	}
-	writeIconData(w, data, mime)
+	writeIconData(w, r, data, mime)
 }

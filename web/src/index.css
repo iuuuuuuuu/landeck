@@ -529,3 +529,38 @@
     animation: none;
   }
 }
+
+/* 抽屉打开动画：纯 CSS，替代原来的 framer-motion spring 位移 + backdrop-blur。
+ * 只动 opacity 与 transform，走合成层，不触发布局测量。
+ * 关闭时不再做滑出（直接卸载），换来打开瞬间不掉帧。 */
+@keyframes ldk-drawer-scrim {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ldk-drawer-panel {
+  from {
+    opacity: 0;
+    transform: translate3d(28px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+.drawer-scrim {
+  animation: ldk-drawer-scrim 180ms ease-out both;
+}
+.drawer-panel {
+  animation: ldk-drawer-panel 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawer-scrim,
+  .drawer-panel {
+    animation: none;
+  }
+}

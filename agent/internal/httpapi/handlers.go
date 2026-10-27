@@ -781,17 +781,6 @@ func (s *Server) handleSettingsPut(w http.ResponseWriter, r *http.Request, c *co
 
 // ---------- 活动日志 ----------
 
-func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request, c *config.Client) {
-	limit := 100
-	if v := r.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			limit = n
-		}
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"items": s.Acts.List(limit, r.URL.Query().Get("before")),
-	})
-}
 
 // ---------- 进程 ----------
 
@@ -913,54 +902,3 @@ func (s *Server) handleKillApp(w http.ResponseWriter, r *http.Request, c *config
 //
 // 一次请求把页面需要的都算好：运行时长、资源水位、开机历史、操作统计、
 // 进程/应用数量、磁盘占用。避免前端发 5 个请求再自己拼。
-func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, c *config.Client) {
-	// 默认给 90 天：按月聚合需要足够跨度（用户要求「按照月统计」）
-	days := 90
-	if v := r.URL.Query().Get("days"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 90 {
-			days = n
-		}
-	}
-
-	snap := s.Sampler.Snapshot()
-	uptime := metrics.CachedHistory(days)
-	acts := s.Acts.Aggregate(days)
-
-	// 应用与进程数量：走 AppProcCount 的轻量路径（30s 缓存，只枚举进程名）。
-	//
-	// 原来这里用 metrics.ListApps(Limit:300)，它内部走 cachedProcesses() →
-	// sampleProcesses()，含一次 time.Sleep(200ms) 再遍历 480 个进程取
-	// Name/CPU/内存/用户/启动时间，实测 290~330ms，且缓存 TTL 只有 2s。
-	// 手机端切到统计页时经常正好过期，于是每次切页卡一下。
-	// 统计页只需要「个数」，不需要那些重字段。
-	appCount, procCount := metrics.AppProcCount()
-
-	cfg := s.Cfg.Get()
-	out := map[string]any{
-		"generatedAt": time.Now().Format(time.RFC3339),
-		"device": map[string]any{
-			"id": cfg.DeviceID, "name": cfg.DeviceName,
-			"platform": runtime.GOOS, "arch": runtime.GOARCH,
-			"agentVersion": s.Version,
-			"bootTime":     snap.BootTime,
-			"uptimeSec":    snap.UptimeSec,
-		},
-		"realtime": map[string]any{
-			"cpu":  snap.CPU.Percent,
-			"mem":  snap.Mem.Percent,
-			"memUsed": snap.Mem.Used, "memTotal": snap.Mem.Total,
-			"rxBps": snap.Net.RxBps, "txBps": snap.Net.TxBps,
-			"disks": snap.Disks,
-			"battery": snap.Battery,
-			"temps": snap.Temps,
-		},
-		"counts": map[string]any{
-			"apps": appCount, "processes": procCount,
-			"clients": len(cfg.Clients),
-			"schedules": len(s.Sched.List()),
-		},
-		"uptime": uptime,
-		"activity": acts,
-	}
-	writeJSON(w, http.StatusOK, out)
-}
