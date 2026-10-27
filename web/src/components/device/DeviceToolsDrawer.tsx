@@ -97,7 +97,9 @@ export function DeviceToolsDrawer({
             transition={{ type: 'spring', stiffness: 320, damping: 34 }}
             className="absolute inset-y-0 right-0 flex w-full max-w-full flex-col border-l border-line bg-popover shadow-lift backdrop-blur-xl sm:w-[min(760px,94vw)]"
           >
-            <header className="flex items-start gap-3 border-b border-line-soft px-4 py-3">
+            {/* pt-safe：抽屉是 absolute inset-y-0 铺满全屏，手机上会顶到状态栏下面。
+                原来只有 py-3，操作栏被状态栏压住 —— 加 pt-safe 让内容避让刘海/状态栏。 */}
+            <header className="pt-safe flex items-start gap-3 border-b border-line-soft px-4 pb-3">
               <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line-soft bg-elevated text-accent-soft">
                 <PanelsTopLeft size={16} />
               </span>
@@ -124,7 +126,7 @@ export function DeviceToolsDrawer({
 
             <div
               ref={bodyRef}
-              className="scroll-area min-w-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-4"
+              className="scroll-area min-w-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-3 pb-safe sm:px-4"
             >
               {/* 两个面板都保持挂载：切 tab 再切回来不会丢失当前目录 / 列表状态 */}
               <div className={clsx(tab !== 'files' && 'hidden')}>

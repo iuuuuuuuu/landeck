@@ -581,8 +581,20 @@ fn platform() -> String {
 /// 为什么不放前端 fetch：安卓 WebView 里对 http://<私网IP>:8420 的请求可能被
 /// 混合内容/明文策略拦下，挂到超时才返回，整轮扫描被拖慢；而且每个候选端口都要试一遍。
 /// 原生侧直接发一次 UDP 探测 + 解析回包，最快也最稳。
+/// 本机 Agent 的 id（用于在扫描结果里排除「我自己」）。
+///
+/// 必须 async + spawn_blocking：内部有 600ms 的阻塞 UDP 接收循环，
+/// 外加 `preferred_lan_iface()` 的网卡枚举（114~140ms）。
+/// 同步版会在 WebView 主线程上跑满 700ms+，而扫描流程一开始就会调它。
 #[tauri::command]
-fn self_agent_id() -> Option<String> {
+async fn self_agent_id() -> Option<String> {
+    tauri::async_runtime::spawn_blocking(self_agent_id_blocking)
+        .await
+        .ok()
+        .flatten()
+}
+
+fn self_agent_id_blocking() -> Option<String> {
     let preferred = preferred_lan_iface();
     let ip = preferred.map(|(_, ip, _)| ip);
     let bind = SocketAddrV4::new(scan_bind_ip(ip), 0);
@@ -615,8 +627,22 @@ fn self_agent_id() -> Option<String> {
     None
 }
 
+/// 本机在局域网里的 IPv4。
+///
+/// 必须 async + spawn_blocking：`preferred_lan_iface()` 内部会枚举网卡
+/// （`if_addrs::get_if_addrs` / `net.Interfaces` 等价物），Windows 上实测
+/// 单次 114~140ms。原来写成同步 `#[tauri::command]`，Tauri 会在 WebView
+/// 主线程执行 —— 而扫描流程一开始就会调它（nativeLocalIP），
+/// 于是「点扫描」的第一下就卡住，雷达动画随之停住。
 #[tauri::command]
-fn local_ip() -> Option<String> {
+async fn local_ip() -> Option<String> {
+    tauri::async_runtime::spawn_blocking(local_ip_blocking)
+        .await
+        .ok()
+        .flatten()
+}
+
+fn local_ip_blocking() -> Option<String> {
     if let Some((_, ip, _)) = preferred_lan_iface() {
         return Some(ip.to_string());
     }
