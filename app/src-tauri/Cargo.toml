@@ -1,6 +1,6 @@
 [package]
 name = "landeck"
-version = "1.0.12"
+version = "1.0.15"
 description = "LanDeck 控制端"
 authors = ["LanDeck"]
 edition = "2021"

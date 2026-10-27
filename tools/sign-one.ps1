@@ -1,7 +1,7 @@
 param(
   [Parameter(Mandatory = $true, Position = 0)][string]$Path,
   [string]$SubjectMatch = 'LanDeck',
-  [string]$NamePattern = 'landeck|LanDeck',
+  [string]$NamePattern = 'landeck|LanDeck|uninstall|^nst[0-9A-Fa-f]+\.tmp$',
   [switch]$Require
 )
 
@@ -32,6 +32,22 @@ param(
 #    target/release/wix/, NSIS plugins under target/release/nsis/). Signing a
 #    third party's toolchain DLL with our local cert is wrong and also
 #    corrupts Tauri's tool cache. Measured, not hypothetical.
+#
+#    The uninstaller is the tricky case. Tauri signs it through the same
+#    command, but via NSIS `!uninstfinalize`, and makensis does NOT pass the
+#    final name. Measured with a logging stub:
+#        %1  ==  C:\Users\IUUUUU~1\AppData\Local\Temp\nstEC2D.tmp
+#    i.e. an `nst*.tmp` scratch file in %TEMP%. Its name contains neither
+#    "landeck" nor "uninstall", so a purely name-based whitelist silently
+#    skips it and the installed uninstaller ends up NotSigned.
+#
+#    The pattern therefore also allows `nst` (the NSIS uninstaller scratch
+#    prefix). That is deliberately narrow: NSIS uses `ns*`/`nst*` names only
+#    for its own scratch files, and everything else Tauri pushes through here
+#    (WiX/NSIS plugin DLLs) still gets skipped.
+#
+#    Do not "simplify" this back to just landeck|uninstall: that silently
+#    regresses the uninstaller signature with no error at all.
 #
 # The signature is only accepted after re-reading it from disk and checking
 # BOTH status=Valid AND thumbprint match. Trusting the return value of

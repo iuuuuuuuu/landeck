@@ -111,9 +111,26 @@ Status: implemented
   因此**安装包内嵌的那份是签名的**（解包实测 3632736 字节、`Valid`），
   而目录里残留的那份需要补签 —— 直接双击开发产物的人看到的正是这一份。
   `tools/sign-windows.ps1` 的默认目标集合同时覆盖两者。
+- **卸载器曾被我加的白名单签名跳过（自己引入的回归，已修）**：
+  Tauri 通过 NSIS 的 `!uninstfinalize` 用同一个 `signCommand` 签卸载器，
+  而 makensis 传进来的 `%1` **不是最终文件名**。实测（用一个日志桩脚本接住它）：
+  `%1 == C:\Users\IUUUUU~1\AppData\Local\Temp\nstEC2D.tmp` —— `%TEMP%` 下的
+  `nst*.tmp` 草稿文件。它的名字既不含 `landeck` 也不含 `uninstall`，
+  于是被当作「非本项目文件」静默跳过，安装后的 `uninstall.exe` 一直是 `NotSigned`。
+  白名单因此补上 `^nst[0-9A-Fa-f]+\.tmp$`（窄到只匹配 NSIS 自己的草稿名），
+  修复后构建日志出现 `sign-one: OK nst500A.tmp (timestamped)`，
+  端到端实测安装后的 `uninstall.exe` 为 `Valid` 且指纹与证书一致。
+  **教训：给这类回调加白名单时，「跳过」是静默的 —— 必须回头确认白名单没有
+  把该签的产物一起挡掉；只看「构建成功」看不出来。**
 - 白名单靠文件名正则，若将来产物改名（例如不再含 `landeck`），
   会静默变成 `skip` 而不再签名。改名时需同步 `-NamePattern`。
 - WiX/MSI 在本机仍不可用（既有环境问题），本轮未修。
+  该问题的根因已在
+  [NSIS 安装器两处缺陷（关闭常驻被控端、%TEMP% 条目数上限）](2026-10-27-nsis-installer-cannot-overwrite-running-agent.md)
+  中一并查明：`%TEMP%` 条目数过大导致临时目录不可用，与签名链路无关。
+
+另见：[NSIS 安装器两处缺陷（关闭常驻被控端、%TEMP% 条目数上限）](2026-10-27-nsis-installer-cannot-overwrite-running-agent.md)
+—— 安装期的文件占用与 `%TEMP%` 容量问题，与签名是两条独立的链路。
 
 ## Testing
 
@@ -139,3 +156,12 @@ Status: implemented
   代码层审计确认可执行语句 0 处引用 `Cert:`；无证书路径输出 `SKIP` + exit 0、
   不含 DriveNotFound；有证书路径仍 `Valid`；`-Require` 无证书仍 exit 1。
   **教训：本机绿灯不等于 CI 绿灯 —— 涉及构建链路的改动必须以真实 CI 结果为准。**
+- 卸载器白名单回归：决策表覆盖 6 个「必须匹配」（含 `nstEC2D.tmp`、`nstA531.tmp`）
+  与 10 个「必须跳过」（WiX/NSIS 插件 DLL、`nsb27CE.tmp`、`nsi7A73.tmp` 等），
+  0 失败；故障注入把**未签名**的卸载器复制成 makensis 实际传入的名字
+  `nstEC2D.tmp`，签名后由 `NotSigned` → `Valid`；对照用 `zzctl-not-ours.exe`
+  仍被跳过且保持 `NotSigned`。
+- 端到端（1.0.15，干净 `%TEMP%`、agent 运行中）：`/S` 安装 `exit=0`，
+  安装后 `landeck.exe` / `uninstall.exe` / `resources\landeck-agent.exe`
+  三者均为 `Valid`、指纹 `9CDEFB92...32C2` 与证书一致，注册表为 `1.0.15`，
+  且 agent 进程被钩子关闭（安装后 `pids` 为空）。
