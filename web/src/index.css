@@ -476,3 +476,56 @@
 .animate-indeterminate {
   animation: ldk-indeterminate 1.1s ease-in-out infinite;
 }
+
+/* 切页入场：纯 CSS 实现，替代原来的 framer-motion motion.div。
+ *
+ * 为什么换掉：framer-motion 的位移动画会为每次切页测量滚动容器
+ * （CPU profile 里 measureScroll 单项 122ms，是切页最大开销）。
+ * 这里只用 transform + opacity —— 两者都能在合成层完成，
+ * 不触发 layout/measure，主线程几乎零成本。
+ *
+ * 曲线与原动画对齐：260ms easeOut，8px 上浮。
+ * 尊重「减少动态效果」偏好：系统开了就用纯淡入，不做位移。 */
+@keyframes ldk-page-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.page-enter {
+  animation: ldk-page-enter 260ms ease-out both;
+  /* 提示浏览器只做合成，不参与布局计算 */
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
+  }
+}
+
+/* 雷达上的设备点入场：只动 opacity，走合成层。
+ * 替换掉原来的 framer-motion motion.g —— 扫描时节点陆续出现，
+ * framer-motion 每次都做布局测量，节点一多就把主线程占死，
+ * 连雷达的扫描动画（animate-sweep）都会停住。 */
+@keyframes ldk-radar-blip {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.radar-blip {
+  animation: ldk-radar-blip 350ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .radar-blip {
+    animation: none;
+  }
+}

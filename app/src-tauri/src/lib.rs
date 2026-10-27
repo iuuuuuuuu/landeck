@@ -380,8 +380,26 @@ fn unicast_sweep(_preferred: Option<Ipv4Addr>) -> Vec<Ipv4Addr> {
 
 /// 扫描局域网内的 Agent：先发 UDP 探测包，再收应答。
 /// 端口固定 8421（与 Agent 的发现端口一致）。
+///
+/// 为什么必须 `spawn_blocking`：
+///   这个函数内部有 LISTEN_MS（安卓 2000ms / 桌面 900ms）的阻塞接收循环。
+///   原来写成普通同步 `#[tauri::command]`，Tauri 会在 **WebView 主线程**上执行它，
+///   实测后果：点扫描后主线程被占满 2302ms —— 雷达的 CSS 扫描动画
+///   （本来走合成层、与 JS 无关）直接停住不动，切页也卡死。
+///   真机 CDP profile 里那 3 秒多的 `(anon) @ :0`（无源码位置 = 原生）就是它。
+///
+///   只把 fn 改成 async 还不够：async fn 里的阻塞代码仍然占住 executor 线程。
+///   必须用 spawn_blocking 把它挪到专门的阻塞线程池，主线程与 async 调度器都不受影响。
 #[tauri::command]
-fn scan_lan() -> Vec<Node> {
+async fn scan_lan() -> Vec<Node> {
+    // 阻塞的 UDP 收发放到阻塞线程池，主线程立即返回、继续渲染动画
+    match tauri::async_runtime::spawn_blocking(scan_lan_blocking).await {
+        Ok(v) => v,
+        Err(_) => Vec::new(),
+    }
+}
+
+fn scan_lan_blocking() -> Vec<Node> {
     let mut out: Vec<Node> = Vec::new();
 
     // 首选网卡决定两件事：socket 绑哪、单播扫哪个 /24
@@ -917,7 +935,9 @@ mod tests {
     /// 需要本机 Agent 在跑；没有则跳过（但会打印明确原因，不静默通过）。
     #[test]
     fn scan_lan_finds_local_agent() {
-        let nodes = scan_lan();
+        // 测试里直接调阻塞版本：命令入口是 async + spawn_blocking，
+        // 但那层包装只是为了让 UI 线程不被占住，探测逻辑本身仍是同步的。
+        let nodes = scan_lan_blocking();
         println!("发现 {} 台设备", nodes.len());
         for n in &nodes {
             println!("  {} {} {}:{}", n.name, n.os, n.ip, n.port);

@@ -289,6 +289,24 @@ export default function Scan() {
     [pairedKeys],
   )
 
+  /**
+   * 按同一套规则反查 store 里的那条已配对记录。
+   *
+   * 用途：点扫描结果进详情页时，必须跳 store 记录的 id，而不是扫描到的 node.id。
+   * agent 的 deviceId 会变（config.json 丢了就重新生成），两者可能不一致；
+   * 直接用 node.id 跳转会让 DeviceDetail 找不到设备，显示「设备不存在或已被移除」。
+   */
+  const pairedDeviceFor = useCallback(
+    (n: NodeInfo) => {
+      const byId = devices.find((d) => d.id === n.id)
+      if (byId) return byId
+      const host = n.ip || ''
+      if (!host) return undefined
+      return devices.find((d) => `${d.host}:${d.port}` === `${host}:${n.port}`)
+    },
+    [devices],
+  )
+
   const radarNodes = useMemo(
     () => all.map((n) => ({ id: n.id, paired: isPaired(n) })),
     [all, isPaired],
@@ -319,10 +337,20 @@ export default function Scan() {
           desc: '这台就是当前设备，无需配对即可管理',
         })
       }
-      setActive(node.id)
-      navigate(`/devices/${node.id}`)
+
+      // 关键：跳详情页必须用【store 里那条记录的真实 id】，不能用扫描到的 node.id。
+      //
+      // 实测踩过：agent 的 deviceId 会变（config.json 丢了就重新生成），
+      // store 里存的是配对那一刻的旧 id。扫描拿到的是新 id，
+      // 直接 navigate 到新 id → DeviceDetail 的 devices.find() 找不到 →
+      // 显示「设备不存在或已被移除」，而设备列表里明明有这台机器。
+      // 现在按同一个 isPaired 规则反查 store 记录，用它的 id 跳转。
+      const known = pairedDeviceFor(node)
+      const targetId = known?.id ?? node.id
+      setActive(targetId)
+      navigate(`/devices/${targetId}`)
     },
-    [addDevice, navigate, isPaired, setActive, toast],
+    [addDevice, navigate, isPaired, pairedDeviceFor, setActive, toast],
   )
 
   const scanning = status === 'scanning'

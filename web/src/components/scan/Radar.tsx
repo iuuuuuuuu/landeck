@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion'
 import { blipFor } from './polar'
 
 export interface RadarNode {
@@ -143,12 +142,12 @@ export function Radar({
           const p = blipFor(n.id)
           const color = n.paired ? 'var(--color-ok)' : 'var(--color-accent-soft)'
           return (
-            <motion.g
-              key={n.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.35 }}
-            >
+            // 刻意不用 framer-motion 的 motion.g。
+            // 实测：扫描时设备陆续冒出来，每个点都让 framer-motion 做一次
+            // 布局测量；节点一多就把主线程占死，连雷达的 CSS 扫描动画
+            // （animate-sweep，本来是纯合成层）都停住不动了，切页也卡。
+            // 改成 CSS 关键帧淡入：只动 opacity，走合成层，不读布局。
+            <g key={n.id} className="radar-blip">
               <circle
                 cx={p.x}
                 cy={p.y}
@@ -169,7 +168,7 @@ export function Radar({
                   opacity={0.55}
                 />
               )}
-            </motion.g>
+            </g>
           )
         })}
       </svg>
