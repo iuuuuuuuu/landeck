@@ -89,7 +89,7 @@ Status: implemented
 - **让 `signCommand` 在拿不到证书时也返回非零**：那会让**没装自签名证书**的
   打包机（含 CI）永久变红，而「本来就没打算在那台机器上签名」是正常状态。
   改为明确 SKIP + exit 0，并用 `-Require` 表达「这台机器必须有证书」。放弃。
-- **干脆不管 MSI**：`light.exe` 在 `TEMP=C:\Users\IUUUUU~1\AppData\Local\Temp`
+- **干脆不管 MSI**：`light.exe` 在 `TEMP=C:\Users\<短名>\AppData\Local\Temp`
   下报 `LGHT0001 对路径 … 的访问被拒绝`，且**单独运行 `light.exe` 也报同一错、
   与本次改动无关**（在 `WriteAllText` 到同一目录成功的前提下仍失败）。
   MSI 是次生产物，本次预测试版用 `tauri build --bundles nsis` 绕开；
@@ -114,7 +114,7 @@ Status: implemented
 - **卸载器曾被我加的白名单签名跳过（自己引入的回归，已修）**：
   Tauri 通过 NSIS 的 `!uninstfinalize` 用同一个 `signCommand` 签卸载器，
   而 makensis 传进来的 `%1` **不是最终文件名**。实测（用一个日志桩脚本接住它）：
-  `%1 == C:\Users\IUUUUU~1\AppData\Local\Temp\nstEC2D.tmp` —— `%TEMP%` 下的
+  `%1 == C:\Users\<短名>\AppData\Local\Temp\nst<hex>.tmp` —— `%TEMP%` 下的
   `nst*.tmp` 草稿文件。它的名字既不含 `landeck` 也不含 `uninstall`，
   于是被当作「非本项目文件」静默跳过，安装后的 `uninstall.exe` 一直是 `NotSigned`。
   白名单因此补上 `^nst[0-9A-Fa-f]+\.tmp$`（窄到只匹配 NSIS 自己的草稿名），
@@ -138,7 +138,7 @@ Status: implemented
 
 - 正向：`sign-one.ps1` 对 `landeck.exe` 输出 `OK (timestamped)`；
   在**独立的新 PowerShell 进程**里复读，`status=Valid` 且
-  `thumb=9CDEFB926986D3BB57911A03E70FBDF8773032C2` 与证书一致。
+  `thumb=<证书指纹>` 与证书一致。
 - 反向 1：`-SubjectMatch NoSuchSubjectXYZ` → 打印 `SKIP`，exit **0**（显式跳过，不假装成功）。
 - 反向 2：`-SubjectMatch NoSuchSubjectXYZ -Require` → exit **1**（真失败）。
 - 反向 3：`-Path C:\nonexistent\no.exe` → `file not found`，exit **1**。
@@ -163,5 +163,5 @@ Status: implemented
   仍被跳过且保持 `NotSigned`。
 - 端到端（1.0.15，干净 `%TEMP%`、agent 运行中）：`/S` 安装 `exit=0`，
   安装后 `landeck.exe` / `uninstall.exe` / `resources\landeck-agent.exe`
-  三者均为 `Valid`、指纹 `9CDEFB92...32C2` 与证书一致，注册表为 `1.0.15`，
+  三者均为 `Valid`、指纹 `<证书指纹>` 与证书一致，注册表为 `1.0.15`，
   且 agent 进程被钩子关闭（安装后 `pids` 为空）。

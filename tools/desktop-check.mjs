@@ -109,7 +109,7 @@ await ev(`(() => {
 })()`)
 await sleep(7000)
 const scanText = await ev('document.body.innerText')
-check('发现页扫到设备', /M600|10\\.168\\./.test(scanText), scanText.split('\n').join(' ').slice(0, 90))
+check('发现页扫到设备', /\d+\.\d+\.\d+\.\d+/.test(scanText), scanText.split('\n').join(' ').slice(0, 90))
 
 // 6. 浅色主题
 await ev(`localStorage.setItem('landeck.theme.v1', JSON.stringify({ state: { mode: 'light' }, version: 1 }))`)

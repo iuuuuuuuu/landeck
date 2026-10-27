@@ -17,7 +17,7 @@ Status: implemented
 `targetSdkVersion=37`。Android 16 起，targetSdk ≥ 36 的应用**默认无法访问局域网**：
 连本网段的 TCP/UDP 都被系统拦掉。证据链：
 
-- 手机 shell 里 `curl http://10.168.1.115:8420/api/v1/hello` → **200**
+- 手机 shell 里 `curl http://<PC_IP>:8420/api/v1/hello` → **200**
 - 同一时刻 App 内扫段 254 个地址 → **全部「连接失败」**
 - PC 侧实时抓连接：扫描期间**没有任何来自手机的包**到达 8420
 - 授权后：扫到 1 台；配对成功
@@ -46,7 +46,7 @@ agent\bin\landeck-agent.exe                         Block(Private,Public)   ← 
 
 ### ③ 首选网卡打分把 VPN 当成局域网（连带）
 
-`local_ip` 返回 `192.168.192.75`（ZeroTier），不是真实的 `10.168.1.115`。
+`local_ip` 返回 `<VPN_IP>`（ZeroTier），不是真实的 `<PC_IP>`。
 原因：打分给 `192.168.x` 加 +30（"家用路由器大多在这段"），而中文网卡名「以太网 2」
 不匹配 `eth/en/em` 前缀，得不到有线加分 → ZeroTier 反超。
 

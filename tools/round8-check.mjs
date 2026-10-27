@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process'
 import { setTimeout as sleep } from 'node:timers/promises'
 
-const BASE = process.argv[2] || 'http://10.168.1.115:8420'
+const BASE = process.argv[2] || 'http://127.0.0.1:8420'
 const results = []
 const check = (name, ok, detail = '') => {
   results.push({ name, ok })

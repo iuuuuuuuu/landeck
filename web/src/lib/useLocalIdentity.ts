@@ -11,7 +11,7 @@ const PLACEHOLDER = /^(Windows PC|Mac|Linux PC|iPhone|iPad|Android 手机)$/
  * 把「本机身份」的默认值纠正为这台电脑的真实名称。
  *
  * 之前在设置页看到的永远是 `Windows PC` —— 那是按 UA 猜出来的占位名，
- * 和扫描列表里显示的「公司电脑-M600」对不上，用户会以为自己改错了东西。
+ * 和扫描列表里显示的设备名对不上，用户会以为自己改错了东西。
  * 这里在本机被控端可达时，用它的 deviceName 覆盖占位名；用户自己改过的不动。
  */
 export function useLocalIdentity(): void {

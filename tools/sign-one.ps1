@@ -36,7 +36,7 @@ param(
 #    The uninstaller is the tricky case. Tauri signs it through the same
 #    command, but via NSIS `!uninstfinalize`, and makensis does NOT pass the
 #    final name. Measured with a logging stub:
-#        %1  ==  C:\Users\IUUUUU~1\AppData\Local\Temp\nstEC2D.tmp
+#        %1  ==  C:\Users\<short>\AppData\Local\Temp\nst<hex>.tmp
 #    i.e. an `nst*.tmp` scratch file in %TEMP%. Its name contains neither
 #    "landeck" nor "uninstall", so a purely name-based whitelist silently
 #    skips it and the installed uninstaller ends up NotSigned.

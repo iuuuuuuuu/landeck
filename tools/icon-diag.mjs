@@ -3,10 +3,10 @@ import { spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { setTimeout as sleep } from 'node:timers/promises'
 
-const BASE = 'http://10.168.1.115:8420'
+const BASE = process.argv[2] || 'http://127.0.0.1:8420'
 const pair = JSON.parse(readFileSync('.tmp/pair.json', 'utf8'))
 const dev = {
-  id: pair.server.id, host: '10.168.1.115', port: 8420, tls: false,
+  id: pair.server.id, host: '127.0.0.1', port: 8420, tls: false,
   token: pair.token, clientId: pair.clientId, name: pair.server.name,
   os: 'windows', arch: 'amd64', ver: '1.0.9', addedAt: Date.now(),
 }

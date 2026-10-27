@@ -4,7 +4,7 @@
  *
  * 用法：
  *   node tools/visual-check.mjs                     # 默认截 http://127.0.0.1:8420
- *   node tools/visual-check.mjs --base http://192.168.1.20:8420
+ *   node tools/visual-check.mjs --base http://127.0.0.1:8420
  *
  * 产出：.tmp/shots/<页面>-<视口>.png
  * 依赖：本机已装 Edge 或 Chrome；Agent 正在运行且 .tmp/pair.json 里有可用 token。

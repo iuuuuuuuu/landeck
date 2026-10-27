@@ -267,7 +267,7 @@ export default function Scan() {
   // 配对判定不能只看 id。
   // 实测踩过：agent 的 deviceId 会随数据目录重建而变（config.json 丢了就 GenerateID），
   // 而 store 里存的是配对那一刻的旧 id —— 于是同一台机器扫描出来仍显示「未配对」，
-  // 用户看到的是一台已经配对的 M600 被当成新设备，还能再配一次。
+  // 用户看到的是一台已经配对的机器被当成新设备，还能再配一次。
   // host:port 是稳定标识（agent 换 id 也不会换地址），所以两个条件取或。
   const pairedKeys = useMemo(() => {
     const ids = new Set<string>()

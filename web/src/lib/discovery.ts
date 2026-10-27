@@ -371,7 +371,7 @@ export async function probeRange(
   return hits
 }
 
-/** 把 `10.168.1` / `10.168.1.` / `10.168.1.1-80` 解析成主机列表 */
+/** 把 `192.168.1` / `192.168.1.` / `192.168.1.1-80` 解析成主机列表 */
 export function expandHostSpec(raw: string): { hosts: string[]; subnet: string } | null {
   const v = raw.trim().replace(/\/$/, '')
   // 网段：三段 + 可选点，或四段最后一段留空

@@ -21,9 +21,9 @@ export function parseAddress(raw: string): { host: string; port: number; explici
 /**
  * 手动添加：支持三种写法，避免「只能一个个填」。
  *
- *   · 单台机器：`10.168.1.115`（端口用下面的输入框，默认 8420）
- *   · 整个网段：`10.168.1` 或 `10.168.1.`（等价于扫 10.168.1.1–254）
- *   · 自定义区间：`10.168.1.1-80`
+ *   · 单台机器：`192.168.1.115`（端口用下面的输入框，默认 8420）
+ *   · 整个网段：`192.168.1` 或 `192.168.1.`（等价于扫 192.168.1.1–254）
+ *   · 自定义区间：`192.168.1.1-80`
  *
  * 为什么要有网段模式：用户的网络是「有线 PC + 手机同时连 2.4G/5G 双频」，
  * 自动扫描在某些网络下拿不到结果时，手动指定网段 + 端口是最可靠的兜底 ——
@@ -63,7 +63,7 @@ export function ManualAddCard({ onFound }: { onFound: (node: NodeInfo) => void }
     if (busy) return
     const raw = addr.trim()
     if (!raw) {
-      setError('请输入地址，例如 10.168.1.115、10.168.1 或 10.168.1.1-80')
+      setError('请输入地址，例如 192.168.1.115、192.168.1 或 192.168.1.1-80')
       return
     }
     setError(null)
@@ -109,7 +109,7 @@ export function ManualAddCard({ onFound }: { onFound: (node: NodeInfo) => void }
     // ② 单台主机
     const parsed = parseAddress(raw)
     if (!parsed) {
-      setError('格式不对：请输入 10.168.1.115、10.168.1:8420、10.168.1 或 10.168.1.1-80')
+      setError('格式不对：请输入 192.168.1.115、192.168.1:8420、192.168.1 或 192.168.1.1-80')
       setBusy(false)
       return
     }
@@ -151,7 +151,7 @@ export function ManualAddCard({ onFound }: { onFound: (node: NodeInfo) => void }
       >
         <Field
           label="地址或网段"
-          hint="单个：10.168.1.115 · 整段：10.168.1 · 区间：10.168.1.1-80"
+          hint="单个：192.168.1.115 · 整段：192.168.1 · 区间：192.168.1.1-80"
           error={error}
         >
           <Input
@@ -160,7 +160,7 @@ export function ManualAddCard({ onFound }: { onFound: (node: NodeInfo) => void }
               setAddr(e.target.value)
               if (error) setError(null)
             }}
-            placeholder="10.168.1.115 或 10.168.1"
+            placeholder="192.168.1.115 或 192.168.1"
             mono
             autoComplete="off"
             spellCheck={false}
@@ -186,10 +186,10 @@ export function ManualAddCard({ onFound }: { onFound: (node: NodeInfo) => void }
               type="button"
               size="sm"
               variant="ghost"
-              onClick={() => setAddr('10.168.1')}
+              onClick={() => setAddr('192.168.1')}
               title="填入常用网段示例"
             >
-              10.168.1
+              192.168.1
             </Button>
           </div>
           <Field label="端口">

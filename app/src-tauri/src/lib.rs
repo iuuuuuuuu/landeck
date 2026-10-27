@@ -63,7 +63,7 @@ fn iface_rank(name: &str, ip: Ipv4Addr) -> i32 {
         }
     }
     // ZeroTier / Tailscale / WireGuard 这类"看着像普通网卡、其实是隧道"的要一并罚分。
-    // 实测踩到：本机装了 ZeroTier，网卡名 "ZeroTier One [id]"，地址 192.168.192.75，
+    // 实测踩到：本机装了 ZeroTier，网卡名 "ZeroTier One [id]"，地址是 192.168.x.y，
     // 命中下面 192.168 的加分后反超了真正的以太网，导致 local_ip 返回 VPN 地址。
     for k in [
         "zerotier", "tailscale", "wireguard", "wintun", "openvpn", "nordlynx", "hamachi",
@@ -110,7 +110,7 @@ fn iface_rank(name: &str, ip: Ipv4Addr) -> i32 {
     }
 
     // 不再按网段加分：曾经给 192.168.x 加 +30（"家用路由器大多在这段"），
-    // 结果 ZeroTier 的 192.168.192.75 反超真实以太网的 10.168.1.115。
+    // 结果 ZeroTier 的 192.168.x.y 反超真实以太网的 10.x.y.z。
     // 网段是"猜测"，网卡类型才是证据，只保留基于网卡名的判断。
     let _ = ip;
     score
