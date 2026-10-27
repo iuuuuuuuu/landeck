@@ -1,11 +1,11 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { BarChart3, RotateCw } from 'lucide-react'
 import { Button, Card } from '../components/ui'
 import { DeviceSelect } from '../components/device/DeviceSelect'
 import { StatsPanel } from '../components/device/StatsPanel'
 import { AgentClient } from '../lib/api'
 import { useAsync } from '../lib/hooks'
-import { LOCAL_DEVICE } from '../lib/useActiveTarget'
+import { useActiveTarget } from '../lib/useActiveTarget'
 import { useApp } from '../store/app'
 
 /**
@@ -13,14 +13,23 @@ import { useApp } from '../store/app'
  * 层级交给 StatsPanel（主视觉 / 规模 / 明细），这里只负责选设备与刷新。
  */
 export default function Stats() {
-  const devices = useApp((s) => s.devices)
-  const activeId = useApp((s) => s.activeId)
   const setActive = useApp((s) => s.setActive)
 
-  // 本机永远排在第一位；没有配对设备时也能用
-  const options = useMemo(() => [LOCAL_DEVICE, ...devices], [devices])
-  const selectedId = activeId && options.some((d) => d.id === activeId) ? activeId : LOCAL_DEVICE.id
-  const device = options.find((d) => d.id === selectedId) ?? LOCAL_DEVICE
+  // 统一走 useActiveTarget：它知道「本机」在手机上不成立（那里 127.0.0.1 是手机自己），
+  // 也会在没有任何可读目标时给出兜底。页面不再自己拼 [LOCAL_DEVICE, ...devices]，
+  // 否则两处逻辑会分叉 —— 之前手机上默认选中「本机」导致一进统计页就「读取失败」。
+  const { devices: options, device, deviceId, setDeviceId, pairedCount, localAvailable } =
+    useActiveTarget()
+
+  const onSelect = useCallback(
+    (id: string) => {
+      setDeviceId(id)
+      setActive(id)
+    },
+    [setDeviceId, setActive],
+  )
+
+  const noTarget = !localAvailable && pairedCount === 0
 
   const client = useMemo(
     () =>
@@ -31,7 +40,12 @@ export default function Stats() {
     [device.host, device.port, device.tls, device.token, device.local],
   )
 
-  const stats = useAsync(() => client.stats(14), [device.id, device.host, device.port, device.token])
+  const stats = useAsync(
+    // 没有任何可读目标时不要发请求：那只会得到一条无意义的失败，
+    // 而且会把「去配对」的引导盖掉。返回 null 让下面渲染引导卡片。
+    () => (noTarget ? Promise.resolve(null) : client.stats(14)),
+    [noTarget, device.id, device.host, device.port, device.token],
+  )
 
   return (
     <div className="space-y-3">
@@ -46,7 +60,7 @@ export default function Stats() {
           </div>
         </div>
         <div className="flex min-w-0 items-center gap-2">
-          <DeviceSelect devices={options} value={device.id} onChange={setActive} />
+          <DeviceSelect devices={options} value={deviceId} onChange={onSelect} />
           <Button
             size="sm"
             variant="secondary"
@@ -54,13 +68,41 @@ export default function Stats() {
             icon={<RotateCw size={13} />}
             onClick={stats.reload}
             loading={stats.loading}
+            disabled={noTarget}
           >
             刷新
           </Button>
         </div>
       </div>
 
-      {stats.error ? (
+      {noTarget ? (
+        // 手机上一台都没配对：这里不该报「读取失败」，那会让人以为被控端坏了。
+        // 手机上不存在「本机」目标（127.0.0.1 是手机自己），所以只能引导去配对。
+        <Card>
+          <div className="flex items-start gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-elevated text-accent-soft">
+              <BarChart3 size={16} />
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-[14px] font-semibold text-fg">还没有可统计的设备</h3>
+              <p className="mt-1 break-words text-[12.5px] leading-relaxed text-muted">
+                这台手机跑不了被控端，所以没有「本机」数据。先去「发现」页扫描局域网，
+                配对一台正在运行的电脑，这里就会显示它的运行时长与资源水位。
+              </p>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="mt-3"
+                onClick={() => {
+                  window.location.hash = '#/scan'
+                }}
+              >
+                去发现页扫描
+              </Button>
+            </div>
+          </div>
+        </Card>
+      ) : stats.error ? (
         <Card>
           <div className="flex items-start gap-3">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-danger/25 bg-danger/10 text-danger">
