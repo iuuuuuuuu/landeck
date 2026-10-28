@@ -31,7 +31,12 @@ import {
 } from '../components/ui'
 import { AgentClient, ApiError, baseUrl } from '../lib/api'
 import { duration, osLabel } from '../lib/format'
-import { autostartGet, autostartSet } from '../lib/discovery'
+import {
+  autostartGet,
+  autostartSet,
+  silentAutostartGet,
+  silentAutostartSet,
+} from '../lib/discovery'
 import { useRuntime } from '../lib/runtime'
 import { useAsync } from '../lib/hooks'
 import { useApp, type PairedDevice } from '../store/app'
@@ -265,12 +270,18 @@ function AppearanceCard() {
   const desktop = runtime === 'desktop'
   const [auto, setAuto] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
+  // 开机自启时是否静默启动（不弹窗，直接进托盘）
+  const [silent, setSilent] = useState<boolean | null>(null)
+  const [busySilent, setBusySilent] = useState(false)
 
   useEffect(() => {
     if (!desktop) return
     let alive = true
     void autostartGet().then((v) => {
       if (alive) setAuto(v)
+    })
+    void silentAutostartGet().then((v) => {
+      if (alive) setSilent(v)
     })
     return () => {
       alive = false
@@ -288,6 +299,26 @@ function AppearanceCard() {
     }
     setAuto(next)
     toast({ kind: 'ok', title: next ? '已开启开机自启' : '已关闭开机自启' })
+  }
+
+  const toggleSilent = async (next: boolean) => {
+    setBusySilent(true)
+    const res = await silentAutostartSet(next)
+    setBusySilent(false)
+    if (!res.ok) {
+      toast({ kind: 'error', title: '设置静默启动失败', desc: res.error })
+      return
+    }
+    setSilent(next)
+    toast({
+      kind: 'ok',
+      title: next ? '已开启静默启动' : '已关闭静默启动',
+      // 说清「下次开机」才生效，以及手动启动仍会显示窗口 —— 否则用户
+      // 现在双击图标发现还是弹窗，会以为开关没生效
+      desc: next
+        ? '下次开机只在托盘里，不弹窗口；手动打开图标仍会显示窗口。'
+        : '下次开机会正常显示窗口。',
+    })
   }
 
   return (
@@ -315,6 +346,18 @@ function AppearanceCard() {
             label="开机自启"
             desc="登录这台电脑后自动启动 LanDeck 控制端。"
           />
+          {/* 只在自启开启时才有意义：没开自启时「开机静默」无从谈起 */}
+          {auto && silent !== null && (
+            <div className="mt-3 border-t border-line-soft pt-3">
+              <Toggle
+                checked={silent}
+                disabled={busySilent}
+                onChange={(v) => void toggleSilent(v)}
+                label="静默启动"
+                desc="开机时不显示窗口，只在托盘里运行；从托盘或双击图标打开仍会显示窗口。"
+              />
+            </div>
+          )}
         </div>
       )}
     </Card>

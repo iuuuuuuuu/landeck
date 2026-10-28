@@ -17,6 +17,13 @@ pub struct Prefs {
     /// 窗口几何：记住用户拖过的大小和位置
     #[serde(default)]
     pub window: WindowPrefs,
+    /// 开机自启时是否静默启动（不显示窗口，直接进托盘）。
+    ///
+    /// 默认 true：开机自启的本意就是"在后台候着"，弹一个窗口出来是打扰。
+    /// 老版本用户没有这个字段，`serde(default)` 会让它取 true ——
+    /// 也就是升级后默认就是静默，符合用户预期。
+    #[serde(default = "default_true")]
+    pub silent_autostart: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -40,9 +47,17 @@ fn default_mode() -> String {
     "system".to_string()
 }
 
+fn default_true() -> bool {
+    true
+}
+
 impl Default for Prefs {
     fn default() -> Self {
-        Prefs { theme: default_mode(), window: WindowPrefs::default() }
+        Prefs {
+            theme: default_mode(),
+            window: WindowPrefs::default(),
+            silent_autostart: true,
+        }
     }
 }
 

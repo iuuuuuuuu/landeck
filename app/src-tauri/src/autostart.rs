@@ -14,6 +14,46 @@ fn exe_path() -> Result<PathBuf, String> {
     std::env::current_exe().map_err(|e| format!("拿不到自身路径：{e}"))
 }
 
+/// macOS launchd plist 的内容。
+///
+/// 为什么抽成纯函数、且**不放在 `#[cfg(macos)]` 里**：
+/// 「开机自启要不要带 --silent」是跨平台一致的需求，但 Windows 机器上
+/// 根本编译不到 macOS 那段代码，没法验证。抽出来之后在任何平台都能单测，
+/// 否则这条逻辑只能靠「将来在 Mac 上试」—— 等于没验证。
+pub(crate) fn macos_plist_body(exe: &str, silent: bool) -> String {
+    // launchd 的 ProgramArguments 是 argv 数组：exe 自己是第 0 个，
+    // 参数各自一个 <string>。silent 时追加一项。
+    let args = if silent {
+        format!("<string>{exe}</string><string>--silent</string>")
+    } else {
+        format!("<string>{exe}</string>")
+    };
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>dev.landeck.app</string>
+  <key>ProgramArguments</key><array>{args}</array>
+  <key>RunAtLoad</key><true/>
+</dict>
+</plist>
+"#
+    )
+}
+
+/// Linux XDG autostart .desktop 的内容（同样理由抽成纯函数）。
+pub(crate) fn linux_desktop_body(exe: &str, silent: bool) -> String {
+    let exec = if silent {
+        format!("\"{exe}\" --silent")
+    } else {
+        format!("\"{exe}\"")
+    };
+    format!(
+        "[Desktop Entry]\nType=Application\nName=LanDeck\nExec={exec}\nX-GNOME-Autostart-enabled=true\n"
+    )
+}
+
 #[cfg(windows)]
 pub(crate) mod imp {
     use super::*;
@@ -46,8 +86,13 @@ pub(crate) mod imp {
 
     /// 用 PowerShell 建 .lnk：Windows 没给 Rust 提供创建快捷方式的稳定 API，
     /// WScript.Shell 是系统自带、无依赖的标准做法。
-    pub fn enable() -> Result<(), String> {
-        enable_as(APP_ID)
+    ///
+    /// `silent` 决定快捷方式带不带 `--silent`：
+    /// 带了就是开机后只进托盘、不弹窗口（用户要的"静默启动"）。
+    /// 注意旧版本创建的自启项没有这个参数，用户升级后必须重写一次才生效 ——
+    /// 所以 ui 层切换"静默"开关时会调用这里重写，而不是等用户重新开关自启。
+    pub fn enable(silent: bool) -> Result<(), String> {
+        enable_as(APP_ID, silent)
     }
 
     /// 用指定名字创建启动快捷方式。
@@ -56,16 +101,30 @@ pub(crate) mod imp {
     /// 用户真正的开机自启项 —— 曾经因为测试直接写真名，把启动项指向了 cargo
     /// 测试二进制（`target/release/deps/landeck_lib-*.exe`），用户开机就会看到
     /// 「未知发布者」的安全警告。现在测试用自己的探针名，跑完即删。
-    pub fn enable_as(id: &str) -> Result<(), String> {
+    pub fn enable_as(id: &str, silent: bool) -> Result<(), String> {
         let exe = exe_path()?;
         let dir = startup_dir()?;
         fs::create_dir_all(&dir).map_err(|e| format!("创建启动文件夹失败：{e}"))?;
-        let link = link_path_for(id)?;
+        create_link_at(&link_path_for(id)?, &exe, silent)
+    }
+
+    /// 在指定路径建快捷方式（真正的写 .lnk 逻辑）。
+    ///
+    /// 单独抽出来的原因：这是「静默启动」这条需求唯一需要被验证的地方，
+    /// 但真正要写的 Startup 目录在受管机器/安全软件下可能被拒写
+    /// （实测过 PowerShell 报 UnauthorizedAccessException）。
+    /// 把路径参数化之后，测试可以写到临时目录，用**同一条代码路径**
+    /// 验证 `--silent` 到底有没有写进去 —— 而不是因为环境拒绝写
+    /// 就悄悄走「失败分支」把测试混成绿的（那是假绿）。
+    pub fn create_link_at(link: &std::path::Path, exe: &std::path::Path, silent: bool) -> Result<(), String> {
+        let args = if silent { "--silent" } else { "" };
+        let working_dir = exe.parent().map(|p| p.display().to_string()).unwrap_or_default();
         let script = format!(
-            "$ws = New-Object -ComObject WScript.Shell;              $s = $ws.CreateShortcut('{}');              $s.TargetPath = '{}';              $s.WorkingDirectory = '{}';              $s.Arguments = '--silent';              $s.Save()",
+            "$ws = New-Object -ComObject WScript.Shell;              $s = $ws.CreateShortcut('{}');              $s.TargetPath = '{}';              $s.WorkingDirectory = '{}';              $s.Arguments = '{}';              $s.Save()",
             link.display(),
             exe.display(),
-            exe.parent().map(|p| p.display().to_string()).unwrap_or_default()
+            working_dir,
+            args
         );
         let out = std::process::Command::new("powershell.exe")
             .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &script])
@@ -76,6 +135,21 @@ pub(crate) mod imp {
             return Err(format!("创建启动快捷方式失败：{err}"));
         }
         Ok(())
+    }
+
+    /// 读回某个 .lnk 的 Arguments（验证用）。
+    pub fn read_link_args(link: &std::path::Path) -> String {
+        let script = format!(
+            "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('{}'); [Console]::Write($s.Arguments)",
+            link.display()
+        );
+        match std::process::Command::new("powershell.exe")
+            .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &script])
+            .output()
+        {
+            Ok(o) => String::from_utf8_lossy(&o.stdout).trim().to_string(),
+            Err(_) => String::new(),
+        }
     }
 
     pub fn disable() -> Result<(), String> {
@@ -109,25 +183,19 @@ mod imp {
         Ok(PathBuf::from(home).join("Library/LaunchAgents/dev.landeck.app.plist"))
     }
 
-    pub fn enable() -> Result<(), String> {
+    /// `silent` 决定 ProgramArguments 里带不带 `--silent`。
+    ///
+    /// 之前这里只写 exe 路径，所以 macOS 上开机自启**必然会弹窗口** ——
+    /// 与 Windows 的行为不一致（Windows 早就传了 `--silent`）。
+    pub fn enable(silent: bool) -> Result<(), String> {
         let exe = exe_path()?;
         let path = plist_path()?;
         if let Some(dir) = path.parent() {
             fs::create_dir_all(dir).map_err(|e| format!("创建 LaunchAgents 失败：{e}"))?;
         }
-        let body = format!(
-            r#"<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>dev.landeck.app</string>
-  <key>ProgramArguments</key><array><string>{}</string></array>
-  <key>RunAtLoad</key><true/>
-</dict>
-</plist>
-"#,
-            exe.display()
-        );
+        // launchd 的 ProgramArguments 是「argv 数组」：exe 自己算第 0 个，
+        // 参数各自成一个 <string>。silent 时追加一项。
+        let body = macos_plist_body(&exe.display().to_string(), silent);
         fs::write(&path, body).map_err(|e| format!("写 plist 失败：{e}"))?;
         let _ = std::process::Command::new("launchctl").args(["load", "-w"]).arg(&path).output();
         Ok(())
@@ -155,16 +223,14 @@ mod imp {
         Ok(PathBuf::from(home).join(".config/autostart/landeck.desktop"))
     }
 
-    pub fn enable() -> Result<(), String> {
+    /// `silent` 决定 Exec 后面带不带 `--silent`（同 Windows/macOS 语义）。
+    pub fn enable(silent: bool) -> Result<(), String> {
         let exe = exe_path()?;
         let path = desktop_path()?;
         if let Some(dir) = path.parent() {
             fs::create_dir_all(dir).map_err(|e| format!("创建 autostart 目录失败：{e}"))?;
         }
-        let body = format!(
-            "[Desktop Entry]\nType=Application\nName=LanDeck\nExec=\"{}\"\nX-GNOME-Autostart-enabled=true\n",
-            exe.display()
-        );
+        let body = linux_desktop_body(&exe.display().to_string(), silent);
         fs::write(&path, body).map_err(|e| format!("写 desktop 文件失败：{e}"))?;
         Ok(())
     }

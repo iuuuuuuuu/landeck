@@ -425,6 +425,41 @@ export async function autostartSet(enabled: boolean): Promise<{ ok: boolean; err
   }
 }
 
+/**
+ * 开机自启时是否静默启动（不显示窗口，直接进托盘）。
+ *
+ * 浏览器里没有这个概念，返回 null 表示不支持。
+ * 注意：这个值只在「开机自启」开启时才有意义 —— 手动双击图标启动
+ * 永远会显示窗口，否则用户点了图标却看不到界面会以为没启动。
+ */
+export async function silentAutostartGet(): Promise<boolean | null> {
+  const invoke = tauriInvoke()
+  if (!invoke) return null
+  try {
+    const v = await invoke('silent_autostart_get')
+    return typeof v === 'boolean' ? v : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 设置「静默启动」。后端会在自启已开启时立即重写自启项，
+ * 所以改完不用让用户重新开关一次自启才生效。
+ */
+export async function silentAutostartSet(
+  enabled: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  const invoke = tauriInvoke()
+  if (!invoke) return { ok: false, error: '当前环境不支持（需要在桌面端 App 里操作）' }
+  try {
+    await invoke('silent_autostart_set', { enabled })
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
+
 /** 桌面端主题偏好（磁盘持久化）；浏览器返回 null */
 export async function themeGet(): Promise<string | null> {
   const invoke = tauriInvoke()

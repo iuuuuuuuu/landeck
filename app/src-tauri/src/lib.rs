@@ -685,14 +685,65 @@ fn autostart_get() -> bool {
     autostart::is_enabled()
 }
 
+/// 开启/关闭开机自启。开启时按当前「静默启动」偏好决定要不要带 `--silent`。
 #[tauri::command]
-fn autostart_set(enabled: bool) -> Result<bool, String> {
+fn autostart_set(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
     if enabled {
-        autostart::enable()?;
+        let silent = prefs::load(&app).silent_autostart;
+        autostart::enable(silent)?;
     } else {
         autostart::disable()?;
     }
     Ok(autostart::is_enabled())
+}
+
+/// 读「开机自启时是否静默启动」（不显示窗口，直接进托盘）。
+#[tauri::command]
+fn silent_autostart_get(app: tauri::AppHandle) -> bool {
+    prefs::load(&app).silent_autostart
+}
+
+/// 设置「静默启动」，并在自启已开启时**立即重写**自启项。
+///
+/// 为什么必须重写而不是等用户重新开关自启：
+/// 自启项（快捷方式 / plist / .desktop）里写死了参数。只改偏好文件的话，
+/// 下一次开机仍然用旧参数 —— 用户会以为开关没生效。
+/// 实测踩过：机器上 2026-10-25 创建的自启快捷方式 Arguments 为空，
+/// 之后代码虽然开始传 `--silent`，但那条旧快捷方式一直没被重写，
+/// 所以每次开机照样弹窗。
+#[tauri::command]
+fn silent_autostart_set(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
+    let mut p = prefs::load(&app);
+    p.silent_autostart = enabled;
+    prefs::save(&app, &p)?;
+
+    // 自启已开启 -> 立刻按新偏好重写一次，保证下次开机就生效
+    if autostart::is_enabled() {
+        autostart::enable(enabled)?;
+    }
+    Ok(prefs::load(&app).silent_autostart)
+}
+
+/// 让自启项与「静默启动」偏好保持一致（升级自愈）。
+///
+/// 为什么需要：自启项（快捷方式 / plist / .desktop）里写死了启动参数。
+/// 老版本创建的自启项没有 `--silent`，而新版本默认偏好是「静默」——
+/// 如果不在启动时对齐，界面会显示「已开启静默」但开机照样弹窗，
+/// **UI 与实际行为不一致**，用户只会觉得开关是坏的。
+///
+/// 实测踩到：机器上 2026-10-25 建的自启快捷方式 Arguments 为空，
+/// 之后代码虽已支持 --silent，但那条旧快捷方式一直没被重写。
+///
+/// 只在「自启已开启」时做，且失败不打扰用户（下次切换开关时会再试）。
+#[cfg(desktop)]
+fn sync_autostart_entry(app: &tauri::AppHandle) {
+    if !autostart::is_enabled() {
+        return;
+    }
+    let silent = prefs::load(app).silent_autostart;
+    if let Err(e) = autostart::enable(silent) {
+        eprintln!("[LanDeck] 同步自启项失败（不影响使用）：{e}");
+    }
 }
 
 /// 窗口行为：恢复上次尺寸/位置、关闭时隐藏而不是销毁、--silent 静默启动。
@@ -854,6 +905,9 @@ pub fn run() {
             setup_tray(app)?;
             #[cfg(desktop)]
             setup_window(app);
+            // 自启项与偏好对齐（升级自愈，见函数注释）
+            #[cfg(desktop)]
+            sync_autostart_entry(app.handle());
             // 随客户端自动启动本机被控端：用户装完就能在本机页看到数据，
             // 不必再去点一次「启动」。失败不影响客户端本身。
             #[cfg(desktop)]
@@ -877,6 +931,8 @@ pub fn run() {
             self_agent_id,
             autostart_get,
             autostart_set,
+            silent_autostart_get,
+            silent_autostart_set,
             theme_get,
             theme_set,
             agent_status,
@@ -890,10 +946,110 @@ pub fn run() {
 mod tests {
     use super::*;
 
+    /// macOS plist 的内容生成（在任何平台都能跑）。
+    ///
+    /// 这条逻辑本来只在 `#[cfg(target_os = "macos")]` 里，Windows 上编译不到、
+    /// 也就永远验证不了。而它之前**根本没写 --silent**，导致 macOS 开机必弹窗 ——
+    /// 与 Windows 行为不一致，却一直没人发现。抽成纯函数后这里能直接断言。
+    #[test]
+    fn autostart_macos_plist_contains_silent_flag() {
+        let exe = "/Applications/LanDeck.app/Contents/MacOS/landeck";
+
+        let with = crate::autostart::macos_plist_body(exe, true);
+        assert!(
+            with.contains("<string>--silent</string>"),
+            "静默模式 plist 必须含 --silent，实际:\n{with}"
+        );
+        assert!(with.contains("<key>RunAtLoad</key><true/>"), "必须开机加载");
+        assert!(with.contains(exe), "必须含可执行文件路径");
+
+        let without = crate::autostart::macos_plist_body(exe, false);
+        assert!(
+            !without.contains("--silent"),
+            "非静默 plist 不应含 --silent，实际:\n{without}"
+        );
+        // 两种模式都必须仍然是合法结构（ProgramArguments 里恰好一个 exe）
+        assert!(without.contains(&format!("<array><string>{exe}</string></array>")));
+    }
+
+    /// Linux .desktop 的内容生成（在任何平台都能跑）。
+    #[test]
+    fn autostart_linux_desktop_contains_silent_flag() {
+        let exe = "/usr/bin/landeck";
+
+        let with = crate::autostart::linux_desktop_body(exe, true);
+        assert!(
+            with.contains("--silent"),
+            "静默模式 Exec 必须含 --silent，实际:\n{with}"
+        );
+        assert!(with.contains(&format!("Exec=\"{exe}\" --silent")), "Exec 格式不对:\n{with}");
+
+        let without = crate::autostart::linux_desktop_body(exe, false);
+        assert!(
+            !without.contains("--silent"),
+            "非静默 Exec 不应含 --silent，实际:\n{without}"
+        );
+        assert!(without.contains(&format!("Exec=\"{exe}\"")), "Exec 格式不对:\n{without}");
+    }
+
+    /// 「静默启动」的核心验证：走真实的建快捷方式代码路径，确认
+    /// `--silent` 写进去了、关掉之后又清掉了。
+    ///
+    /// 为什么写到临时目录而不是 Startup：
+    /// 受管机器/安全软件可能拒写 Startup（实测 PowerShell 报
+    /// UnauthorizedAccessException）。若在那种环境里跑，只能落到
+    /// 「失败分支」把测试混成绿的 —— 等于没验证。写到临时目录后，
+    /// 同一条 `create_link_at` 代码路径必然被执行，断言才是硬的。
+    #[cfg(windows)]
+    #[test]
+    fn autostart_silent_flag_written_into_shortcut() {
+        use crate::autostart::imp;
+        // 用工作区内的目录，不用 std::env::temp_dir()：
+        // 受管环境/沙箱可能拒绝写系统临时目录（实测 os error 5 拒绝访问），
+        // 那样测试会因为"建目录失败"而红，与它要验证的逻辑无关。
+        // 测试二进制在 target/<profile>/deps/ 下，上两级就是 target/<profile>。
+        let base = std::env::current_exe()
+            .expect("拿不到测试二进制路径")
+            .parent()
+            .and_then(|p| p.parent())
+            .expect("测试二进制路径异常")
+            .to_path_buf();
+        let dir = base.join("test-tmp").join("autostart-silent");
+        std::fs::create_dir_all(&dir)
+            .unwrap_or_else(|e| panic!("建临时目录失败 dir={} err={e}", dir.display()));
+        let link = dir.join("silent-probe.lnk");
+        let exe = std::env::current_exe().expect("拿不到测试二进制路径");
+        let _ = std::fs::remove_file(&link);
+
+        // 1) 静默：必须写入 --silent
+        imp::create_link_at(&link, &exe, true).expect("建立静默快捷方式失败");
+        let a1 = imp::read_link_args(&link);
+        assert!(
+            a1.contains("--silent"),
+            "静默模式必须写入 --silent，实际 Arguments=[{a1}]"
+        );
+
+        // 2) 非静默：必须清掉（否则开关形同虚设）
+        imp::create_link_at(&link, &exe, false).expect("建立普通快捷方式失败");
+        let a2 = imp::read_link_args(&link);
+        assert!(
+            !a2.contains("--silent"),
+            "非静默模式不应有 --silent，实际 Arguments=[{a2}]"
+        );
+
+        let _ = std::fs::remove_file(&link);
+        let _ = std::fs::remove_dir(&dir);
+        println!("silent flag ok：true->[{a1}]  false->[{a2}]");
+    }
+
     /// 实机验证：本机必须能解析出私有 IPv4（Tauri 里前端靠它推导网段）。
     #[test]
     fn local_ip_returns_private_v4() {
-        let ip = local_ip().expect("本机应至少有一个私有 IPv4");
+        // 测试里直接调阻塞版本：命令入口是 async + spawn_blocking，
+        // 那层包装只是为了让 UI 线程不被占住，探测逻辑本身仍是同步的。
+        // （同步命令改成 async 后，这里如果还调 local_ip() 会拿到 Future，
+        //  测试直接编译不过 —— 曾经因此让整个测试目标无法构建。）
+        let ip = local_ip_blocking().expect("本机应至少有一个私有 IPv4");
         let o: Vec<u8> = ip.split('.').map(|p| p.parse().unwrap()).collect();
         assert_eq!(o.len(), 4, "不是点分四段: {ip}");
         let private = o[0] == 10
@@ -925,35 +1081,63 @@ mod tests {
     /// 两者都不允许「返回 Ok 但实际没生效」。
     #[test]
     fn autostart_roundtrip() {
-        // 用**独立探针名**跑，绝不碰用户真实的自启动项。
-        // 历史教训：这个测试曾经直接操作真名，把启动项指向了 cargo 测试二进制
-        // （target/release/deps/landeck_lib-*.exe），导致用户开机看到
-        // 「未知发布者」的安全警告，且极难联想到是测试留下的。
+        // 用**临时目录**跑，绝不碰用户真实的启动文件夹。
+        //
+        // 历史教训（两次）：
+        //  1) 这个测试曾经直接操作真名，把启动项指向了 cargo 测试二进制
+        //     （target/release/deps/landeck_lib-*.exe），用户开机看到
+        //     「未知发布者」的安全警告，且极难联想到是测试留下的。
+        //  2) 后来改成写 Startup 里的探针名，但受管环境会拒写该目录，
+        //     于是落到「失败分支」仍然打印通过 —— 那是假绿，等于没测。
+        //
+        // 现在写在临时目录、走同一条 create_link_at 代码路径，
+        // 无论机器有没有限制都能真跑，断言是硬的。
         #[cfg(windows)]
         {
             use crate::autostart::imp;
-            const PROBE: &str = "LanDeckTestProbe";
-            let _ = imp::disable_as(PROBE); // 清掉上次残留
-            assert!(!imp::is_enabled_as(PROBE), "起点应为未启用");
-            match imp::enable_as(PROBE) {
-                Ok(()) => {
-                    assert!(imp::is_enabled_as(PROBE), "enable 返回成功但状态没变 —— 假成功");
-                    imp::disable_as(PROBE).expect("关闭失败");
-                    assert!(!imp::is_enabled_as(PROBE), "disable 后仍存在 —— 假关闭");
-                    println!("autostart roundtrip ok（探针名 {PROBE}，已清理）");
-                }
-                Err(e) => {
-                    assert!(!e.is_empty(), "失败必须给出原因");
-                    let _ = imp::disable_as(PROBE);
-                    println!("autostart 被环境拦截（已正确上报错误）：{e}");
-                }
-            }
+            let base = std::env::current_exe()
+                .expect("拿不到测试二进制路径")
+                .parent()
+                .and_then(|p| p.parent())
+                .expect("测试二进制路径异常")
+                .to_path_buf();
+            let dir = base.join("test-tmp").join("autostart-roundtrip");
+            std::fs::create_dir_all(&dir)
+                .unwrap_or_else(|e| panic!("建临时目录失败 dir={} err={e}", dir.display()));
+            let link = dir.join("probe.lnk");
+            let exe = std::env::current_exe().expect("拿不到测试二进制路径");
+            let _ = std::fs::remove_file(&link);
+
+            assert!(!link.exists(), "起点应为不存在");
+
+            imp::create_link_at(&link, &exe, true).expect("创建快捷方式失败");
+            assert!(link.exists(), "create_link_at 返回成功但文件没生成 —— 假成功");
+            let args = imp::read_link_args(&link);
+            assert!(
+                args.contains("--silent"),
+                "静默模式必须写入 --silent，实际 Arguments=[{args}]"
+            );
+
+            imp::create_link_at(&link, &exe, false).expect("改为非静默失败");
+            let args2 = imp::read_link_args(&link);
+            assert!(
+                !args2.contains("--silent"),
+                "非静默模式不应有 --silent，实际 Arguments=[{args2}]"
+            );
+
+            std::fs::remove_file(&link).expect("删除快捷方式失败");
+            assert!(!link.exists(), "删除后仍存在 —— 假删除");
+            let _ = std::fs::remove_dir(&dir);
+
             // 真实自启动项的状态不受本次测试影响
-            println!("真实自启动项当前状态 = {}", crate::autostart::is_enabled());
+            println!(
+                "autostart roundtrip ok（临时目录）  真实自启项状态 = {}",
+                crate::autostart::is_enabled()
+            );
         }
         #[cfg(not(windows))]
         {
-            println!("autostart roundtrip: 非 Windows 平台跳过探针写入（避免动真实自启项）");
+            println!("autostart roundtrip: 非 Windows 平台跳过（避免动真实自启项）");
         }
     }
 
