@@ -5,6 +5,7 @@ import type { AgentClient } from '../lib/api'
 import type { PairedDevice } from '../store/app'
 import { LOCAL_DOWN_HINT, useActiveTarget } from '../lib/useActiveTarget'
 import { useFetch } from '../components/device/useFetch'
+import { fileRootsKey, systemKey } from '../lib/keys'
 import { DeviceSelect } from '../components/device/DeviceSelect'
 import { AuthLost } from '../components/device/AuthLost'
 import { errText, isAuthError, isAuthMessage } from '../components/device/apiHelpers'
@@ -39,14 +40,18 @@ export function FilesPanel({
   /** 目标身份：换设备 / 换令牌都要重新拉数据 */
   const targetKey = [device.id, client.target.host, client.target.port, client.token]
 
-  const sys = useFetch(() => client.system(), targetKey, onAuthError)
+  const sys = useFetch(() => client.system(), targetKey, onAuthError, {
+    // 与设备详情/设置页共用同一条系统信息缓存
+    key: systemKey(client),
+    ttlMs: 5 * 60_000,
+  })
   const filesOn = sys.data?.features?.files !== false
 
-  const roots = useFetch(
-    filesOn ? () => client.fileRoots() : null,
-    [...targetKey, filesOn],
-    onAuthError,
-  )
+  const roots = useFetch(filesOn ? () => client.fileRoots() : null, [...targetKey, filesOn], onAuthError, {
+    // 根目录列表变化很少，缓存 2 分钟
+    key: filesOn ? fileRootsKey(client) : undefined,
+    ttlMs: 2 * 60_000,
+  })
 
   return (
     <div className="space-y-3">

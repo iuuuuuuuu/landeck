@@ -2,6 +2,7 @@ import { Save, SlidersHorizontal, TriangleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { AgentClient } from '../../lib/api'
 import { useAsync } from '../../lib/hooks'
+import { agentSettingsKey } from '../../lib/keys'
 import type { AgentSettings } from '../../lib/types'
 import { useApp, type PairedDevice } from '../../store/app'
 import { Badge, Button, Card, Field, Input, SectionTitle, Skeleton, Toggle } from '../ui'
@@ -12,12 +13,12 @@ import { normalizeSettings } from './normalizeSettings'
 export function AgentSettingsCard({ device }: { device: PairedDevice }) {
   const toast = useApp((s) => s.toast)
   const client = new AgentClient(device, device.token)
-  const { data, loading, error, reload } = useAsync(() => client.settings(), [
-    device.id,
-    device.host,
-    device.port,
-    device.token,
-  ])
+  const { data, loading, error, reload } = useAsync(
+    () => client.settings(),
+    [device.id, device.host, device.port, device.token],
+    // 被控端参数是静态配置，缓存 5 分钟；保存后会 reload() 强制刷新
+    { key: agentSettingsKey(client), ttlMs: 5 * 60_000 },
+  )
 
   const [draft, setDraft] = useState<AgentSettings | null>(null)
   const [saving, setSaving] = useState(false)

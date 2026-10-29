@@ -16,6 +16,7 @@ import { PairingSecurityCard } from '../components/pair/PairingSecurityCard'
 import { AgentClient } from '../lib/api'
 import { dateTime, duration, osLabel } from '../lib/format'
 import { useAsync, useLive } from '../lib/hooks'
+import { systemKey } from '../lib/keys'
 import { agentStart, agentStatus, DEFAULT_PORT } from '../lib/discovery'
 import { isPhoneOS, useRuntime } from '../lib/runtime'
 import type { SystemInfo } from '../lib/types'
@@ -83,7 +84,12 @@ function LocalAgentView() {
   )
 
   const live = useLive(device)
-  const sys = useAsync<SystemInfo>(() => client.system(), [port, nonce])
+  const sys = useAsync<SystemInfo>(() => client.system(), [port, nonce], {
+    // 系统信息是静态文本；与详情页/文件页/设置页共用同一条缓存，
+    // 切走再回来不再重复拉（refresh() 会 reload 强制走网络）
+    key: systemKey(client),
+    ttlMs: 5 * 60_000,
+  })
 
   const refresh = () => {
     setNonce((n) => n + 1)

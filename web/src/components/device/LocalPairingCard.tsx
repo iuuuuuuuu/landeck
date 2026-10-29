@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Copy, KeyRound, MonitorSmartphone, RefreshCw, ShieldCheck, Trash2, UserRound } from 'lucide-react'
 import { Badge, Button, Card, SectionTitle, Skeleton } from '../ui'
 import type { AgentClient } from '../../lib/api'
-import { useAsync } from '../../lib/hooks'
+import { useAsync, useTicker } from '../../lib/hooks'
+import { clientsKey, pairingKey } from '../../lib/keys'
 import { dateTime, relative } from '../../lib/format'
 import { useApp } from '../../store/app'
 
@@ -14,17 +15,56 @@ import { useApp } from '../../store/app'
  */
 export function LocalPairingCard({ client }: { client: AgentClient }) {
   const toast = useApp((s) => s.toast)
-  const pairing = useAsync(() => client.pairing(), [])
-  const clients = useAsync(() => client.clients(), [])
+  const ident: Array<string | number | undefined> = [client.target.host, client.target.port, client.token]
+  const pairing = useAsync(() => client.pairing(), ident, {
+    key: pairingKey(client),
+    ttlMs: 10_000,
+  })
+  const clients = useAsync(() => client.clients(), ident, {
+    key: clientsKey(client),
+    ttlMs: 60_000,
+  })
   const [rotating, setRotating] = useState(false)
   const [removing, setRemoving] = useState<string | null>(null)
+  // 每秒一次：既刷新「N 分钟后过期」文案，也驱动过期后的重试
+  const tick = useTicker(1000)
 
-  // 配对码有有效期，到点自动拉新的
+  /**
+   * 配对码过期后自动取新码。
+   *
+   * 服务端是「惰性轮换」：读 /pairing 时若已过期，就在那次调用里当场换一个新码
+   * （`auth.Code()` 里 `if now > codeExp` 就 rotate）。所以只需在到期后拉一次。
+   *
+   * 两个必须处理的坑（第一版都踩了）：
+   *  1. 不能卡在到期边界上拉：倒计时按秒四舍五入会提前最多 0.5 秒显示「已过期」，
+   *     这时请求过去服务端认为还没到期、原样返回旧码，界面就永远停在「已失效」。
+   *     所以等过期 300ms 之后再拉。
+   *  2. 必须允许重试：万一拉到的还是旧码，要能再试，最多 8 次停手。
+   *
+   * 原来这里是每 30 秒轮询一次：既白跑请求，又有最多 30 秒的「已过期」空窗。
+   */
+  const expRef = useRef('')
+  const attemptsRef = useRef(0)
+  const expMs = Date.parse(pairing.data?.codeExpiresAt ?? '')
+  const remainingMs = Number.isFinite(expMs) ? expMs - Date.now() : NaN
+
   useEffect(() => {
-    const t = setInterval(() => pairing.reload(), 30_000)
-    return () => clearInterval(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client])
+    const exp = pairing.data?.codeExpiresAt ?? ''
+    if (expRef.current !== exp) {
+      expRef.current = exp
+      attemptsRef.current = 0
+    }
+    if (!Number.isFinite(expMs)) return
+    if (remainingMs > -300) return
+    if (attemptsRef.current >= 8) return
+    attemptsRef.current += 1
+    pairing.reload()
+  }, [tick, expMs, remainingMs, pairing.data?.codeExpiresAt, pairing.reload])
+
+  const expiryText = useMemo(() => {
+    void tick
+    return pairing.data?.codeExpiresAt ? `${relative(pairing.data.codeExpiresAt)}过期` : ''
+  }, [pairing.data?.codeExpiresAt, tick])
 
   const copy = async (text: string, label: string) => {
     try {
@@ -90,7 +130,7 @@ export function LocalPairingCard({ client }: { client: AgentClient }) {
                 {p?.code || '—'}
               </div>
               <div className="mt-1 text-[11px] text-faint">
-                {p?.codeExpiresAt ? `${relative(p.codeExpiresAt)}过期` : '随随机码刷新'}
+                {expiryText || '随随机码刷新'}
               </div>
               <Button
                 size="sm"

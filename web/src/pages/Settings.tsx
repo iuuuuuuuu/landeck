@@ -39,6 +39,7 @@ import {
 } from '../lib/discovery'
 import { useRuntime } from '../lib/runtime'
 import { useAsync } from '../lib/hooks'
+import { systemKey } from '../lib/keys'
 import { useApp, type PairedDevice } from '../store/app'
 import { THEME_LABEL, useTheme, type ThemeMode } from '../store/theme'
 
@@ -164,7 +165,11 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 function AboutCard({ device }: { device: PairedDevice }) {
   const toast = useApp((s) => s.toast)
   const client = AgentClient.fromDevice(device)
-  const { data, loading, error } = useAsync(() => client.system(), [device.id, device.token])
+  const { data, loading, error } = useAsync(() => client.system(), [device.id, device.token], {
+    // 与设备详情/文件页共用同一条系统信息缓存
+    key: systemKey(client),
+    ttlMs: 5 * 60_000,
+  })
   const base = baseUrl(device)
 
   const copy = async () => {

@@ -1,8 +1,9 @@
 import { Info, KeyRound, RefreshCw, ShieldCheck, TriangleAlert } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AgentClient } from '../../lib/api'
 import { relative } from '../../lib/format'
 import { useAsync, useTicker } from '../../lib/hooks'
+import { clientsKey, pairingKey } from '../../lib/keys'
 import type { PairedClient, PairingState } from '../../lib/types'
 import { useApp, type PairedDevice } from '../../store/app'
 import {
@@ -41,8 +42,16 @@ const ROLE_LABEL: Record<PairedClient['role'], string> = {
 export function PairingSecurityCard({ device }: { device: PairedDevice }) {
   const toast = useApp((s) => s.toast)
   const client = new AgentClient(device, device.token)
-  const pairingQ = useAsync(() => client.pairing(), [device.id, device.token])
-  const clientsQ = useAsync(() => client.clients(), [device.id, device.token])
+  // 缓存 10 秒：足以覆盖「在几个页面间来回切」，又不会让随机码倒计时落后太多。
+  // 随机码过期后本组件会自动重新拉取（见下方 autoRefresh effect）。
+  const pairingQ = useAsync(() => client.pairing(), [device.id, device.token], {
+    key: pairingKey(client),
+    ttlMs: 10_000,
+  })
+  const clientsQ = useAsync(() => client.clients(), [device.id, device.token], {
+    key: clientsKey(client),
+    ttlMs: 60_000,
+  })
 
   const [state, setState] = useState<PairingState | null>(null)
   const [busy, setBusy] = useState<'rotate' | 'toggle' | 'key' | null>(null)
@@ -76,6 +85,39 @@ export function PairingSecurityCard({ device }: { device: PairedDevice }) {
       setBusy(null)
     }
   }
+
+  /**
+   * 随机码过期后自动取新码。
+   *
+   * 服务端是「惰性轮换」：读 /pairing 时若已过期，就在那次调用里当场换一个新码
+   * （`auth.Code()` 里 `if now > codeExp` 就 rotate）。所以过期后重新拉一次即可，
+   * 不需要额外接口，也不用定时轮询。
+   *
+   * 两个必须处理的坑（第一版都踩了）：
+   *  1. **不能卡在到期边界上去拉**。倒计时按秒四舍五入，会提前最多 0.5 秒显示「0」；
+   *     这时去请求，服务端认为还没到期、原样返回同一个码，界面就永远停在「已失效」。
+   *     所以等过期 300ms 之后再拉。
+   *  2. **必须允许重试**。若某次拉到的还是旧码（时钟差 / 并发），要有下一次尝试的
+   *     机会；否则一次失败就永久卡住。这里借每秒的 tick 重试，最多 8 次即停手。
+   */
+  const expRef = useRef('')
+  const attemptsRef = useRef(0)
+  const expMs = Date.parse(state?.codeExpiresAt ?? '')
+  const remainingMs = Number.isFinite(expMs) ? expMs - Date.now() : NaN
+
+  useEffect(() => {
+    const exp = state?.codeExpiresAt ?? ''
+    if (expRef.current !== exp) {
+      expRef.current = exp
+      attemptsRef.current = 0
+    }
+    if (!state?.randomEnabled || !Number.isFinite(expMs)) return
+    // 还没过期（留 300ms 余量，避开到期边界）
+    if (remainingMs > -300) return
+    if (attemptsRef.current >= 8) return
+    attemptsRef.current += 1
+    pairingQ.reload()
+  }, [tick, expMs, remainingMs, state?.randomEnabled, state?.codeExpiresAt, pairingQ.reload])
 
   const toggleRandom = async (v: boolean) => {
     setBusy('toggle')

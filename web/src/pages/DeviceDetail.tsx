@@ -17,6 +17,7 @@ import { ScheduleListCard } from '../components/device/ScheduleListCard'
 import { useFetch } from '../components/device/useFetch'
 import { useActionRunner } from '../components/device/useActionRunner'
 import { useClient, useLive } from '../lib/hooks'
+import { systemKey } from '../lib/keys'
 import { useApp, useDevice } from '../store/app'
 
 interface Countdown {
@@ -50,6 +51,8 @@ export default function DeviceDetail() {
     client ? () => client.system() : null,
     [client?.target.host, client?.target.port, client?.token],
     markAuthLost,
+    // 系统信息是静态文本，与文件页/设置页共用同一条缓存，切页回来直接命中
+    { key: systemKey(client), ttlMs: 5 * 60_000 },
   )
   const { pending: canceling, run } = useActionRunner(client, markAuthLost)
 

@@ -4,6 +4,7 @@ import { CalendarClock, Clock, Hourglass, Power, RotateCw, Timer } from 'lucide-
 import type { BootEvent, UptimeMonth } from '../../lib/types'
 import type { AgentClient } from '../../lib/api'
 import { useAsync } from '../../lib/hooks'
+import { uptimeKey } from '../../lib/keys'
 import { useThemeStore } from '../../store/theme'
 import { isAuthError } from './apiHelpers'
 import { dateTime, duration, hours } from '../../lib/format'
@@ -76,6 +77,9 @@ export function UptimePanel({
           })
       : null,
     [client?.target.host, client?.target.port, client?.token],
+    // 服务端本身就把这份历史缓存 3 分钟（读事件日志很贵），前端同步用 3 分钟，
+    // 切页回来直接命中，不再重新拉一遍。
+    { key: uptimeKey(client, 90), ttlMs: 3 * 60_000 },
   )
 
   const theme = useThemeStore((st) => st.theme)

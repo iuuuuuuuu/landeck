@@ -4,6 +4,7 @@ import { CircuitBoard, Cpu, HardDrive, MemoryStick, MonitorCog, Network, RotateC
 import type { AgentClient } from '../../lib/api'
 import type { HardwareInfo } from '../../lib/types'
 import { useAsync } from '../../lib/hooks'
+import { hardwareKey } from '../../lib/keys'
 import { isAuthError, isAuthMessage } from './apiHelpers'
 import {
   healthLabel,
@@ -35,6 +36,8 @@ export function HardwarePanel({
           })
       : null,
     [client?.target.host, client?.target.port, client?.token],
+    // 硬件型号/主板/显卡这些几乎不变，缓存 10 分钟，切页回来直接命中
+    { key: hardwareKey(client), ttlMs: 10 * 60_000 },
   )
 
   return (

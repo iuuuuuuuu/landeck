@@ -7,6 +7,7 @@ import type { PairedDevice } from '../store/app'
 import { useApp } from '../store/app'
 import { LOCAL_DOWN_HINT, useActiveTarget } from '../lib/useActiveTarget'
 import { useFetch } from '../components/device/useFetch'
+import { schedulesKey } from '../lib/keys'
 import { DeviceSelect } from '../components/device/DeviceSelect'
 import { ScheduleCard } from '../components/device/ScheduleCard'
 import { ScheduleModal } from '../components/device/ScheduleModal'
@@ -41,6 +42,8 @@ export function SchedulesPanel({
     () => client.schedules(),
     [device.id, client.target.host, client.target.port, client.token],
     onAuthError,
+    // 与设备详情页的「定时任务」卡共用缓存；增删改后会 reload()
+    { key: schedulesKey(client), ttlMs: 60_000 },
   )
   const items = list.data?.items ?? []
 

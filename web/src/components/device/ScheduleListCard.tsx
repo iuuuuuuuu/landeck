@@ -2,6 +2,7 @@ import { CalendarClock, ChevronRight, Plus } from 'lucide-react'
 import { Badge, Button, Card, SectionTitle, Skeleton } from '../ui'
 import type { AgentClient } from '../../lib/api'
 import { useAsync } from '../../lib/hooks'
+import { schedulesKey } from '../../lib/keys'
 import type { Schedule } from '../../lib/types'
 import { actionLabel } from '../../lib/format'
 
@@ -23,6 +24,8 @@ export function ScheduleListCard({
   const list = useAsync(
     client ? () => client.schedules() : null,
     [client?.target.host, client?.target.port],
+    // 定时任务是文本配置，切页回来直接命中；增删改后调用方会 reload()
+    { key: schedulesKey(client), ttlMs: 60_000 },
   )
   const items: Schedule[] = list.data?.items ?? []
   const enabled = items.filter((s) => s.enabled).length
