@@ -6,9 +6,50 @@ import (
 	"time"
 )
 
+// RawEvent 一条开关机线索。
+//
+// Kind 的取值与可信度强相关（见 endRank）：
+//
+//	boot          开机（Windows 6005 事件日志启动 / 其它平台 last reboot）
+//	shutdown      关机的**确定**时刻（Windows 6006 事件日志停止；
+//	              或 6008「非正常关机」消息里写明的真实关机时间）
+//	unexpected    已知发生过异常关机，但时刻不明（Kernel-Power 41）。
+//	              它的事件时间约等于**下次开机**，拿它当结束点等于没截断，
+//	              所以只能作为「这段不是正常关机结束」的证据，排在最后
+//	shutdown-req  用户发起关机/重启（1074）。只是请求（可能被取消），
+//	              时间比真正断电早几秒到几分钟，但**时刻可用**，优先于 41
+//
+// 为什么要分级：Windows 上并非每次关机都会留下 6006（断电、蓝屏、强按电源键都没有）。
+// 只认 boot/shutdown 两级时，一段「开机 → 意外断电 → 再次开机」会被当成
+// 一直在线，把整段关机时间算成开机时长 —— 实测某机器 27 次开机没有配对关机，
+// 最长一次虚增 61.9 小时，用户看到的就是「两天多没关机」。
 type RawEvent struct {
 	At   time.Time
-	Kind string // boot | shutdown
+	Kind string // boot | shutdown | unexpected | shutdown-req
+}
+
+// endRank 给「结束标记」的可信度打分，数值越大越可信。
+// 配对时同一段区间内取分数最高的那个作为这段开机的结束时刻。
+//
+// 排序依据是**这个标记给出的时刻能不能用**，而不只是「确定结束过」：
+//
+//	shutdown(3)      6006 / 6008 消息里的真实时间 —— 精确
+//	shutdown-req(2)  1074 —— 比真正断电早几秒到几分钟，可用
+//	unexpected(1)    41 —— 时间约等于**下次开机**，拿它当结束点等于没截断，
+//	                 所以只能排在最后；它的价值只是「证明这段不是正常关机结束」
+//
+// 反例（实测）：若把 41 排到 1074 前面，一段「开机 → 用户关机 → 两天后才开机」
+// 会被 41（时间在下次开机）判成连续两天在线，等于没修。
+func endRank(kind string) int {
+	switch kind {
+	case "shutdown":
+		return 3
+	case "shutdown-req":
+		return 2
+	case "unexpected":
+		return 1
+	}
+	return 0
 }
 
 type UptimeDay struct {
@@ -97,36 +138,77 @@ func BuildHistory(events []RawEvent, now time.Time, days int) UptimeHistory {
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].At.Before(sorted[j].At) })
 
 	sessions := make([]session, 0, len(sorted)/2+1)
-	var cur *session
+
+	// 把事件拆成「开机时刻」和「结束候选」，再按区间配对。
+	//
+	// 为什么不沿用「顺序扫描、遇到 shutdown 就收尾」的老写法：
+	// 那种写法在缺少关机事件时只好拿「下一次开机」当收尾，
+	// 于是把中间那段关机时间整段算成开机。实测某机器 27 次开机没有配对的
+	// 关机事件（断电/蓝屏/强按电源都不会留下 6006），最长一次虚增 61.9 小时，
+	// 用户看到的就是「关了机却显示两天多没关」。
+	//
+	// 现在改成：每一段开机都在「它自己」和「下一次开机」之间挑一个
+	// 最可信的结束标记（6006 > 6008 消息里的真实时间 > 41 > 1074），
+	// 用次一级证据把区间截断，而不是一路算到下次开机。
+	var boots []time.Time
+	type endCand struct {
+		at   time.Time
+		rank int
+	}
+	var ends []endCand
 	for _, ev := range sorted {
-		switch ev.Kind {
-		case "boot":
-			if cur != nil {
-				cur.end = ev.At // 前一段没有关机记录，按下次开机收尾
-				if cur.end.Before(cur.start) {
-					cur.end = cur.start
-				}
-				sessions = append(sessions, *cur)
-			}
-			cur = &session{start: ev.At}
-		case "shutdown":
-			if cur != nil {
-				if ev.At.After(cur.start) || ev.At.Equal(cur.start) {
-					cur.end = ev.At
-				} else {
-					cur.end = cur.start
-				}
-				sessions = append(sessions, *cur)
-				cur = nil
-			}
+		if ev.Kind == "boot" {
+			boots = append(boots, ev.At)
+			continue
+		}
+		if r := endRank(ev.Kind); r > 0 {
+			ends = append(ends, endCand{at: ev.At, rank: r})
 		}
 	}
-	if cur != nil {
-		cur.end = now
-		if cur.end.Before(cur.start) {
-			cur.end = cur.start
+
+	for i, b := range boots {
+		hasNext := i+1 < len(boots)
+		var next time.Time
+		if hasNext {
+			next = boots[i+1]
 		}
-		sessions = append(sessions, *cur)
+
+		bestRank := 0
+		var best time.Time
+		for _, e := range ends {
+			if e.at.Before(b) {
+				continue
+			}
+			if hasNext && !e.at.Before(next) {
+				continue // 落在下一次开机之后，不属于这一段
+			}
+			if !hasNext && e.at.After(now) {
+				continue
+			}
+			// 同分取更晚的那个：关机标记越晚，越接近真正断电的时刻
+			if e.rank > bestRank || (e.rank == bestRank && e.at.After(best)) {
+				bestRank, best = e.rank, e.at
+			}
+		}
+
+		end := best
+		if bestRank == 0 {
+			// 这一段没有任何结束证据：
+			//  - 还有下一次开机 → 仍用下次开机收尾（最保守，至少不会算到未来）
+			//  - 没有下一次 → 这就是当前这次，收尾到 now
+			if hasNext {
+				end = next
+			} else {
+				end = now
+			}
+		}
+		if end.Before(b) {
+			end = b
+		}
+		if end.After(now) {
+			end = now
+		}
+		sessions = append(sessions, session{start: b, end: end})
 	}
 
 	out := UptimeHistory{
@@ -250,28 +332,40 @@ func BuildHistory(events []RawEvent, now time.Time, days int) UptimeHistory {
 		out.Months = months
 	}
 
-	// 7 天总览
+	// 7 天总览。
+	//
+	// 注意：四个字段全部**限定在 7 天窗口内**。
+	// 原来只有 onSec7d / boots7d 限了窗口，longest / avg 却是拿全部历史会话算的，
+	// 结果「最长一次开机」会把几个月前的一次长开机报进来（实测报 4.79 天），
+	// 而它和 onSec7d 并排展示，用户自然理解成「最近一周最久开了这么久」。
 	weekAgo := now.AddDate(0, 0, -7)
 	var on7, longest, sum int64
 	var boots7 int
 	active := 0
 	for _, s := range sessions {
-		if s.end.After(weekAgo) {
-			from := s.start
-			if from.Before(weekAgo) {
-				from = weekAgo
-			}
-			on7 += int64(s.end.Sub(from).Seconds())
-		}
 		if s.start.After(weekAgo) {
 			boots7++
 		}
-		if dur := int64(s.end.Sub(s.start).Seconds()); dur > 0 {
-			sum += dur
-			active++
-			if dur > longest {
-				longest = dur
-			}
+		if !s.end.After(weekAgo) {
+			continue // 整段都在窗口之前
+		}
+		from := s.start
+		if from.Before(weekAgo) {
+			from = weekAgo
+		}
+		to := s.end
+		if to.After(now) {
+			to = now
+		}
+		if !to.After(from) {
+			continue
+		}
+		dur := int64(to.Sub(from).Seconds())
+		on7 += dur
+		sum += dur
+		active++
+		if dur > longest {
+			longest = dur
 		}
 	}
 	out.Totals = UptimeTotals{OnSec7d: on7, Boots7d: boots7, LongestSec: longest}
