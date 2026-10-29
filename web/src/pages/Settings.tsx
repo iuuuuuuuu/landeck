@@ -36,6 +36,8 @@ import {
   autostartSet,
   silentAutostartGet,
   silentAutostartSet,
+  lightweightGet,
+  lightweightSet,
 } from '../lib/discovery'
 import { useRuntime } from '../lib/runtime'
 import { useAsync } from '../lib/hooks'
@@ -278,6 +280,9 @@ function AppearanceCard() {
   // 开机自启时是否静默启动（不弹窗，直接进托盘）
   const [silent, setSilent] = useState<boolean | null>(null)
   const [busySilent, setBusySilent] = useState(false)
+  // 轻量模式：关窗时销毁界面以释放内存（与自启无关，随时可开关）
+  const [light, setLight] = useState<boolean | null>(null)
+  const [busyLight, setBusyLight] = useState(false)
 
   useEffect(() => {
     if (!desktop) return
@@ -287,6 +292,9 @@ function AppearanceCard() {
     })
     void silentAutostartGet().then((v) => {
       if (alive) setSilent(v)
+    })
+    void lightweightGet().then((v) => {
+      if (alive) setLight(v)
     })
     return () => {
       alive = false
@@ -323,6 +331,26 @@ function AppearanceCard() {
       desc: next
         ? '下次开机只在托盘里，不弹窗口；手动打开图标仍会显示窗口。'
         : '下次开机会正常显示窗口。',
+    })
+  }
+
+  const toggleLight = async (next: boolean) => {
+    setBusyLight(true)
+    const res = await lightweightSet(next)
+    setBusyLight(false)
+    if (!res.ok) {
+      toast({ kind: 'error', title: '设置轻量模式失败', desc: res.error })
+      return
+    }
+    setLight(next)
+    toast({
+      kind: 'ok',
+      title: next ? '已开启轻量模式' : '已关闭轻量模式',
+      // 必须说清代价：关窗后界面会被销毁，再打开是重建。
+      // 数据有落盘缓存所以还是会立刻显示，但页面内的临时状态会丢。
+      desc: next
+        ? '关闭窗口后界面内存会被释放，只在托盘保留后台服务；再次打开会重建界面（数据仍会立刻显示）。'
+        : '关闭窗口后界面保留在后台，再次打开是秒开。',
     })
   }
 
@@ -363,6 +391,19 @@ function AppearanceCard() {
               />
             </div>
           )}
+        </div>
+      )}
+
+      {/* 轻量模式与自启无关：只要在桌面端就显示 */}
+      {desktop && light !== null && (
+        <div className="mt-4 border-t border-line-soft pt-4">
+          <Toggle
+            checked={light}
+            disabled={busyLight}
+            onChange={(v) => void toggleLight(v)}
+            label="轻量模式"
+            desc="关闭窗口时释放界面占用的内存，只在托盘保留后台服务；再次打开会重建界面（数据有本地缓存，仍会立刻显示）。"
+          />
         </div>
       )}
     </Card>

@@ -24,6 +24,14 @@ pub struct Prefs {
     /// 也就是升级后默认就是静默，符合用户预期。
     #[serde(default = "default_true")]
     pub silent_autostart: bool,
+    /// 轻量模式：关闭窗口时**真正销毁** WebView（释放渲染进程占用的内存），
+    /// 只保留托盘与后台被控端服务。
+    ///
+    /// 默认 false：老用户升级后行为不变（关窗只是隐藏，再打开是秒开）。
+    /// 打开后关窗等于销毁页面，下次从托盘打开需要重建 WebView ——
+    /// 数据本身有落盘缓存（web/src/lib/queryCache.ts），重建后仍然立刻有内容。
+    #[serde(default)]
+    pub lightweight_mode: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -57,6 +65,7 @@ impl Default for Prefs {
             theme: default_mode(),
             window: WindowPrefs::default(),
             silent_autostart: true,
+            lightweight_mode: false,
         }
     }
 }
@@ -107,11 +116,21 @@ fn prefs_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 pub fn load(app: &tauri::AppHandle) -> Prefs {
     match prefs_path(app) {
         Ok(p) => match fs::read_to_string(&p) {
-            Ok(text) => serde_json::from_str(&text).unwrap_or_default(),
+            Ok(text) => parse(&text),
             Err(_) => Prefs::default(),
         },
         Err(_) => Prefs::default(),
     }
+}
+
+/// 解析偏好文件内容。抽成纯函数便于单测，并做两件防护：
+///
+/// 1. **容忍 UTF-8 BOM**。PowerShell 的 `Set-Content -Encoding UTF8` 会写 BOM，
+///    serde 遇到 BOM 直接报错，而 `load` 解析失败会 `unwrap_or_default()` ——
+///    表现是**所有偏好被静默重置**（主题、窗口位置、自启静默全丢）。实测踩过。
+/// 2. 解析不出来就回默认值：偏好文件坏掉不该让 App 起不来。
+pub fn parse(text: &str) -> Prefs {
+    serde_json::from_str(text.trim_start_matches('\u{feff}')).unwrap_or_default()
 }
 
 pub fn save(app: &tauri::AppHandle, prefs: &Prefs) -> Result<(), String> {

@@ -460,6 +460,41 @@ export async function silentAutostartSet(
   }
 }
 
+/**
+ * 读「轻量模式」：关闭窗口时是否销毁 WebView 以释放内存。
+ *
+ * 浏览器里没有这个概念，返回 null 表示不支持（调用方据此隐藏开关）。
+ */
+export async function lightweightGet(): Promise<boolean | null> {
+  const invoke = tauriInvoke()
+  if (!invoke) return null
+  try {
+    const v = await invoke('lightweight_get')
+    return typeof v === 'boolean' ? v : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 设置「轻量模式」。只写偏好文件，**立即生效**（下次关窗就按新值走）。
+ *
+ * 关窗后窗口会被真正销毁，再从托盘/桌面图标打开是重建 —— 数据靠落盘缓存兜底，
+ * 所以重建后仍然立刻有内容，只是页面内的临时状态（滚动位置、抽屉开合）不保留。
+ */
+export async function lightweightSet(
+  enabled: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  const invoke = tauriInvoke()
+  if (!invoke) return { ok: false, error: '当前环境不支持（需要在桌面端 App 里操作）' }
+  try {
+    await invoke('lightweight_set', { enabled })
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
+
 /** 桌面端主题偏好（磁盘持久化）；浏览器返回 null */
 export async function themeGet(): Promise<string | null> {
   const invoke = tauriInvoke()

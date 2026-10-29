@@ -724,6 +724,21 @@ fn silent_autostart_set(app: tauri::AppHandle, enabled: bool) -> Result<bool, St
     Ok(prefs::load(&app).silent_autostart)
 }
 
+/// 读「轻量模式」：关闭窗口时是否销毁 WebView 以释放内存。
+#[tauri::command]
+fn lightweight_get(app: tauri::AppHandle) -> bool {
+    prefs::load(&app).lightweight_mode
+}
+
+/// 设置「轻量模式」。只写偏好，立即生效（下次关窗就按新值走），无需重启。
+#[tauri::command]
+fn lightweight_set(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
+    let mut p = prefs::load(&app);
+    p.lightweight_mode = enabled;
+    prefs::save(&app, &p)?;
+    Ok(prefs::load(&app).lightweight_mode)
+}
+
 /// 让自启项与「静默启动」偏好保持一致（升级自愈）。
 ///
 /// 为什么需要：自启项（快捷方式 / plist / .desktop）里写死了启动参数。
@@ -746,14 +761,17 @@ fn sync_autostart_entry(app: &tauri::AppHandle) {
     }
 }
 
-/// 窗口行为：恢复上次尺寸/位置、关闭时隐藏而不是销毁、--silent 静默启动。
+/// 窗口行为：恢复上次尺寸/位置、关窗行为、--silent 静默启动。
 ///
-/// 为什么关闭要 hide 而不是 destroy：Tauri 关窗默认销毁 webview，
-/// 从托盘再打开就是**重建**，页面状态、滚动位置、正在看的设备全丢，
-/// 用户看到的就是"重新访问了一遍"。
+/// 关窗默认只 hide 不 destroy：Tauri 关窗默认销毁 webview，从托盘再打开就是
+/// **重建**，页面状态、滚动位置、正在看的设备全丢，用户看到的就是"重新访问了一遍"。
+///
+/// 但隐藏的 WebView 仍然占着内存（渲染进程常驻几百 MB）。所以另给一个
+/// 「轻量模式」（prefs.lightweight_mode）：打开后关窗直接 destroy，把内存还给系统，
+/// 再从托盘打开时重建窗口。数据靠落盘缓存兜底，重建后依然立刻有内容。
 #[cfg(desktop)]
 fn setup_window(app: &mut tauri::App) {
-    use tauri::{Manager, WindowEvent};
+    use tauri::Manager;
 
     let silent = std::env::args().any(|a| a == "--silent");
     let saved = prefs::load(app.handle()).window;
@@ -777,19 +795,8 @@ fn setup_window(app: &mut tauri::App) {
         }
     }
 
-    let handle = app.handle().clone();
     if let Some(win) = app.get_webview_window("main") {
-        win.on_window_event(move |event| match event {
-            WindowEvent::CloseRequested { api, .. } => {
-                // 关窗 = 收进托盘，进程和页面都留着
-                api.prevent_close();
-                if let Some(w) = handle.get_webview_window("main") {
-                    let _ = w.hide();
-                }
-            }
-            WindowEvent::Resized(_) | WindowEvent::Moved(_) => save_window_geometry(&handle),
-            _ => {}
-        });
+        attach_window_events(app.handle(), &win);
     }
 }
 
@@ -857,7 +864,12 @@ fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => show_main(app),
             "local" => show_main_at(app, "/local"),
-            "quit" => app.exit(0),
+            "quit" => {
+                // 置位后 ExitRequested 不再 prevent_exit，否则托盘退不掉
+                #[cfg(desktop)]
+                QUITTING.store(true, std::sync::atomic::Ordering::SeqCst);
+                app.exit(0)
+            }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
@@ -883,28 +895,185 @@ fn show_main(app: &tauri::AppHandle) {
         let _ = win.show();
         let _ = win.unminimize();
         let _ = win.set_focus();
+        return;
     }
+    // 轻量模式下窗口已被销毁：重建后再显示
+    match create_main_window(app, None) {
+        Ok(win) => {
+            let _ = win.show();
+            let _ = win.set_focus();
+        }
+        Err(e) => eprintln!("[LanDeck] 重建窗口失败：{e}"),
+    }
+}
+
+/// 给主窗口挂上「关窗行为」。
+///
+/// 两种模式：
+///  - 普通（默认）：关窗 = hide，页面还活着，再打开秒开、状态不丢。
+///  - 轻量模式：关窗 = **destroy**，WebView 渲染进程被回收，内存真正还给系统；
+///    再打开时按上次几何重建窗口。数据靠落盘缓存兜底，所以重建后仍是"立刻有内容"，
+///    只是页面内的临时状态（滚动位置、抽屉开合）不保留。
+#[cfg(desktop)]
+fn attach_window_events(app: &tauri::AppHandle, win: &tauri::WebviewWindow) {
+    use tauri::{Manager, WindowEvent};
+    let handle = app.clone();
+    win.on_window_event(move |event| match event {
+        WindowEvent::CloseRequested { api, .. } => {
+            api.prevent_close();
+            let lightweight = prefs::load(&handle).lightweight_mode;
+            if lightweight {
+                // 先记尺寸位置，销毁后重建才能回到原处
+                save_window_geometry(&handle);
+            }
+            if let Some(w) = handle.get_webview_window("main") {
+                if lightweight {
+                    let _ = w.destroy();
+                } else {
+                    let _ = w.hide();
+                }
+            }
+        }
+        WindowEvent::Resized(_) | WindowEvent::Moved(_) => save_window_geometry(&handle),
+        _ => {}
+    });
+}
+
+/// 重建主窗口（轻量模式关窗销毁后，从托盘或桌面图标唤出时用）。
+///
+/// 尺寸/位置/最大化都取 prefs 里记的值；没有记录时用与 tauri.conf.json 一致的默认值。
+/// `initial_path` 用于"直接打开某个页面"（托盘菜单的「本机状态」），
+/// 重建时把 hash 直接写进 URL，避免窗口刚建出来还没来得及执行 eval 时丢页面。
+#[cfg(desktop)]
+fn create_main_window(
+    app: &tauri::AppHandle,
+    initial_path: Option<&str>,
+) -> tauri::Result<tauri::WebviewWindow> {
+    use tauri::{WebviewUrl, WebviewWindowBuilder};
+
+    let saved = prefs::load(app).window;
+    let (w, h) = if saved.saved && saved.width > 320.0 && saved.height > 240.0 {
+        (saved.width, saved.height)
+    } else {
+        (1180.0, 780.0)
+    };
+
+    let url = match initial_path {
+        Some(p) => WebviewUrl::App(format!("index.html#{p}").into()),
+        None => WebviewUrl::App("index.html".into()),
+    };
+
+    let win = WebviewWindowBuilder::new(app, "main", url)
+        .title("LanDeck")
+        .inner_size(w, h)
+        .min_inner_size(380.0, 560.0)
+        .resizable(true)
+        .decorations(true)
+        .transparent(false)
+        .visible(false)
+        .build()?;
+
+    if saved.saved && saved.x > -32000.0 && saved.y > -32000.0 {
+        let _ = win.set_position(tauri::LogicalPosition::new(saved.x, saved.y));
+    }
+    if saved.maximized {
+        let _ = win.maximize();
+    }
+    attach_window_events(app, &win);
+    Ok(win)
 }
 
 #[cfg(desktop)]
 fn show_main_at(app: &tauri::AppHandle, path: &str) {
     use tauri::Manager;
-    show_main(app);
     if let Some(win) = app.get_webview_window("main") {
+        show_main(app);
         // 前端用 HashRouter，改 hash 即可切页
         let js = format!("location.hash = '{path}'");
         let _ = win.eval(&js);
+        return;
     }
+    // 窗口已被销毁（轻量模式）：直接把 hash 写进 URL 重建，避免 eval 抢在页面加载前
+    match create_main_window(app, Some(path)) {
+        Ok(win) => {
+            let _ = win.show();
+            let _ = win.set_focus();
+        }
+        Err(e) => eprintln!("[LanDeck] 重建窗口失败：{e}"),
+    }
+}
+
+/// 唤出通道：只绑回环地址，不对外暴露。
+///
+/// 作用有两个：
+///  1. 单实例：轻量模式关窗会销毁窗口，此时用户再点桌面图标不能再起第二个进程
+///     （会变成两套托盘 + 两个后台服务），正确行为是把已有实例的窗口叫出来；
+///  2. 给自动化验证留一个不依赖鼠标的"唤出窗口"入口。
+#[cfg(desktop)]
+const SHOW_ADDR: &str = "127.0.0.1:47821";
+
+/// 主动退出标记：托盘「退出」先置位，避免被 ExitRequested 的 prevent_exit 拦住。
+#[cfg(desktop)]
+static QUITTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// 已有实例则发一条 "show" 让它唤出窗口；返回 true 表示本进程应直接退出。
+#[cfg(desktop)]
+fn signal_existing_instance() -> bool {
+    use std::io::Write;
+    match std::net::TcpListener::bind(SHOW_ADDR) {
+        // 能占用 -> 本进程是第一个实例
+        Ok(l) => {
+            drop(l);
+            false
+        }
+        Err(_) => match std::net::TcpStream::connect(SHOW_ADDR) {
+            Ok(mut s) => {
+                let _ = s.write_all(b"show\n");
+                let _ = s.flush();
+                true
+            }
+            // 端口被无关程序占用：别把自己拦在门外，照常启动
+            Err(_) => false,
+        },
+    }
+}
+
+/// 监听唤出请求。
+#[cfg(desktop)]
+fn spawn_show_listener(app: tauri::AppHandle) {
+    let Ok(listener) = std::net::TcpListener::bind(SHOW_ADDR) else {
+        return;
+    };
+    std::thread::spawn(move || {
+        use std::io::{BufRead, BufReader};
+        for stream in listener.incoming().flatten() {
+            let handle = app.clone();
+            std::thread::spawn(move || {
+                let mut line = String::new();
+                if BufReader::new(stream).read_line(&mut line).is_ok() && line.trim() == "show" {
+                    show_main(&handle);
+                }
+            });
+        }
+    });
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    // 已有实例在跑：把它叫出来，本次直接退出
+    #[cfg(desktop)]
+    if signal_existing_instance() {
+        return;
+    }
+
+    let app = tauri::Builder::default()
         .setup(|app| {
             #[cfg(desktop)]
             setup_tray(app)?;
             #[cfg(desktop)]
             setup_window(app);
+            #[cfg(desktop)]
+            spawn_show_listener(app.handle().clone());
             // 自启项与偏好对齐（升级自愈，见函数注释）
             #[cfg(desktop)]
             sync_autostart_entry(app.handle());
@@ -933,13 +1102,28 @@ pub fn run() {
             autostart_set,
             silent_autostart_get,
             silent_autostart_set,
+            lightweight_get,
+            lightweight_set,
             theme_get,
             theme_set,
             agent_status,
             agent_start
         ])
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("LanDeck 启动失败");
+
+    app.run(|_app_handle, event| {
+        // 轻量模式关窗会销毁最后一个窗口，Tauri 随即请求退出 ——
+        // 那样「关窗口」就变成「退出程序」，托盘和后台服务都没了，必须拦住。
+        // 托盘「退出」会先置 QUITTING，所以不影响正常退出。
+        #[cfg(desktop)]
+        if let tauri::RunEvent::ExitRequested { api, .. } = &event {
+            if !QUITTING.load(std::sync::atomic::Ordering::SeqCst) {
+                api.prevent_exit();
+            }
+        }
+        let _ = &event;
+    });
 }
 
 #[cfg(test)]
@@ -973,6 +1157,47 @@ mod tests {
     }
 
     /// Linux .desktop 的内容生成（在任何平台都能跑）。
+    /// 老版本写下的 prefs.json 没有 lightweight_mode 字段，升级后必须仍能整份解析。
+    ///
+    /// 这条很关键：`prefs::load` 解析失败会 `unwrap_or_default()`，
+    /// 也就是**静默丢掉全部偏好**（主题、窗口位置、自启静默）。少一个 `serde(default)`
+    /// 就会让老用户升级后"设置全没了"。
+    #[test]
+    fn prefs_old_file_without_lightweight_field_still_parses() {
+        let json = r#"{"theme":"dark","window":{"width":1100.0,"height":700.0,"x":10.0,"y":20.0,"maximized":false,"saved":true},"silent_autostart":false}"#;
+        let p = crate::prefs::parse(json);
+        assert_eq!(p.theme, "dark", "主题不能被默认值覆盖");
+        assert!(p.window.saved, "窗口几何不能丢");
+        assert_eq!(p.window.width, 1100.0);
+        assert!(!p.silent_autostart, "静默启动设置不能丢");
+        // 新字段取默认：轻量模式默认关闭，老用户升级后行为不变
+        assert!(!p.lightweight_mode, "轻量模式默认必须是关闭");
+    }
+
+    /// 轻量模式能被写盘再读回。
+    #[test]
+    fn prefs_lightweight_roundtrip() {
+        let mut p = crate::prefs::parse("{}");
+        assert!(!p.lightweight_mode);
+        p.lightweight_mode = true;
+        let text = serde_json::to_string(&p).unwrap();
+        assert!(crate::prefs::parse(&text).lightweight_mode);
+    }
+
+    /// 带 UTF-8 BOM 的偏好文件不能被当成坏文件（否则会静默重置全部设置）。
+    ///
+    /// 真实来源：PowerShell `Set-Content -Encoding UTF8` 会写 BOM，
+    /// 手工改过一次 prefs.json 之后所有设置突然回到默认值。
+    #[test]
+    fn prefs_parse_tolerates_utf8_bom() {
+        let body = r#"{"theme":"light","silent_autostart":false,"lightweight_mode":true}"#;
+        let with_bom = format!("\u{feff}{body}");
+        let p = crate::prefs::parse(&with_bom);
+        assert_eq!(p.theme, "light", "BOM 不该让整份偏好作废");
+        assert!(!p.silent_autostart);
+        assert!(p.lightweight_mode);
+    }
+
     #[test]
     fn autostart_linux_desktop_contains_silent_flag() {
         let exe = "/usr/bin/landeck";
