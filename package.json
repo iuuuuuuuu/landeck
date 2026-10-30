@@ -9,5 +9,6 @@
     "verify-archived": "node .agents/skills/agent-notes/scripts/verify-archived-agent-notes.ts",
     "verify-notes": "npm run verify-agent-note-tree && npm run verify-agent-note-format && npm run verify-archived",
     "verify": "npm run verify-notes"
-  }
+  },
+  "license": "GPL-3.0-only"
 }

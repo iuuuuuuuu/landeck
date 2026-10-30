@@ -2,7 +2,7 @@
 
 [![构建检查](https://github.com/iuuuuuuuu/landeck/actions/workflows/build.yml/badge.svg)](https://github.com/iuuuuuuuu/landeck/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/iuuuuuuuu/landeck)](https://github.com/iuuuuuuuu/landeck/releases)
-[![License](https://img.shields.io/badge/license-MIT-7c5cff.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 
 > 在手机或另一台电脑上，控制局域网里的 PC：开关机、重启、睡眠、定时任务、音量、媒体播放；
 > 查看硬件、运行状态、开机统计、进程，并能结束进程。
@@ -195,3 +195,7 @@ cd app && pnpm install && pnpm tauri build            # 安装包（msi/nsis/dmg
 - macOS 媒体键若未安装 `nowplaying-cli`，只对 Music.app 生效。
 - 浏览器端扫描依赖被控端 CORS 放行；AP 隔离/VLAN 环境下扫不到时用「手动添加 IP:PORT」。
 - 令牌保存在控制端的 localStorage（Tauri 壳同源隔离），暂未接系统钥匙串。
+
+## License
+
+本项目以 [GPL-3.0](LICENSE) 发布。部分功能设计参考 [Hindsight](https://github.com/Tomotsugu-dev/Hindsight)（GPL-3.0）。
