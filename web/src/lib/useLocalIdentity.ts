@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { AgentClient } from './api'
 import { DEFAULT_PORT } from './discovery'
+import { readCache, writeCache } from './queryCache'
+import { systemKey } from './keys'
 import type { SystemInfo } from './types'
 import { useApp } from '../store/app'
 
@@ -27,7 +29,19 @@ export function useLocalIdentity(): void {
           { host: '127.0.0.1', port: DEFAULT_PORT, tls: false, local: true },
           undefined,
         )
-        const sys: SystemInfo = await client.system()
+        // 走 systemKey 共享缓存：本机页/文件页/设置页拉过 /system 就不再发第二个
+        // 请求（五期：本机页 system x2 的另一半就是这里）。
+        // 失效说明：缓存存的是 agent 侧 deviceName；改名后 5 分钟内纠正可能用旧名，
+        // 但纠正只发生在 myName 仍是占位名时——用户改过名（非占位）本 effect 直接跳过，
+        // 实际撞不上；真要立即刷新，删除 landeck.querycache.v1 或等 TTL 过期。
+        const sys: SystemInfo = await (async () => {
+          const key = systemKey(client)
+          const hit = readCache<SystemInfo>(key)
+          if (hit) return hit.data
+          const data = await client.system()
+          writeCache(key, data)
+          return data
+        })()
         const real = (sys?.name || sys?.hostname || '').trim()
         if (!alive || !real) return
         // 再次确认用户没在这期间自己改过
