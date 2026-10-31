@@ -101,6 +101,70 @@ func (s *Server) handleActivityCategoriesPut(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, map[string]any{"items": activity.GetSettings().Categories})
 }
 
+// GET /api/v1/activity/appicon?name=<app>
+//
+// 只按「已缓存的应用名」出图（normalizeApp 归一后查内存索引），
+// 不接受路径/通配——不可能被用来探测文件系统。
+// 命中走 writeIconData（ETag/304 与其它图标端点一致），未缓存 404。
+func (s *Server) handleActivityAppIcon(w http.ResponseWriter, r *http.Request, _ *config.Client) {
+	name := r.URL.Query().Get("name")
+	data, mime, etag, ok := activity.GetAppIcon(name)
+	if !ok {
+		iconNotFound(w)
+		return
+	}
+	w.Header().Set("ETag", `"`+etag+`"`)
+	w.Header().Set("Cache-Control", "no-cache")
+	if strings.TrimSpace(r.Header.Get("If-None-Match")) == `"`+etag+`"` {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+// GET /api/v1/activity/export?format=json|csv
+//
+// 全量段导出（Content-Disposition attachment 直接触发下载）。
+// 不走查询缓存：一次性大响应，缓存只会白占内存。
+func (s *Server) handleActivityExport(w http.ResponseWriter, r *http.Request, _ *config.Client) {
+	format := r.URL.Query().Get("format")
+	data, mime, filename, err := activity.Export(format)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "activity", err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+// POST /api/v1/activity/clear  body: {"beforeDays": n}
+//
+// 删除 N 天前的段。beforeDays 必须显式传（缺省/非法一律 400）——
+// 「清空全部数据」是毁灭性操作，不允许被缺省参数误触。
+func (s *Server) handleActivityClear(w http.ResponseWriter, r *http.Request, _ *config.Client) {
+	var body map[string]any
+	if !activityBody(w, r, &body) {
+		return
+	}
+	days, ok := activity.ParseClearDays(body)
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "bad-params", "beforeDays 必须是 1-3650 的整数（防误触，不支持缺省全删）")
+		return
+	}
+	n, err := activity.Clear(days)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "activity", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"deleted": n})
+}
+
 // GET /api/v1/activity/settings
 func (s *Server) handleActivitySettingsGet(w http.ResponseWriter, r *http.Request, _ *config.Client) {
 	writeJSON(w, http.StatusOK, activity.GetSettings())

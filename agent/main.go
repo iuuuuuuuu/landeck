@@ -109,7 +109,7 @@ func runServer() {
 		log.Printf("定时任务加载失败: %v", err)
 	}
 
-	api := httpapi.New(cfgStore, authMgr, ctrl, sampler, acts, sched, Version)
+	api := httpapi.New(cfgStore, authMgr, ctrl, sampler, acts, sched, Version, o.dataDir)
 
 	node := discovery.Node{
 		V: 1, ID: cfg.DeviceID, Name: cfg.DeviceName, Port: effectivePort(cfg),

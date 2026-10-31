@@ -32,13 +32,6 @@ type lastInputInfo struct {
 	dwTime uint32
 }
 
-// Sample 一次前台采样。
-type Sample struct {
-	App     string // 进程映像名（小写、无路径、无 .exe），如 "code"
-	Title   string // 前台窗口标题
-	IdleSec int    // 键鼠无操作秒数
-}
-
 // SampleForeground 返回当前前台应用。无前台窗口（锁屏/切换动画）返回 ok=false。
 func SampleForeground() (Sample, bool, error) {
 	hwnd, _, _ := procGetFGWindow.Call()
@@ -50,16 +43,17 @@ func SampleForeground() (Sample, bool, error) {
 
 	var pid uint32
 	procGetWinThread.Call(hwnd, uintptr(unsafe.Pointer(&pid)))
-	app := ""
+	app, exePath := "", ""
 	if pid != 0 {
-		name, err := processImageName(pid)
+		full, name, err := processImage(pid)
 		if err == nil {
 			app = name
+			exePath = full
 		}
 		// 取不到名字（权限/瞬时退出）不报错：title 仍有效，app 留空归「其他」
 	}
 
-	return Sample{App: app, Title: title, IdleSec: idleSeconds()}, true, nil
+	return Sample{App: app, Title: title, IdleSec: idleSeconds(), ExePath: exePath}, true, nil
 }
 
 func readWindowTitle(hwnd uintptr) string {
@@ -85,30 +79,32 @@ func idleSeconds() int {
 	return int(elapsed / 1000)
 }
 
-// processImageName 用 QueryFullProcessImageNameW 拿进程映像名。
+// processImage 返回 (完整路径, 归一化映像名)。
+// 完整路径供图标提取（internal/icons 需要真实文件），名字供统计聚合。
 // 只需要 PROCESS_QUERY_LIMITED_INFORMATION —— 普通权限进程就能查大多数窗口，
 // 系统级进程查不到时返回错误，调用方按 app 为空处理。
-func processImageName(pid uint32) (string, error) {
+func processImage(pid uint32) (full string, base string, err error) {
 	const processQueryLimitedInformation = 0x1000
 	h, err := windows.OpenProcess(processQueryLimitedInformation, false, pid)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer windows.CloseHandle(h)
 
 	buf := make([]uint16, 512)
 	size := uint32(len(buf))
 	if err := windows.QueryFullProcessImageName(h, 0, &buf[0], &size); err != nil {
-		return "", err
+		return "", "", err
 	}
-	full := syscall.UTF16ToString(buf[:size])
-	if i := strings.LastIndexAny(full, `\/`); i >= 0 {
-		full = full[i+1:]
+	fullPath := syscall.UTF16ToString(buf[:size])
+	name := fullPath
+	if i := strings.LastIndexAny(name, `\/`); i >= 0 {
+		name = name[i+1:]
 	}
-	if full == "" {
-		return "", fmt.Errorf("空映像名 pid=%d", pid)
+	if name == "" {
+		return "", "", fmt.Errorf("空映像名 pid=%d", pid)
 	}
-	return strings.ToLower(strings.TrimSuffix(full, ".exe")), nil
+	return fullPath, strings.ToLower(strings.TrimSuffix(name, ".exe")), nil
 }
 
 // sampleFunc 返回本平台的前台采样函数；第二返回值表示平台是否支持。

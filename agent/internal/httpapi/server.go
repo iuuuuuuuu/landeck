@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"landeck/internal/ai"
 	"landeck/internal/auth"
 	"landeck/internal/config"
 	"landeck/internal/control"
@@ -27,16 +28,19 @@ type Server struct {
 	Sched   *scheduler.Runner
 	Version string
 	Started time.Time
+	// DataDir 数据目录：AI 配置（ai.json）等子系统的落盘位置，
+	// 与 main.go 的 o.dataDir 同源。
+	DataDir string
 
 	hub *hub
 	mux *http.ServeMux
 }
 
 func New(cfg *config.Store, a *auth.Manager, ctrl control.Controller, sampler *metrics.Sampler,
-	acts *store.ActivityStore, sched *scheduler.Runner, version string) *Server {
+	acts *store.ActivityStore, sched *scheduler.Runner, version string, dataDir string) *Server {
 	s := &Server{
 		Cfg: cfg, Auth: a, Ctrl: ctrl, Sampler: sampler, Acts: acts, Sched: sched,
-		Version: version, Started: time.Now(),
+		Version: version, Started: time.Now(), DataDir: dataDir,
 	}
 	s.hub = newHub(s)
 	s.mux = http.NewServeMux()
@@ -123,6 +127,19 @@ func (s *Server) routes() {
 	m.HandleFunc("PUT /api/v1/activity/categories", s.protect(s.handleActivityCategoriesPut))
 	m.HandleFunc("GET /api/v1/activity/settings", s.protect(s.handleActivitySettingsGet))
 	m.HandleFunc("PUT /api/v1/activity/settings", s.protect(s.handleActivitySettingsPut))
+
+	m.HandleFunc("GET /api/v1/activity/appicon", s.protect(s.handleActivityAppIcon))
+	m.HandleFunc("GET /api/v1/activity/export", s.protect(s.handleActivityExport))
+	m.HandleFunc("POST /api/v1/activity/clear", s.protect(s.handleActivityClear))
+
+	// AI 日报与对话（agent-ai 的包）：它自己注册 /api/v1/ai/*，
+	// protect 直接传方法值——ai.guarded 与这里的 authed 底层签名一致，
+	// 走同一套 Bearer 鉴权；dataDir 与 activity 同一个，配置落 ai.json。
+	ai.Register(s.mux, func(h func(http.ResponseWriter, *http.Request, *config.Client)) http.HandlerFunc {
+		// ai.guarded 未导出：lambda 参数用同形状的未命名函数类型，
+		// 可赋值性由「底层签名一致」保证（authed/guarded 同构）。
+		return s.protect(h)
+	}, s.DataDir)
 
 	m.HandleFunc("GET /api/v1/ws", s.handleWS)
 

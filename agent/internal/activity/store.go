@@ -150,12 +150,34 @@ func (s *segmentStore) rangeSegs(from, to int64) ([]Segment, error) {
 
 // prune 删除 N 天前的段。启动与每日各跑一次。
 func (s *segmentStore) prune(days int, now time.Time) (int64, error) {
-	cut := now.AddDate(0, 0, -days).Unix()
+	return s.pruneBefore(now.AddDate(0, 0, -days).Unix())
+}
+
+// pruneBefore 删除 end 早于 cut 的段（手动清理与保留期共用一条路径）。
+func (s *segmentStore) pruneBefore(cut int64) (int64, error) {
 	r, err := s.db.Exec(`DELETE FROM segments WHERE "end" < ?`, cut)
 	if err != nil {
 		return 0, err
 	}
 	return r.RowsAffected()
+}
+
+// allSegs 全量段（按 start 排序）。导出用。
+func (s *segmentStore) allSegs() ([]Segment, error) {
+	rows, err := s.db.Query(`SELECT app, title, start, "end" FROM segments ORDER BY start`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]Segment, 0, 256)
+	for rows.Next() {
+		var g Segment
+		if err := rows.Scan(&g.App, &g.Title, &g.Start, &g.End); err != nil {
+			return nil, err
+		}
+		out = append(out, g)
+	}
+	return out, rows.Err()
 }
 
 // count 返回总段数（诊断用）。

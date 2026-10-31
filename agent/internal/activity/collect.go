@@ -123,6 +123,7 @@ type Manager struct {
 	done      chan struct{}
 	supported bool
 	sample    func() (Sample, bool, error)
+	seen      map[string]bool // 已发起图标提取的应用（normalizeApp 名）
 }
 
 var (
@@ -152,6 +153,7 @@ func Start(dir string) *Manager {
 		done:      make(chan struct{}),
 		supported: supported,
 		sample:    sf,
+		seen:      map[string]bool{},
 	}
 	db, err := openDB(joinPath(dir, "activity.db"))
 	if err != nil {
@@ -174,11 +176,15 @@ func Start(dir string) *Manager {
 		}
 	}
 	mgr = m
+	initIconStore(dir)
 	go m.loop()
 	return m
 }
 
-// Stop 停止采集循环并把进行中的段落库。幂等。
+// Stop 停止采集循环、落库进行中的段、关闭数据库。幂等。
+//
+// 关库不是可有可无：Windows 上不 Close 的 sql.DB 一直握着 WAL 文件句柄，
+// 数据目录都删不掉（测试清理实测踩过）；生产侧也该在退出时把资源还干净。
 func Stop() {
 	startMu.Lock()
 	m := mgr
@@ -188,6 +194,9 @@ func Stop() {
 	}
 	close(m.stop)
 	<-m.done
+	if m.db != nil {
+		_ = m.db.db.Close()
+	}
 }
 
 // loop 采集主循环。每个 tick：取设置 → decide → 执行。
@@ -271,6 +280,18 @@ func (m *Manager) tick() {
 		if res.Keep {
 			if err := m.db.upsertRange(m.cur); err != nil {
 				log.Printf("[activity] 落库失败: %v", err)
+			}
+		}
+	}
+
+	// 新应用首次出现：异步提取图标（一次性成本，绝不进 30s 热路径）。
+	// markIconSeen 幂等：提取中/已缓存/已失败都返回 false，不会重复起 goroutine。
+	// 注意必须判 res.New != nil：空闲/停止等 tick 走到这里时 New 为 nil。
+	if res.New != nil {
+		if app := res.New.App; app != "" && !m.seen[app] {
+			m.seen[app] = true
+			if markIconSeen(app) && ctx.Sample.ExePath != "" {
+				go extractAppIcon(app, ctx.Sample.ExePath)
 			}
 		}
 	}
