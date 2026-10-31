@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"os/exec"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -12,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	"landeck/internal/activity"
 	"landeck/internal/auth"
 	"landeck/internal/config"
 	"landeck/internal/control"
@@ -51,13 +52,13 @@ func main() {
 }
 
 type options struct {
-	dataDir  string
-	port     int
-	bind     string
-	name     string
-	dryRun   bool
-	noMDNS   bool
-	quiet    bool
+	dataDir string
+	port    int
+	bind    string
+	name    string
+	dryRun  bool
+	noMDNS  bool
+	quiet   bool
 }
 
 func dataDirDefault() string {
@@ -122,6 +123,8 @@ func runServer() {
 	sched.Start()
 	metrics.WarmHardware()
 	metrics.WarmUptime()
+	// 活动采集（屏幕时间）：独立子系统，失败只降级不影响控制链路
+	activity.Start(o.dataDir)
 
 	addr := fmt.Sprintf("%s:%d", bindAddr(cfg, o), effectivePort(cfg))
 	srv := &http.Server{
@@ -199,6 +202,7 @@ func runServer() {
 	}
 	log.Println("正在退出…")
 	sched.Stop()
+	activity.Stop()
 	if ann != nil {
 		ann.Stop()
 	}
@@ -361,13 +365,13 @@ func writePairingFile(st *config.Store, a *auth.Manager) {
 	code, exp := a.Code()
 	cfg := st.Get()
 	payload := map[string]any{
-		"deviceId":   cfg.DeviceID,
-		"deviceName": cfg.DeviceName,
-		"port":       effectivePort(cfg),
-		"fixedKey":   cfg.FixedKey,
-		"randomCode": code,
+		"deviceId":      cfg.DeviceID,
+		"deviceName":    cfg.DeviceName,
+		"port":          effectivePort(cfg),
+		"fixedKey":      cfg.FixedKey,
+		"randomCode":    code,
 		"codeExpiresAt": exp.Format(time.RFC3339),
-		"updatedAt":  time.Now().Format(time.RFC3339),
+		"updatedAt":     time.Now().Format(time.RFC3339),
 	}
 	raw, _ := json.MarshalIndent(payload, "", "  ")
 	_ = os.WriteFile(filepath.Join(st.Dir(), "pairing.json"), append(raw, '\n'), 0o600)

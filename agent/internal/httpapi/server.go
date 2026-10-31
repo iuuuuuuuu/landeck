@@ -114,6 +114,16 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/v1/processes", s.protect(s.handleProcesses))
 	m.HandleFunc("POST /api/v1/processes/kill", s.protect(s.handleKillProcess))
 
+	// 活动采集（屏幕时间统计）：见 internal/activity 与 docs/design/hindsight-revamp-phase1.md
+	m.HandleFunc("GET /api/v1/activity/summary", s.protect(s.handleActivitySummary))
+	m.HandleFunc("GET /api/v1/activity/rank", s.protect(s.handleActivityRank))
+	m.HandleFunc("GET /api/v1/activity/app/{name}", s.protect(s.handleActivityApp))
+	m.HandleFunc("GET /api/v1/activity/status", s.protect(s.handleActivityStatus))
+	m.HandleFunc("GET /api/v1/activity/categories", s.protect(s.handleActivityCategoriesGet))
+	m.HandleFunc("PUT /api/v1/activity/categories", s.protect(s.handleActivityCategoriesPut))
+	m.HandleFunc("GET /api/v1/activity/settings", s.protect(s.handleActivitySettingsGet))
+	m.HandleFunc("PUT /api/v1/activity/settings", s.protect(s.handleActivitySettingsPut))
+
 	m.HandleFunc("GET /api/v1/ws", s.handleWS)
 
 	// MCP（AI 控制面）：JSON-RPC over HTTP
