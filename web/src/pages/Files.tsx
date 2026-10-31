@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { Button, Card, EmptyState, Skeleton } from '../components/ui'
 import { RotateCw, ShieldAlert } from 'lucide-react'
 import type { AgentClient } from '../lib/api'
@@ -6,7 +6,7 @@ import type { PairedDevice } from '../store/app'
 import { LOCAL_DOWN_HINT, useActiveTarget } from '../lib/useActiveTarget'
 import { useFetch } from '../components/device/useFetch'
 import { fileRootsKey, systemKey } from '../lib/keys'
-import { DeviceSelect } from '../components/device/DeviceSelect'
+import { DevicePicker } from '../components/shell'
 import { AuthLost } from '../components/device/AuthLost'
 import { errText, isAuthError, isAuthMessage } from '../components/device/apiHelpers'
 import { FileBrowser } from '../components/files/FileBrowser'
@@ -32,11 +32,14 @@ export function FilesPanel({
   client,
   isLocal = false,
   onAuthError,
+  /** 页头附加控件（独立页放设备选择器；详情页抽屉不传） */
+  headerExtra,
 }: {
   device: PairedDevice
   client: AgentClient
   isLocal?: boolean
   onAuthError?: () => void
+  headerExtra?: ReactNode
 }) {
   /** 目标身份：换设备 / 换令牌都要重新拉数据 */
   const targetKey = [device.id, client.target.host, client.target.port, client.token]
@@ -60,20 +63,23 @@ export function FilesPanel({
         title="文件"
         sub="浏览、下载、上传、新建目录、重命名与删除"
         actions={
-          <Button
-            variant="secondary"
-            size="md"
-            icon={
-              <RotateCw size={14} className={sys.loading || roots.loading ? 'animate-spin' : undefined} />
-            }
+          <>
+            {headerExtra}
+            <Button
+              variant="secondary"
+              size="md"
+              icon={
+                <RotateCw size={14} className={sys.loading || roots.loading ? 'animate-spin' : undefined} />
+              }
             onClick={() => {
               sys.reload()
               roots.reload()
             }}
-            disabled={sys.loading || roots.loading}
-          >
-            刷新
-          </Button>
+              disabled={sys.loading || roots.loading}
+            >
+              刷新
+            </Button>
+          </>
         }
       />
 
@@ -167,13 +173,21 @@ export default function Files() {
 
   return (
     <div className="space-y-3">
-      <Card padded={false} className="flex flex-wrap items-center gap-2 p-2.5">
-        <DeviceSelect devices={devices} value={deviceId} onChange={setDeviceId} />
-        {pairedCount === 0 && (
-          <span className="text-[11.5px] text-faint">还没有已配对的设备，当前显示本机</span>
-        )}
-      </Card>
-      <FilesPanel device={device} client={client} isLocal={isLocal} onAuthError={onAuthError} />
+      {/* 设备选择并入 PageHeader actions（旧版是页顶孤立卡片条，QA 走查判为必修） */}
+      <FilesPanel
+        device={device}
+        client={client}
+        isLocal={isLocal}
+        onAuthError={onAuthError}
+        headerExtra={
+          <>
+            <DevicePicker devices={devices} value={deviceId} onChange={setDeviceId} />
+            {pairedCount === 0 && (
+              <span className="text-[11.5px] text-faint">还没有已配对的设备，当前显示本机</span>
+            )}
+          </>
+        }
+      />
     </div>
   )
 }

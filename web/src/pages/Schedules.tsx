@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { Button, Card, EmptyState, Modal, Skeleton } from '../components/ui'
 import { CalendarClock, Plus, RotateCw } from 'lucide-react'
 import type { AgentClient } from '../lib/api'
@@ -8,7 +8,7 @@ import { useApp } from '../store/app'
 import { LOCAL_DOWN_HINT, useActiveTarget } from '../lib/useActiveTarget'
 import { useFetch } from '../components/device/useFetch'
 import { schedulesKey } from '../lib/keys'
-import { DeviceSelect } from '../components/device/DeviceSelect'
+import { DevicePicker } from '../components/shell'
 import { ScheduleCard } from '../components/device/ScheduleCard'
 import { ScheduleModal } from '../components/device/ScheduleModal'
 import { AuthLost } from '../components/device/AuthLost'
@@ -24,11 +24,14 @@ export function SchedulesPanel({
   client,
   isLocal = false,
   onAuthError,
+  /** 页头附加控件（独立页放设备选择器；详情页抽屉不传） */
+  headerExtra,
 }: {
   device: PairedDevice
   client: AgentClient
   isLocal?: boolean
   onAuthError?: () => void
+  headerExtra?: ReactNode
 }) {
   const toast = useApp((s) => s.toast)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -99,30 +102,39 @@ export function SchedulesPanel({
 
   return (
     <div className="space-y-3">
-      <PageHeader title="定时任务" sub="对已选设备定时关机、重启或提醒" />
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="hidden text-[11.5px] text-faint sm:inline">
-          共 <span className="num text-fg-soft">{items.length}</span> 个任务
-        </span>
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="secondary"
-            className="h-10 w-10 shrink-0 p-0"
-            aria-label="刷新任务列表"
-            onClick={list.reload}
-            disabled={list.loading}
-          >
-            <RotateCw size={14} className={list.loading ? 'animate-spin' : undefined} />
-          </Button>
-          <Button
-            variant="primary"
-            icon={<Plus size={15} />}
-            onClick={() => setEditor({ open: true, target: null })}
-          >
-            新建
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="定时任务"
+        sub={
+          <>
+            对已选设备定时关机、重启或提醒
+            <span className="text-faint"> · </span>
+            共 <span className="num text-fg-soft">{items.length}</span> 个任务
+          </>
+        }
+        actions={
+          <>
+            {headerExtra}
+            <Button
+              variant="secondary"
+              size="md"
+              aria-label="刷新任务列表"
+              icon={<RotateCw size={14} className={list.loading ? 'animate-spin' : undefined} />}
+              onClick={list.reload}
+              disabled={list.loading}
+            >
+              刷新
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              icon={<Plus size={15} />}
+              onClick={() => setEditor({ open: true, target: null })}
+            >
+              新建
+            </Button>
+          </>
+        }
+      />
 
       <div>
         {list.loading && !list.data ? (
@@ -225,13 +237,21 @@ export default function Schedules() {
 
   return (
     <div className="space-y-3">
-      <Card padded={false} className="flex flex-wrap items-center gap-2 p-2.5">
-        <DeviceSelect devices={devices} value={deviceId} onChange={setDeviceId} />
-        {pairedCount === 0 && (
-          <span className="text-[11.5px] text-faint">还没有已配对的设备，当前显示本机</span>
-        )}
-      </Card>
-      <SchedulesPanel device={device} client={client} isLocal={isLocal} onAuthError={onAuthError} />
+      {/* 设备选择并入 PageHeader actions（旧版是页顶孤立卡片条，QA 走查判为必修） */}
+      <SchedulesPanel
+        device={device}
+        client={client}
+        isLocal={isLocal}
+        onAuthError={onAuthError}
+        headerExtra={
+          <>
+            <DevicePicker devices={devices} value={deviceId} onChange={setDeviceId} />
+            {pairedCount === 0 && (
+              <span className="text-[11.5px] text-faint">还没有已配对的设备，当前显示本机</span>
+            )}
+          </>
+        }
+      />
     </div>
   )
 }
