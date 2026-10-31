@@ -55,6 +55,9 @@ abstract class BuildTask : DefaultTask() {
         val rootDirRel = rootDirRel ?: throw GradleException("rootDirRel cannot be null")
         val target = target ?: throw GradleException("target cannot be null")
         val release = release ?: throw GradleException("release cannot be null")
+        // 新版 tauri CLI 的 --target 只收 rust 三元组；gen 项目生成时用的是短名。
+        // 不映射的话 android-studio-script 直接报 invalid value（升级 CLI 后实测踩过）。
+        val cliTarget = mapOf("arm64" to "aarch64", "arm" to "armv7", "x86" to "i686")[target] ?: target
         val args = listOf("tauri", "android", "android-studio-script");
 
         execOperations.exec {
@@ -69,7 +72,7 @@ abstract class BuildTask : DefaultTask() {
             if (release) {
                 args("--release")
             }
-            args(listOf("--target", target))
+            args(listOf("--target", cliTarget))
         }.assertNormalExitValue()
     }
 }

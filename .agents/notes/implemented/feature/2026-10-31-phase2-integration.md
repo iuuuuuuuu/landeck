@@ -46,6 +46,6 @@ Status: implemented
 
 ## 关联
 
-- 一期集成（设备路径前缀/契约归一层）：[一期集成](2026-10-31-phase1-integration.md)
-- 持久缓存基建：[查询缓存落盘](2026-10-29-query-cache-persisted-l2.md)
+- 一期集成（设备路径前缀/契约归一层）：[一期集成](../architecture/2026-10-31-phase1-integration.md)
+- 持久缓存基建：[查询缓存落盘](../architecture/2026-10-29-query-cache-persisted-l2.md)
 - 二期设计来源：[Hindsight 风格改版一期设计规格](../../../docs/design/hindsight-revamp-phase1.md)
