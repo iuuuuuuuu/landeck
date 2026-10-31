@@ -89,7 +89,10 @@ export default function AiSummaryPage() {
   useEffect(() => {
     setError(null)
     // readCache 返回 { data, fresh } 包装，取 .data
-    setContent(dev ? (readCache<SummaryResult>(aiSummaryKey(dev, scope, date))?.data ?? null) : null)
+    // 落盘缓存是持久数据，读回来不信任其形状：旧版本写入过 {content:undefined}
+      // （aiApi 契约漂移期间），直接渲染会在 MiniMarkdown 里炸。非法形状当没有缓存。
+      const cached = dev ? (readCache<SummaryResult>(aiSummaryKey(dev, scope, date))?.data ?? null) : null
+      setContent(cached && typeof cached.content === 'string' ? cached : null)
   }, [dev, scope, date])
 
   const generate = useCallback(async () => {

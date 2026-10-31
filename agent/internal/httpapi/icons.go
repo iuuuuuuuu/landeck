@@ -57,14 +57,15 @@ func (s *Server) handleAppIcon(w http.ResponseWriter, r *http.Request, c *config
 // writeIconData 统一写图标响应：mime 兜底、ETag 重验证、显式 Content-Length。
 //
 // 为什么不用 max-age 而用 no-cache + ETag：
-//   图标的**内容会变** —— 用户换了 Windows 账户头像、或 agent 升级后 exe 图标变了。
-//   原来设 public, max-age=86400，后果是：服务端已经返回新头像（2392 字节 PNG），
-//   手机上的 <img> 却拿一天的旧缓存继续显示老图标。
-//   （实测踩到：改完头像支持后手机上仍是旧的 ico，而接口本身返回的已是 PNG。）
-//   改成 no-cache 后浏览器每次带 If-None-Match 来问一句：
-//   没变回 304（几乎零成本），变了立刻拿到新图。
-//   用 ETag 而不是 Last-Modified，因为头像可能来自 ProgramData / 注册表，
-//   mtime 不一定可靠。
+//
+//	图标的**内容会变** —— 用户换了 Windows 账户头像、或 agent 升级后 exe 图标变了。
+//	原来设 public, max-age=86400，后果是：服务端已经返回新头像（2392 字节 PNG），
+//	手机上的 <img> 却拿一天的旧缓存继续显示老图标。
+//	（实测踩到：改完头像支持后手机上仍是旧的 ico，而接口本身返回的已是 PNG。）
+//	改成 no-cache 后浏览器每次带 If-None-Match 来问一句：
+//	没变回 304（几乎零成本），变了立刻拿到新图。
+//	用 ETag 而不是 Last-Modified，因为头像可能来自 ProgramData / 注册表，
+//	mtime 不一定可靠。
 func writeIconData(w http.ResponseWriter, r *http.Request, data []byte, mime string) {
 	if mime == "" {
 		mime = icons.MimeICO

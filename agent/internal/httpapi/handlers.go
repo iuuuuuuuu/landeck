@@ -2,9 +2,9 @@ package httpapi
 
 import (
 	"encoding/json"
-	"log"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -151,7 +151,7 @@ func (s *Server) handlePair(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSession(w http.ResponseWriter, r *http.Request, c *config.Client) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"clientId": c.ID, "clientName": c.Name, "role": c.Role,
-		"createdAt": c.CreatedAt.Format(time.RFC3339),
+		"createdAt":  c.CreatedAt.Format(time.RFC3339),
 		"lastSeenAt": c.LastSeenAt.Format(time.RFC3339),
 	})
 }
@@ -605,7 +605,7 @@ func (s *Server) handleClients(w http.ResponseWriter, r *http.Request, c *config
 	for _, cl := range list {
 		items = append(items, map[string]any{
 			"id": cl.ID, "name": cl.Name, "role": cl.Role, "ip": cl.IP,
-			"createdAt": cl.CreatedAt.Format(time.RFC3339),
+			"createdAt":  cl.CreatedAt.Format(time.RFC3339),
 			"lastSeenAt": cl.LastSeenAt.Format(time.RFC3339),
 		})
 	}
@@ -780,7 +780,6 @@ func (s *Server) handleSettingsPut(w http.ResponseWriter, r *http.Request, c *co
 }
 
 // ---------- 活动日志 ----------
-
 
 // ---------- 进程 ----------
 

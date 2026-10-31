@@ -164,12 +164,13 @@ export async function generateSummary(
   p: { scope: SummaryScope; date: string },
 ): Promise<WithDemo<string>> {
   try {
-    const r = await req<{ content: string }>(t, token, '/ai/summary', {
+    // agent-ai 实现返回 {markdown}；契约文本写的是 {content}。两边都容，防再漂移。
+    const r = await req<{ content?: string; markdown?: string }>(t, token, '/ai/summary', {
       method: 'POST',
       body: { scope: p.scope, date: p.date },
       timeoutMs: 180_000,
     })
-    return { demo: false, data: r.content }
+    return { demo: false, data: r.content ?? r.markdown ?? '' }
   } catch (e) {
     if (isNotImplemented(e)) return { demo: true, data: mockSummary(p) }
     throw e

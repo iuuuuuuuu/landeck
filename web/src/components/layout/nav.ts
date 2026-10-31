@@ -98,7 +98,7 @@ export const NAV_ITEMS: NavItem[] = [
  * 需要脱离设备详情独立成页，Hindsight 的信息架构也是这种平铺式。
  * /devices/:id 详情页里的工具抽屉入口保持不变，两处入口并存。
  *
- * AI 组与「屏幕记忆」是二期范围：侧栏先占位（disabled + title 说明），
+ * 屏幕记忆是二期后续范围（AI 三页已上线）：侧栏先占位（disabled + title 说明），
  * 不注册路由、不进移动底栏，避免给出会 404 的入口。
  * ------------------------------------------------------------------ */
 export interface NavGroup {
@@ -132,9 +132,9 @@ export const NAV_GROUPS: NavGroup[] = [
     key: 'ai',
     label: 'AI',
     items: [
-      { to: '/ai/chat', label: 'AI 对话', icon: MessageSquare, desc: '基于活动记录问答', disabled: true },
-      { to: '/ai/summary', label: 'AI 总结', icon: Sparkles, desc: '日报与周报生成', disabled: true },
-      { to: '/ai/settings', label: 'AI 设置', icon: Bot, desc: '本地模型与云端 API', disabled: true },
+      { to: '/ai/chat', label: 'AI 对话', icon: MessageSquare, desc: '基于活动记录问答' },
+      { to: '/ai/summary', label: 'AI 总结', icon: Sparkles, desc: '日报与周报生成' },
+      { to: '/ai/settings', label: 'AI 设置', icon: Bot, desc: '本地模型与云端 API' },
     ],
   },
   {
