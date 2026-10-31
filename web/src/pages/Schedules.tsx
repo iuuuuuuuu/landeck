@@ -13,6 +13,7 @@ import { ScheduleCard } from '../components/device/ScheduleCard'
 import { ScheduleModal } from '../components/device/ScheduleModal'
 import { AuthLost } from '../components/device/AuthLost'
 import { errText, isAuthError } from '../components/device/apiHelpers'
+import { PageHeader } from '../components/shell'
 
 /**
  * 定时任务面板：任务列表 + 新建 / 编辑 / 启停 / 删除。
@@ -98,6 +99,7 @@ export function SchedulesPanel({
 
   return (
     <div className="space-y-3">
+      <PageHeader title="定时任务" sub="对已选设备定时关机、重启或提醒" />
       <div className="flex flex-wrap items-center gap-2">
         <span className="hidden text-[11.5px] text-faint sm:inline">
           共 <span className="num text-fg-soft">{items.length}</span> 个任务

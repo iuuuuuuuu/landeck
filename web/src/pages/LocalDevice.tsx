@@ -21,6 +21,7 @@ import { agentStart, agentStatus, DEFAULT_PORT } from '../lib/discovery'
 import { isPhoneOS, useRuntime } from '../lib/runtime'
 import type { SystemInfo } from '../lib/types'
 import { useApp, type PairedDevice } from '../store/app'
+import { PageHeader } from '../components/shell'
 
 /**
  * 「本机」页：展示并控制**当前这台机器**，不需要配对。
@@ -130,6 +131,7 @@ function LocalAgentView() {
 
   return (
     <div className="space-y-3">
+      <PageHeader title="本机" sub="当前这台机器的硬件、运行状态与被控端" />
       {/* ① 身份卡：与详情页 DeviceBanner 同一套版式（头像 / 名称 / 徽章 / 信息网格） */}
       <Card className="p-0">
         <div className="flex flex-wrap items-center gap-3 px-3.5 py-3">

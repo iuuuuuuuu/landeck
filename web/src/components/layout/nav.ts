@@ -1,8 +1,19 @@
 import {
+  Bot,
+  CalendarDays,
+  CalendarRange,
+  CalendarClock,
+  Camera,
+  FolderOpen,
+  History,
+  MessageSquare,
   Monitor,
   MonitorSmartphone,
   Radar,
   Settings,
+  Shapes,
+  Sparkles,
+  ChartColumn,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -11,6 +22,8 @@ export interface NavItem {
   label: string
   icon: LucideIcon
   desc: string
+  /** 二期/未开放：侧栏可见但不可点（title 说明），不注册路由避免死链 */
+  disabled?: boolean
 }
 
 /* ------------------------------------------------------------------ *
@@ -75,8 +88,90 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/settings', label: '设置', icon: Settings, desc: '身份、被控端参数与安全策略' },
 ]
 
-/** 路由 → 导航项（/devices/:id 归到「设备」） */
+/* ------------------------------------------------------------------ *
+ * Hindsight 风格分组导航（一期骨架，docs/design/hindsight-revamp-phase1.md 第 2 节）
+ *
+ * 与 NAV_ITEMS 的关系：NAV_ITEMS 仍供 TopBar 的 findNav / 页标题逻辑使用；
+ * 侧栏（AppSidebar）与移动底栏（MobileTabBar）改用下面的分组结构。
+ *
+ * 「文件 / 定时任务」在一期骨架里回到顶级（数据组）：统计与批量操作
+ * 需要脱离设备详情独立成页，Hindsight 的信息架构也是这种平铺式。
+ * /devices/:id 详情页里的工具抽屉入口保持不变，两处入口并存。
+ *
+ * AI 组与「屏幕记忆」是二期范围：侧栏先占位（disabled + title 说明），
+ * 不注册路由、不进移动底栏，避免给出会 404 的入口。
+ * ------------------------------------------------------------------ */
+export interface NavGroup {
+  key: string
+  label: string
+  items: NavItem[]
+}
+
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    key: 'device',
+    label: '设备',
+    items: [
+      { to: '/devices', label: '设备', icon: Monitor, desc: '已配对主机的状态与快捷入口' },
+      { to: '/local', label: '本机', icon: MonitorSmartphone, desc: '当前这台机器的硬件与运行状态' },
+      { to: '/scan', label: '发现', icon: Radar, desc: '扫描局域网并配对新的 Agent' },
+    ],
+  },
+  {
+    key: 'activity',
+    label: '活动',
+    items: [
+      { to: '/activity/daily', label: '日统计', icon: CalendarDays, desc: '24 小时活动分布与应用排行' },
+      { to: '/activity/weekly', label: '周统计', icon: ChartColumn, desc: '一周活动概览' },
+      { to: '/activity/monthly', label: '月统计', icon: CalendarRange, desc: '月度时长与类别占比' },
+      { to: '/activity/all', label: '全部历史', icon: History, desc: '年热力图与长期回顾' },
+      { to: '/activity/categories', label: '分类管理', icon: Shapes, desc: '应用与网站的活动分类' },
+    ],
+  },
+  {
+    key: 'ai',
+    label: 'AI',
+    items: [
+      { to: '/ai/chat', label: 'AI 对话', icon: MessageSquare, desc: '基于活动记录问答', disabled: true },
+      { to: '/ai/summary', label: 'AI 总结', icon: Sparkles, desc: '日报与周报生成', disabled: true },
+      { to: '/ai/settings', label: 'AI 设置', icon: Bot, desc: '本地模型与云端 API', disabled: true },
+    ],
+  },
+  {
+    key: 'data',
+    label: '数据',
+    items: [
+      { to: '/files', label: '文件', icon: FolderOpen, desc: '被控端文件浏览与传输' },
+      { to: '/schedules', label: '定时任务', icon: CalendarClock, desc: '定时关机、重启与提醒' },
+      { to: '/activity/memory', label: '屏幕记忆', icon: Camera, desc: '截图 OCR 文字检索（二期）', disabled: true },
+    ],
+  },
+  {
+    key: 'system',
+    label: '系统',
+    items: [
+      { to: '/settings', label: '设置', icon: Settings, desc: '身份、被控端参数与安全策略' },
+    ],
+  },
+]
+
+/** 移动底栏（<1024px）：一级四项；AI 组与统计子页不进底栏，从活动页二级进入 */
+export const MOBILE_TABS: NavItem[] = [
+  { to: '/devices', label: '设备', icon: Monitor, desc: '' },
+  { to: '/activity/daily', label: '活动', icon: ChartColumn, desc: '' },
+  { to: '/files', label: '文件', icon: FolderOpen, desc: '' },
+  { to: '/settings', label: '设置', icon: Settings, desc: '' },
+]
+
+/** 路由 → 导航项（/devices/:id 归到「设备」；/activity/*、/ai/* 归到各自组首项） */
 export function findNav(pathname: string): NavItem {
   const hit = NAV_ITEMS.find((i) => pathname === i.to || pathname.startsWith(`${i.to}/`))
-  return hit ?? NAV_ITEMS[0]
+  if (hit) return hit
+  for (const g of NAV_GROUPS) {
+    for (const item of g.items) {
+      if (pathname === item.to || pathname.startsWith(`${item.to}/`)) return item
+    }
+  }
+  if (pathname.startsWith('/ai/')) return NAV_GROUPS[2].items[0]
+  return NAV_ITEMS[0]
 }

@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DeviceGridCard } from '../components/layout/DeviceGridCard'
 import { useDeviceProbe } from '../components/layout/useDeviceProbe'
+import { PageHeader } from '../components/shell'
 import {
   Button,
   Card,
@@ -74,24 +75,40 @@ export default function Devices() {
 
   return (
     <div className="mx-auto w-full max-w-[1120px] space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-2 px-1">
-        <div className="text-[12.5px] text-muted">
-          已配对 <span className="num text-fg">{devices.length}</span> 台
-          {devices.length > 0 && (
-            <>
-              <span className="text-faint"> · </span>
-              {resolved === devices.length ? (
-                <span className={onlineCount > 0 ? 'text-ok' : 'text-faint'}>
-                  在线 <span className="num">{onlineCount}</span> 台
-                </span>
-              ) : (
-                <span>在线状态检测中</span>
-              )}
-            </>
-          )}
-        </div>
-        <div className="text-[11.5px] text-faint">状态每 10 秒刷新 · 点卡片进入详情</div>
-      </div>
+      <PageHeader
+        title="设备"
+        sub={
+          <>
+            已配对 <span className="num text-fg-soft">{devices.length}</span> 台
+            {devices.length > 0 && (
+              <>
+                <span className="text-faint"> · </span>
+                {resolved === devices.length ? (
+                  <span className={onlineCount > 0 ? 'text-ok' : 'text-faint'}>
+                    在线 <span className="num">{onlineCount}</span> 台
+                  </span>
+                ) : (
+                  <span>在线状态检测中</span>
+                )}
+              </>
+            )}
+            <span className="hidden text-faint min-[1024px]:inline">
+              {' '}
+              · 状态每 10 秒刷新 · 点卡片进入详情
+            </span>
+          </>
+        }
+        actions={
+          <Button
+            variant="secondary"
+            size="md"
+            icon={<Radar size={14} strokeWidth={1.75} aria-hidden />}
+            onClick={() => navigate('/scan')}
+          >
+            扫描
+          </Button>
+        }
+      />
 
       {devices.length > 0 && (
         <Card padded={false} className="flex flex-wrap items-center gap-2 p-2.5">

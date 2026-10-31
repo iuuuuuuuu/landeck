@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Button, Card, EmptyState, Skeleton } from '../components/ui'
-import { FolderTree, RotateCw, ShieldAlert } from 'lucide-react'
+import { RotateCw, ShieldAlert } from 'lucide-react'
 import type { AgentClient } from '../lib/api'
 import type { PairedDevice } from '../store/app'
 import { LOCAL_DOWN_HINT, useActiveTarget } from '../lib/useActiveTarget'
@@ -10,6 +10,7 @@ import { DeviceSelect } from '../components/device/DeviceSelect'
 import { AuthLost } from '../components/device/AuthLost'
 import { errText, isAuthError, isAuthMessage } from '../components/device/apiHelpers'
 import { FileBrowser } from '../components/files/FileBrowser'
+import { PageHeader } from '../components/shell'
 
 /** 本机目标的失败文案：别让用户以为是自己网络断了 */
 function localError(err: unknown): { title: string; desc: string } {
@@ -55,27 +56,26 @@ export function FilesPanel({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex min-w-0 items-center gap-1.5 text-[11.5px] text-faint">
-          <FolderTree size={12} className="shrink-0" />
-          <span className="truncate">浏览、下载、上传、新建目录、重命名与删除</span>
-        </span>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="ml-auto h-9"
-          icon={
-            <RotateCw size={13} className={sys.loading || roots.loading ? 'animate-spin' : undefined} />
-          }
-          onClick={() => {
-            sys.reload()
-            roots.reload()
-          }}
-          disabled={sys.loading || roots.loading}
-        >
-          刷新
-        </Button>
-      </div>
+      <PageHeader
+        title="文件"
+        sub="浏览、下载、上传、新建目录、重命名与删除"
+        actions={
+          <Button
+            variant="secondary"
+            size="md"
+            icon={
+              <RotateCw size={14} className={sys.loading || roots.loading ? 'animate-spin' : undefined} />
+            }
+            onClick={() => {
+              sys.reload()
+              roots.reload()
+            }}
+            disabled={sys.loading || roots.loading}
+          >
+            刷新
+          </Button>
+        }
+      />
 
       {sys.loading && !sys.data ? (
         <Card>

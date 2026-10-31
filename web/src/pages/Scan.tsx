@@ -19,6 +19,7 @@ import {
 import { nativeLocalIP, resolveHint, scanLan, scanProfile } from '../lib/discovery'
 import type { NodeInfo } from '../lib/types'
 import { useApp } from '../store/app'
+import { PageHeader } from '../components/shell'
 
 type ScanStatus = 'idle' | 'scanning' | 'done'
 
@@ -359,6 +360,7 @@ export default function Scan() {
 
   return (
     <div className="space-y-4">
+      <PageHeader title="发现" sub="扫描局域网并配对新的 Agent" />
       <Card className="overflow-hidden">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
           <RadarPane nodes={radarNodes} scanning={scanning} />

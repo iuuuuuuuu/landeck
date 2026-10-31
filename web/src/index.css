@@ -53,7 +53,10 @@
   --color-topbar: rgba(6, 7, 12, 0.72);
 
   --ldk-thumb-border: rgba(124, 92, 255, 0.45);
-  --radius-card: 22px;
+  /* Hindsight 风格骨架：卡 20px / 侧栏 280px / 激活导航白胶囊 */
+  --radius-card: 20px;
+  --ldk-radius-card: 20px;
+  --ldk-sidebar-w: 280px;
   --radius-pill: 999px;
 
   --shadow-lift: 0 24px 60px -24px rgba(0, 0, 0, 0.85);
@@ -142,6 +145,24 @@
   --tone-danger-a: #fb7185;
   --tone-danger-b: #e11d48;
   --tone-danger-glow: rgba(251, 113, 133, 0.34);
+
+  /* 活动类别色板：全站唯一映射（柱图/图例/排行条/饼图共用同一变量）。
+     顺序固定，agent 统计 API 的类别 key 按此对齐：
+     coding / office / comms / browsing / social / media / games / other */
+  --ldk-cat-coding: #a78bfa;
+  --ldk-cat-office: #38bdf8;
+  --ldk-cat-comms: #2dd4bf;
+  --ldk-cat-browsing: #60a5fa;
+  --ldk-cat-social: #34d399;
+  --ldk-cat-media: #8b5cf6;
+  --ldk-cat-games: #fb7185;
+  --ldk-cat-other: #94a3b8;
+
+  /* 侧栏激活导航胶囊：深色用亮一档的玻璃底 + 细环 */
+  --ldk-nav-active-bg: rgba(255, 255, 255, 0.09);
+  --ldk-nav-active-ring: rgba(255, 255, 255, 0.13);
+  --ldk-nav-active-shadow: 0 10px 26px -16px rgba(0, 0, 0, 0.7);
+  --ldk-nav-group-label: rgba(255, 255, 255, 0.34);
 }
 
 @layer base {
@@ -269,6 +290,33 @@
   /* 侧栏激活竖条 */
   .grad-nav {
     background-image: linear-gradient(180deg, var(--tone-accent-a), var(--tone-cyan-a));
+  }
+
+  /* ---- Hindsight 风格侧栏 ----
+     分组名：小号灰字；激活项：胶囊卡（浅色=白卡投影，深色=亮玻璃底）。 */
+  .nav-group-label {
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ldk-nav-group-label);
+  }
+
+  .nav-pill {
+    position: relative;
+    display: flex;
+    height: 2.625rem;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: 14px;
+    padding: 0 0.75rem;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+
+  .nav-pill-active {
+    background: var(--ldk-nav-active-bg);
+    box-shadow:
+      0 0 0 1px var(--ldk-nav-active-ring),
+      var(--ldk-nav-active-shadow);
   }
 
   .num {
@@ -461,6 +509,22 @@
   --tone-danger-b: #a8182f;
   --tone-danger-glow: rgba(198, 47, 71, 0.22);
   --ldk-thumb-border: #6d4bd1;
+
+  /* 浅色下类别色整体压暗一档，白底上保持可读 */
+  --ldk-cat-coding: #7c5cf0;
+  --ldk-cat-office: #0284c7;
+  --ldk-cat-comms: #0d9488;
+  --ldk-cat-browsing: #3b82f6;
+  --ldk-cat-social: #10b981;
+  --ldk-cat-media: #7c3aed;
+  --ldk-cat-games: #f43f5e;
+  --ldk-cat-other: #64748b;
+
+  /* Hindsight 的激活项是白色胶囊卡：白底 + 柔和投影 + 发丝边 */
+  --ldk-nav-active-bg: #ffffff;
+  --ldk-nav-active-ring: rgba(19, 22, 35, 0.07);
+  --ldk-nav-active-shadow: 0 10px 24px -14px rgba(23, 27, 46, 0.4);
+  --ldk-nav-group-label: rgba(19, 22, 35, 0.4);
 }
 
 /* 不定态进度条：原生扫描阶段没有"已扫端口"总数，用它表示"正在进行"，

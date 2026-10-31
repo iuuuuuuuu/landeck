@@ -44,6 +44,7 @@ import { useAsync } from '../lib/hooks'
 import { systemKey } from '../lib/keys'
 import { useApp, type PairedDevice } from '../store/app'
 import { THEME_LABEL, useTheme, type ThemeMode } from '../store/theme'
+import { PageHeader } from '../components/shell'
 
 /** 进入设置页前的会话检查：未配对 / 401 / 离线在这里统一拦成整页提示 */
 function useSessionGate(device?: PairedDevice) {
@@ -420,6 +421,7 @@ export default function Settings() {
 
   return (
     <div className="mx-auto w-full max-w-[900px] space-y-3">
+      <PageHeader title="设置" sub="身份、被控端参数与安全策略" />
       <AppearanceCard />
 
       {!device ? (
