@@ -36,6 +36,21 @@ Status: implemented
 - 内存后端 OCR worker 常驻 60–80MB（仅开启时）；「开启即截」无 nudge 通道，首张最多等一个 interval。
 - RD v1 无 H.264/音频/剪贴板；q60 1080p 实测 2.7MB/s@10fps（2560×1440 单帧 280KB）。
 
+## Android 构建修复（Lead）
+
+本地 Android 构建在标题栏落地后被**间接破坏**：titlebar-win 为 apply_window_chrome 的
+4 个 user32 调用引入了 windows 0.61 直依赖，与 tauri 栈的 0.62 家族在 lock 里并存；
+Windows 目标能编过（桌面端一直绿），**aarch64-linux-android 目标上
+windows-future 0.2.1 x windows-core 版本错配**，IMarshal 缺失整包编不过——
+直到四期重打 APK 才暴露（期间没有任何人跑过 android 目标构建）。
+
+修法：apply_window_chrome 改**本地 extern "system" 声明**（4 个调用零依赖），
+移除 windows 直依赖——0.61 家族从 lock 消失，Android 目标 check 通过。
+教训：**跨目标构建（Android）要进例行验证**，只在桌面验证的依赖变更可以
+悄悄弄坏别的目标一周不被发现。
+
+APK：1.0.19/1000019，签名证书与历史逐字一致（覆盖安装可用）。
+
 ## Testing
 
 - 屏幕记忆：agent-activity 6 单测 + 2 故障注入（其中一次抓到它自己的弱门禁——snippet 只断形状不断宽度，补下限断言后才真红）+ Lead 真机验收（屏上词命中 + 截图人眼比对）。

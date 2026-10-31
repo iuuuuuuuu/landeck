@@ -940,17 +940,36 @@ fn apply_window_chrome(win: &tauri::WebviewWindow) {
         // 保留 WS_THICKFRAME 让边缘 resize 与 DWM 阴影/圆角继续工作。
         #[cfg(windows)]
         if let Ok(hwnd) = win.hwnd() {
-            use windows::Win32::UI::WindowsAndMessaging::{
-                GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_STYLE, SWP_FRAMECHANGED,
-                SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, HWND_TOP,
-            };
+            // 最小 FFI：不引入 windows crate——它拖进的 0.61/0.62 双家族在
+            // Android 目标上编译冲突（windows-future 0.2.1 x windows-core 版本错配，
+            // IMarshal 缺失，整包都编不过）。这里只需要 4 个 user32 调用。
+            const GWL_STYLE: i32 = -16;
+            const WS_CAPTION: isize = 0x00C0_0000;
+            const SWP_NOSIZE: u32 = 0x0001;
+            const SWP_NOMOVE: u32 = 0x0002;
+            const SWP_NOZORDER: u32 = 0x0004;
+            const SWP_FRAMECHANGED: u32 = 0x0020;
+            #[link(name = "user32")]
+            extern "system" {
+                fn GetWindowLongPtrW(hWnd: isize, nIndex: i32) -> isize;
+                fn SetWindowLongPtrW(hWnd: isize, nIndex: i32, dwNewLong: isize) -> isize;
+                fn SetWindowPos(
+                    hWnd: isize,
+                    hWndInsertAfter: isize,
+                    x: i32,
+                    y: i32,
+                    cx: i32,
+                    cy: i32,
+                    uFlags: u32,
+                ) -> i32;
+            }
             unsafe {
-                let h = windows::Win32::Foundation::HWND(hwnd.0);
+                let h = hwnd.0 as isize;
                 let style = GetWindowLongPtrW(h, GWL_STYLE);
-                let cleared = style & !windows::Win32::UI::WindowsAndMessaging::WS_CAPTION.0 as isize;
-                SetWindowLongPtrW(h, GWL_STYLE, cleared);
+                SetWindowLongPtrW(h, GWL_STYLE, style & !WS_CAPTION);
+                // HWND_TOP = 0
                 let _ = SetWindowPos(
-                    h, Some(HWND_TOP), 0, 0, 0, 0,
+                    h, 0, 0, 0, 0, 0,
                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
                 );
             }
