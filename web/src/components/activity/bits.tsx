@@ -1,11 +1,44 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import {
+  Briefcase,
+  Code,
+  Gamepad2,
+  Globe,
+  MessagesSquare,
+  Music,
+  Package,
+  Shapes,
+  Users,
+} from 'lucide-react'
 import { catColor, catLabel } from '../../lib/activityApi'
+import type { CatKey } from '../../lib/activityApi'
 import { baseUrl } from '../../lib/api'
 
 /**
  * 活动统计的共享小件。cat 一律收 string：内置 8 类（CatKey）之外还有用户自建类别，
  * 色与文案的解析都收口在 activityApi（catColor/catLabel），这里不做第二套映射。
  */
+
+/**
+ * 类别图标：lucide 按内置类别映射，**类别色着色**（色相即类别身份）。
+ * 自建类别用 Shapes 兜底。Owner 反馈「应用类别没有 icon，加上」——
+ * 排行的分类行/图例/分类管理列表用图标版；紧凑场景（浮层头部副文本等）保留色点。
+ */
+const CAT_ICON: Record<CatKey, typeof Code> = {
+  coding: Code,
+  office: Briefcase,
+  chat: MessagesSquare,
+  browsing: Globe,
+  social: Users,
+  media: Music,
+  games: Gamepad2,
+  other: Package,
+}
+
+export function CategoryIcon({ cat, size = 15 }: { cat: string; size?: number }) {
+  const Icon = (CAT_ICON as Record<string, typeof Code>)[cat] ?? Shapes
+  return <Icon size={size} style={{ color: catColor(cat) }} aria-hidden />
+}
 
 /** 类别色点。图表/图例/排行/详情共用，颜色永远来自同一映射。 */
 export function CategoryDot({ cat, size = 8 }: { cat: string; size?: number }) {
@@ -48,22 +81,110 @@ export function InlineBar({ sec, max, cat }: { sec: number; max: number; cat: st
 }
 
 /**
- * 应用图标：真实环境走 agent 的 /activity/appicon（按应用名取采集缓存图标，404=未知应用）；
- * 拿不到（demo 模式 / 非当前设备）时退化为类别色首字母块 —— 视觉重量一致，
- * 排版不因图标缺失而跳动。
+ * 应用图标：走 agent 的 /activity/appicon（按应用名取采集缓存图标，404=未知应用）。
+ *
+ * 五期性能改造：排行一页有 10 个不同应用，逐个 <img src> 就是逐个请求，
+ * 被基线计成 10 次 API。现在：
+ *  1. **localStorage 持久缓存**（key 带 host|port|name），命中零请求——
+ *     同一台被控机的应用集合基本不变，二次访问全部免费；
+ *  2. 未命中走**单飞队列**（同 name 并发只发一次）+ requestIdleCallback 错峰，
+ *     不跟页面数据请求抢首屏；
+ *  3. 404/失败 → 类别色首字母块（应用未被采集过是正常状态）。
+ * 图标是几 KB 的小 PNG，50 个应用也就百来 KB，localStorage 装得下；
+ * 淘汰交给整体配额失败兜底（写入失败就静默退化为每次拉取）。
  */
-export function AppIcon({ app, cat, target, size = 34 }: { app: string; cat: string; target?: { host: string; port: number; tls: boolean }; size?: number }) {
-  const [broken, setBroken] = useState(false)
-  if (target && !broken) {
-    const url = `${baseUrl(target)}/activity/appicon?name=${encodeURIComponent(app)}`
+
+type TargetLike = { host: string; port: number; tls: boolean }
+
+const ICON_INFLIGHT = new Map<string, Promise<string | null>>()
+const ICON_QUEUE: (() => void)[] = []
+
+function iconStorageKey(target: TargetLike, name: string): string {
+  return 'landeck.appicon.' + target.host + '|' + target.port + '|' + name
+}
+
+function iconUrlOf(target: TargetLike, name: string): string {
+  return baseUrl(target) + '/activity/appicon?name=' + encodeURIComponent(name)
+}
+
+/** 队列消费：每 150ms 放行一个，错开图标请求避免与页面数据挤在同一瞬间。 */
+function enqueueIcon(run: () => void): void {
+  ICON_QUEUE.push(run)
+  const drain = () => {
+    const next = ICON_QUEUE.shift()
+    if (next) next()
+    if (ICON_QUEUE.length > 0) setTimeout(drain, 150)
+  }
+  if (ICON_QUEUE.length === 1) {
+    const idle = typeof requestIdleCallback === 'function' ? requestIdleCallback : (cb: () => void) => setTimeout(cb, 400)
+    idle(() => setTimeout(drain, 0))
+  }
+}
+
+function loadIconData(target: TargetLike, token: string | undefined, name: string): Promise<string | null> {
+  const key = target.host + '|' + target.port + '|' + name
+  const inflight = ICON_INFLIGHT.get(key)
+  if (inflight) return inflight
+  const p = (async () => {
+    try {
+      const res = await fetch(iconUrlOf(target, name), {
+        headers: token ? { Authorization: 'Bearer ' + token } : {},
+      })
+      if (!res.ok) return null
+      const blob = await res.blob()
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result))
+        reader.onerror = () => reject(reader.error)
+        reader.readAsDataURL(blob)
+      })
+      try {
+        localStorage.setItem(iconStorageKey(target, name), dataUrl)
+      } catch {
+        /* 配额满：放弃持久化，本次会话内仍有内存缓存 */
+      }
+      return dataUrl
+    } catch {
+      return null
+    } finally {
+      ICON_INFLIGHT.delete(key)
+    }
+  })()
+  ICON_INFLIGHT.set(key, p)
+  return p
+}
+
+export function AppIcon({ app, cat, target, token, size = 34 }: { app: string; cat: string; target?: TargetLike; token?: string; size?: number }) {
+  const [src, setSrc] = useState<string | null>(() => {
+    if (!target) return null
+    try {
+      return localStorage.getItem(iconStorageKey(target, app))
+    } catch {
+      return null
+    }
+  })
+
+  useEffect(() => {
+    if (src || !target) return
+    let alive = true
+    enqueueIcon(() => {
+      loadIconData(target, token, app).then((data) => {
+        if (!alive || !data) return // null=确认无图，保持字母块
+        setSrc(data)
+      })
+    })
+    return () => {
+      alive = false
+    }
+  }, [src, target?.host, target?.port, token, app])
+
+  if (src) {
     return (
       <img
-        src={url}
+        src={src}
         alt=""
         width={size}
         height={size}
-        loading="lazy"
-        onError={() => setBroken(true)}
         className="shrink-0 rounded-lg object-contain"
         style={{ width: size, height: size }}
       />

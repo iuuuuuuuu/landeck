@@ -72,6 +72,11 @@ export function memoryStatusKey(c: C): string {
   return cacheKey(['memory-status', ...ident(c)])
 }
 
+/** 全年按天总时长（全部历史页） */
+export function activityYearKey(c: C, year: number): string {
+  return cacheKey(['activity-year', year, ...ident(c)])
+}
+
 /** 屏幕记忆：检索结果（TTL 30 秒由 useAsync 侧给） */
 export function memorySearchKey(c: C, q: string, from: string, to: string): string {
   return cacheKey(['memory-search', q, from, to, ...ident(c)])

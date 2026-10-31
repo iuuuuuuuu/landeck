@@ -4,7 +4,7 @@ import { useAsync } from '../../lib/hooks'
 import { activityCategoriesKey, activityRankKey } from '../../lib/activityKeys'
 import { catColor, fetchCategories, fetchRank, putCategories } from '../../lib/activityApi'
 import type { CategoriesData } from '../../lib/activityApi'
-import { CategoryDot } from '../../components/activity/bits'
+import { CategoryIcon } from '../../components/activity/bits'
 import { CollectionSettingsCard } from '../../components/activity/CollectionSettingsCard'
 import { DataManageCard } from '../../components/activity/DataManageCard'
 import { ActivityPageHeader, LoadError, NoDeviceGuide, useActivityTarget, useToast } from './shared'
@@ -124,7 +124,7 @@ export default function ActivityCategoriesPage() {
               <ul className="mt-2 space-y-1">
                 {data.cats.map((c) => (
                   <li key={c.key} className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-elevated/60">
-                    <CategoryDot cat={c.key} size={12} />
+                    <CategoryIcon cat={c.key} size={15} />
                     {renaming === c.key ? (
                       <Input
                         autoFocus

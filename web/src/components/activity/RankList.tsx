@@ -1,6 +1,6 @@
 import { catLabel } from '../../lib/activityApi'
 import type { RankItem } from '../../lib/activityApi'
-import { AppIcon, CategoryDot, InlineBar, fmtDur } from './bits'
+import { AppIcon, CategoryIcon, InlineBar, fmtDur } from './bits'
 
 /**
  * 排行列表（最常用应用 / 最常用分类共用一套行样式）。
@@ -11,12 +11,14 @@ import { AppIcon, CategoryDot, InlineBar, fmtDur } from './bits'
 export function RankList({
   items,
   target,
+  token,
   cats,
   onSelectApp,
 }: {
   items: RankItem[]
   /** 当前目标设备（拿真实应用图标）；不传则用首字母块 */
   target?: { host: string; port: number; tls: boolean }
+  token?: string
   cats?: { key: string; label: string }[]
   onSelectApp?: (app: string, cat: string) => void
 }) {
@@ -40,7 +42,7 @@ export function RankList({
             }
           >
             <span className="w-5 shrink-0 text-center text-[12px] tabular-nums text-faint">{i + 1}</span>
-            <AppIcon app={it.app} cat={it.cat} target={target} />
+            <AppIcon app={it.app} cat={it.cat} target={target} token={token} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13.5px] text-fg">{it.app}</span>
               <span className="block text-[11px] text-muted">{catLabel(it.cat, cats)}</span>
@@ -68,7 +70,7 @@ export function CategoryRankList({ items, cats }: { items: { cat: string; sec: n
           className={'flex items-center gap-3 rounded-xl px-2.5 py-3' + (i > 0 ? ' mt-0.5' : '')}
         >
           <span className="w-5 shrink-0 text-center text-[12px] tabular-nums text-faint">{i + 1}</span>
-          <CategoryDot cat={it.cat} size={22} />
+          <CategoryIcon cat={it.cat} size={18} />
           <span className="min-w-0 flex-1 text-[13.5px] text-fg">{catLabel(it.cat, cats)}</span>
           <InlineBar sec={it.sec} max={max} cat={it.cat} />
           <span className="w-[96px] shrink-0 text-right text-[13.5px] font-medium tabular-nums text-fg">{fmtDur(it.sec)}</span>

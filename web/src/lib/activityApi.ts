@@ -617,7 +617,8 @@ export async function fetchSummary(
     // 并行拉取；settings 挂了不拦 summary，只是没有色带。
     const [raw, st] = await Promise.all([
       req<RawSummary>(t, token, `/activity/summary?scope=${p.scope}&date=${encodeURIComponent(p.date)}`, { timeoutMs: 15000 }),
-      req<RawSettings>(t, token, '/activity/settings', { timeoutMs: 8000 }).catch(() => null),
+      // 五期性能：settings 走 30s 单飞——年视图会把这里放大成 12 份请求（基线 34 的主因之一）
+      fetchSettingsRawOnce(t, token),
     ])
     const wb = st?.workHoursEnabled
       ? { from: hourOf(st.workStart), to: hourOf(st.workEnd) }
@@ -710,6 +711,44 @@ export async function putCategories(t: Target, token: string | undefined, data: 
     return { demo: false }
   } catch (e) {
     if (isNotImplemented(e)) return { demo: true }
+    throw e
+  }
+}
+
+/**
+ * 全年按天总时长（全部历史页热力图/月历用）。
+ *
+ * 五期性能：老实现是 12 次 scope=month 扇出（基线 alltime=34 的主因）。
+ * 现在优先请求 scope=year（一次返回全年按天桶，**待 agent-activity 加端点参数**，
+ * 已提需求）；agent 未支持（404/501）时回退为 12 次 month 请求拼装——
+ * month 已上线，这条回退路径是真数据，不会落进 mock。
+ */
+export async function fetchYearDays(
+  t: Target,
+  token: string | undefined,
+  year: number,
+): Promise<WithDemo<{ days: { date: string; sec: number }[] }>> {
+  try {
+    const raw = await req<RawSummary>(t, token, `/activity/summary?scope=year&date=${year}`, { timeoutMs: 20000 })
+    const days = (raw.buckets ?? []).map((b) => ({
+      date: b.key,
+      sec: Object.values(b.secs ?? {}).reduce((a, v) => a + v, 0),
+    }))
+    return { demo: false, data: { days } }
+  } catch (e) {
+    if (!isNotImplemented(e)) throw e
+  }
+  // 回退：12 × month（真接口）
+  try {
+    const months = await Promise.all(
+      Array.from({ length: 12 }, (_, i) =>
+        fetchSummary(t, token, { scope: 'month', date: `${year}-${String(i + 1).padStart(2, '0')}` }),
+      ),
+    )
+    const days = months.flatMap((m) => m.data.slots.map((s) => ({ date: s.key, sec: s.total })))
+    return { demo: months.some((m) => m.demo), data: { days } }
+  } catch (e) {
+    // 连 month 都不可用（未配对/离线）：交给调用方的错误态
     throw e
   }
 }
@@ -939,4 +978,35 @@ export async function putMemorySettings(
     if (isNotImplemented(e)) return { demo: true }
     throw e
   }
+}
+
+// ==================== 五期：图标缓存与 settings 单飞 ====================
+
+/** 图标二进制（blob），供 AppIcon 转 dataURL 缓存。404 返回 null。 */
+export async function fetchAppIconData(
+  t: Target,
+  token: string | undefined,
+  name: string,
+): Promise<Blob | null> {
+  try {
+    const res = await fetch(baseUrl(t) + '/activity/appicon?name=' + encodeURIComponent(name), {
+      headers: token ? { Authorization: 'Bearer ' + token } : {},
+    })
+    if (!res.ok) return null
+    return await res.blob()
+  } catch {
+    return null
+  }
+}
+
+// settings 单飞：summary 的侧拉（日视图色带）在年视图会放大成 12 份——
+// 模块级缓存 30 秒，同窗口内所有调用共享一次请求。
+let settingsCache: { at: number; promise: Promise<RawSettings | null> } | null = null
+
+function fetchSettingsRawOnce(t: Target, token: string | undefined): Promise<RawSettings | null> {
+  const now = Date.now()
+  if (settingsCache && now - settingsCache.at < 30_000) return settingsCache.promise
+  const p = req<RawSettings>(t, token, '/activity/settings', { timeoutMs: 8000 }).catch(() => null)
+  settingsCache = { at: now, promise: p }
+  return p
 }

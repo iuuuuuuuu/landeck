@@ -2,7 +2,7 @@ import { lazy, Suspense, useState } from 'react'
 import { Card, SectionTitle, Skeleton } from '../../components/ui'
 import { useAsync } from '../../lib/hooks'
 import { activityRankKey, activitySummaryKey } from '../../lib/activityKeys'
-import { CAT_LABEL, catColor, fetchRank, fetchSummary } from '../../lib/activityApi'
+import { CAT_LABEL, fetchRank, fetchSummary } from '../../lib/activityApi'
 // echarts 体积大：图表全部按 UptimePanel/UptimeBarChart 的 lazy 模式切成异步 chunk，
 // 不让主包背着 echarts（Lead 实测主包 664→1231KB 就是它挤进来的）
 const StackedBarChart = lazy(() =>
@@ -10,7 +10,7 @@ const StackedBarChart = lazy(() =>
 )
 import { CategoryRankList, RankList } from '../../components/activity/RankList'
 import { AppDetailPanel } from '../../components/activity/AppDetailPanel'
-import { fmtDur } from '../../components/activity/bits'
+import { CategoryIcon, fmtDur } from '../../components/activity/bits'
 import { useTheme } from '../../store/theme'
 import { ActivityPageHeader, DateNav, LoadError, NoDeviceGuide, StatCard, addDays, prettyDate, todayStr, useActivityTarget } from './shared'
 import { DevicePicker, SegmentedTabs } from '../../components/shell'
@@ -97,7 +97,7 @@ export default function ActivityDailyPage() {
             <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 px-1.5 pb-1">
               {r?.categories.map((c) => (
                 <span key={c.cat} className="inline-flex items-center gap-2 text-[12.5px] text-muted">
-                  <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: catColor(c.cat) }} />
+                  <CategoryIcon cat={c.cat} size={13} />
                   {CAT_LABEL[c.cat]}
                 </span>
               ))}
@@ -111,7 +111,7 @@ export default function ActivityDailyPage() {
           <div className="px-4 py-3">
             <SectionTitle title="最常用应用" desc={r ? `合计 ${fmtDur(r.apps.reduce((a, x) => a + x.sec, 0))}` : undefined} />
           </div>
-          {!r ? <Skeleton className="mx-4 mb-4 h-56" /> : <RankList items={r.apps} target={device} onSelectApp={(app, cat) => setDetail({ app, cat })} />}
+          {!r ? <Skeleton className="mx-4 mb-4 h-56" /> : <RankList items={r.apps} target={device} token={device.token} onSelectApp={(app, cat) => setDetail({ app, cat })} />}
         </Card>
         <Card className="p-0">
           <div className="px-4 py-3">

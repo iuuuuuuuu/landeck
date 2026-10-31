@@ -11,7 +11,7 @@ const StackedBarChart = lazy(() =>
 const DonutChart = lazy(() =>
   import('../../components/activity/DonutChart').then((m) => ({ default: m.DonutChart })),
 )
-import { fmtDur } from '../../components/activity/bits'
+import { CategoryIcon, fmtDur } from '../../components/activity/bits'
 import { useTheme } from '../../store/theme'
 import { ActivityPageHeader, DateNav, LoadError, NoDeviceGuide, StatCard, addMonths, currentMonth, useActivityTarget } from './shared'
 
@@ -191,7 +191,7 @@ export default function ActivityMonthlyPage() {
                         (isSel ? 'bg-elevated ring-1 ring-line-soft' : 'hover:bg-elevated/60')
                       }
                     >
-                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: catColor(c.cat) }} />
+                      <CategoryIcon cat={c.cat} size={13} />
                       <span className="flex-1 text-[13px] text-fg-soft">{CAT_LABEL[c.cat]}</span>
                       <span className="num text-[12.5px] tabular-nums text-muted">{pct}%</span>
                       <span className="num w-[74px] text-right text-[12.5px] tabular-nums text-fg-soft">{fmtDur(c.sec)}</span>
