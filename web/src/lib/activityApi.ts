@@ -363,6 +363,183 @@ function mockSettings(): ActivitySettings {
   }
 }
 
+// ---------- agent 形状归一 ----------
+//
+// 为什么要有这一层：agent 批与统计页批对同一份契约各自实现了字段名——
+// agent 的时间桶叫 buckets、类别字段叫 category（值是规则名，如「编程」）；
+// 统计页按 spec 用 slots 和内置 key（coding/other…）。归一在这里做一次，
+// 两边代码都不用改；agent 今后若直接改契约名，删掉对应映射即可。
+//
+// 类别名 ↔ 内置 key 的映射表（agent 默认规则用中文名做类别身份，
+// 存量数据已按它落库，所以不能改 agent 侧，只能在这里翻译）。
+const AGENT_CAT_TO_KEY: Record<string, CatKey> = {
+  '编程': 'coding',
+  '终端': 'coding',
+  '办公': 'office',
+  '沟通': 'chat',
+  '浏览': 'browsing',
+  '社交': 'social',
+  '影音': 'media',
+  '游戏': 'games',
+  '设计': 'coding',
+  '未分类': 'other',
+  '其他': 'other',
+}
+const KEY_TO_AGENT_CAT: Record<CatKey, string> = {
+  coding: '编程',
+  office: '办公',
+  chat: '沟通',
+  browsing: '浏览',
+  social: '社交',
+  media: '影音',
+  games: '游戏',
+  other: '其他',
+}
+/** 内置类的大类归属（agent 有 parent 概念，前端暂不展示，保存规则时带回）。 */
+const KEY_TO_PARENT: Record<CatKey, string> = {
+  coding: '工作',
+  office: '工作',
+  chat: '工作',
+  browsing: '娱乐',
+  social: '娱乐',
+  media: '娱乐',
+  games: '娱乐',
+  other: '其他',
+}
+
+/** agent 类别名 → 前端 key；内置翻译，自定义类别原样透传（catColor/catLabel 均可处理任意字符串）。 */
+function normCat(name: string | undefined): CatKey | string {
+  if (!name) return 'other'
+  return AGENT_CAT_TO_KEY[name] ?? name
+}
+
+/** 前端 key → agent 类别名；自定义类别原样透传。 */
+function agentCat(key: CatKey | string): string {
+  return KEY_TO_AGENT_CAT[key as CatKey] ?? String(key)
+}
+
+/** agent 响应的原始形状（只取用到的字段）。 */
+interface RawSummary {
+  scope: string
+  date: string
+  from: string
+  to: string
+  totalSec: number
+  buckets: { key: string; secs: Record<string, number> }[]
+}
+interface RawRank {
+  scope: string
+  date: string
+  from: string
+  to: string
+  totalSec: number
+  apps: { app: string; category: string; parent: string; secs: number }[]
+  categories: { category: string; parent: string; secs: number }[]
+}
+interface RawAppDetail {
+  app: string
+  category: string
+  totalSec: number
+  hours: { hour: string; secs: number }[]
+  groups: { title: string; secs: number }[]
+}
+interface RawCategories {
+  items: { id: string; category: string; parent: string; appPatterns: string[]; titlePatterns?: string[] }[]
+}
+interface RawSettings {
+  enabled: boolean
+  intervalSec: number
+  idleSec: number
+  workHoursEnabled: boolean
+  workStart: string
+  workEnd: string
+  privateRules: { id: string; kind: string; pattern: string }[]
+}
+
+function hourOf(hhmm: string): number {
+  const n = parseInt(hhmm, 10)
+  return Number.isFinite(n) ? n : 9
+}
+
+/** 星期短标签（周视图 x 轴用）。 */
+const WEEKDAY_SHORT = ['日', '一', '二', '三', '四', '五', '六']
+
+function normalizeSummary(scope: Scope, raw: RawSummary, workband?: { from: number; to: number }): SummaryData {
+  const slots: SummarySlot[] = (raw.buckets ?? []).map((b) => {
+    const sec: Partial<Record<CatKey, number>> = {}
+    let total = 0
+    for (const [name, v] of Object.entries(b.secs ?? {})) {
+      const k = normCat(name)
+      sec[k as CatKey] = (sec[k as CatKey] ?? 0) + v
+      total += v
+    }
+    let label = b.key
+    if (scope === 'month') label = String(parseInt(b.key.slice(8), 10) || b.key)
+    else if (scope === 'week') {
+      const d = new Date(`${b.key}T12:00:00`)
+      label = Number.isNaN(d.getTime()) ? b.key : WEEKDAY_SHORT[d.getDay()]
+    }
+    return { label, key: b.key, sec, total }
+  })
+  return {
+    scope: (raw.scope as Scope) || scope,
+    date: raw.date || raw.from || '',
+    slots,
+    totalSec: raw.totalSec ?? slots.reduce((a, x) => a + x.total, 0),
+    ...(scope === 'day' && workband ? { workband } : {}),
+  }
+}
+
+function normalizeRank(raw: RawRank): RankData {
+  return {
+    scope: (raw.scope as Scope) || 'day',
+    date: raw.date || raw.from || '',
+    apps: (raw.apps ?? []).map((a) => ({ app: a.app, cat: normCat(a.category) as CatKey, sec: a.secs })),
+    categories: (raw.categories ?? []).map((c) => ({ cat: normCat(c.category) as CatKey, sec: c.secs })),
+  }
+}
+
+function normalizeAppDetail(raw: RawAppDetail, app: string): AppDetailData {
+  return {
+    app: raw.app || app,
+    cat: normCat(raw.category) as CatKey,
+    sec: raw.totalSec ?? 0,
+    hours: (raw.hours ?? []).map((h) => ({ hour: parseInt(h.hour, 10) || 0, sec: h.secs })),
+    groups: (raw.groups ?? []).map((g) => ({ title: g.title, sec: g.secs })),
+  }
+}
+
+function normalizeCategories(raw: RawCategories): CategoriesData {
+  const rules: Record<string, CatKey | string> = {}
+  const custom = new Set<string>()
+  for (const it of raw.items ?? []) {
+    const key = normCat(it.category)
+    for (const p of it.appPatterns ?? []) {
+      if (p) rules[p.toLowerCase()] = key
+    }
+    if (!(key in CAT_LABEL)) custom.add(key)
+  }
+  return {
+    cats: [...CATEGORIES.map((c) => ({ ...c, builtin: true })), ...[...custom].map((k) => ({ key: k, label: k, builtin: false }))],
+    rules,
+  }
+}
+
+function normalizeSettings(raw: RawSettings): ActivitySettings {
+  return {
+    enabled: raw.enabled,
+    intervalSec: raw.intervalSec,
+    idleMinutes: Math.max(1, Math.round((raw.idleSec ?? 180) / 60)),
+    workband: {
+      enabled: !!raw.workHoursEnabled,
+      from: hourOf(raw.workStart),
+      to: hourOf(raw.workEnd),
+    },
+    domainCapture: false,
+    privacy: (raw.privateRules ?? []).map((r) => r.pattern).filter(Boolean),
+  }
+}
+
 // ---------- 真实请求 + 降级 ----------
 
 function isNotImplemented(e: unknown): boolean {
@@ -423,10 +600,16 @@ export async function fetchSummary(
   p: { scope: Scope; date: string },
 ): Promise<WithDemo<SummaryData>> {
   try {
-    const data = await req<SummaryData>(t, token, `/activity/summary?scope=${p.scope}&date=${encodeURIComponent(p.date)}`, {
-      timeoutMs: 15000,
-    })
-    return { demo: false, data }
+    // 日视图的工作时段色带来自 settings（agent 的 summary 不带 workband），
+    // 并行拉取；settings 挂了不拦 summary，只是没有色带。
+    const [raw, st] = await Promise.all([
+      req<RawSummary>(t, token, `/activity/summary?scope=${p.scope}&date=${encodeURIComponent(p.date)}`, { timeoutMs: 15000 }),
+      req<RawSettings>(t, token, '/activity/settings', { timeoutMs: 8000 }).catch(() => null),
+    ])
+    const wb = st?.workHoursEnabled
+      ? { from: hourOf(st.workStart), to: hourOf(st.workEnd) }
+      : undefined
+    return { demo: false, data: normalizeSummary(p.scope, raw, wb) }
   } catch (e) {
     if (isNotImplemented(e)) return { demo: true, data: mockSummary(p) }
     throw e
@@ -440,10 +623,10 @@ export async function fetchRank(
   p: { scope: Scope; date: string },
 ): Promise<WithDemo<RankData>> {
   try {
-    const data = await req<RankData>(t, token, `/activity/rank?scope=${p.scope}&date=${encodeURIComponent(p.date)}`, {
+    const raw = await req<RawRank>(t, token, `/activity/rank?scope=${p.scope}&date=${encodeURIComponent(p.date)}`, {
       timeoutMs: 15000,
     })
-    return { demo: false, data }
+    return { demo: false, data: normalizeRank(raw) }
   } catch (e) {
     if (isNotImplemented(e)) return { demo: true, data: mockRank(p) }
     throw e
@@ -457,13 +640,13 @@ export async function fetchAppDetail(
   p: { app: string; date: string },
 ): Promise<WithDemo<AppDetailData>> {
   try {
-    const data = await req<AppDetailData>(
+    const raw = await req<RawAppDetail>(
       t,
       token,
       `/activity/app/${encodeURIComponent(p.app)}?date=${encodeURIComponent(p.date)}`,
       { timeoutMs: 15000 },
     )
-    return { demo: false, data }
+    return { demo: false, data: normalizeAppDetail(raw, p.app) }
   } catch (e) {
     if (isNotImplemented(e)) return { demo: true, data: mockAppDetail(p.app, p.date) }
     throw e
@@ -473,8 +656,8 @@ export async function fetchAppDetail(
 /** 分类规则读取。 */
 export async function fetchCategories(t: Target, token: string | undefined): Promise<WithDemo<CategoriesData>> {
   try {
-    const data = await req<CategoriesData>(t, token, '/activity/categories', { timeoutMs: 15000 })
-    return { demo: false, data }
+    const raw = await req<RawCategories>(t, token, '/activity/categories', { timeoutMs: 15000 })
+    return { demo: false, data: normalizeCategories(raw) }
   } catch (e) {
     if (isNotImplemented(e)) return { demo: true, data: mockCategories() }
     throw e
@@ -484,7 +667,33 @@ export async function fetchCategories(t: Target, token: string | undefined): Pro
 /** 分类规则保存。demo 模式下不真发请求（agent 没这接口，发了也是 404）。 */
 export async function putCategories(t: Target, token: string | undefined, data: CategoriesData): Promise<{ demo: boolean }> {
   try {
-    await req(t, token, '/activity/categories', { method: 'PUT', body: data, timeoutMs: 15000 })
+    // 前端模型（app→key 的平铺规则）→ agent 模型（CategoryRule 列表，按类别分组）。
+    // 同一类别的应用合并进一条规则的 appPatterns；保留 agent 已有规则的 id，
+    // 让重复保存不产生 id 漂移。
+    const raw = await req<RawCategories>(t, token, '/activity/categories', { timeoutMs: 15000 }).catch(() => null)
+    const existingIds = new Map<string, string>()
+    for (const it of raw?.items ?? []) existingIds.set(normCat(it.category), it.id)
+
+    const byCat = new Map<string, string[]>()
+    for (const [app, cat] of Object.entries(data.rules)) {
+      const name = agentCat(cat)
+      const list = byCat.get(name) ?? []
+      list.push(app)
+      byCat.set(name, list)
+    }
+    // 自建类别即使暂时没有规则也要保留条目，否则 GET 回来就消失了
+    for (const c of data.cats) {
+      if (c.builtin) continue
+      if (!byCat.has(c.key)) byCat.set(c.key, [])
+    }
+
+    const items = [...byCat.entries()].map(([name, apps], i) => ({
+      id: existingIds.get(name) ?? `cat-custom-${Date.now().toString(36)}-${i}`,
+      category: name,
+      parent: KEY_TO_PARENT[name as CatKey] ?? name,
+      appPatterns: apps,
+    }))
+    await req(t, token, '/activity/categories', { method: 'PUT', body: { items }, timeoutMs: 15000 })
     return { demo: false }
   } catch (e) {
     if (isNotImplemented(e)) return { demo: true }
@@ -495,8 +704,8 @@ export async function putCategories(t: Target, token: string | undefined, data: 
 /** 采集设置读取（分类页与后续设置入口共用）。 */
 export async function fetchActivitySettings(t: Target, token: string | undefined): Promise<WithDemo<ActivitySettings>> {
   try {
-    const data = await req<ActivitySettings>(t, token, '/activity/settings', { timeoutMs: 15000 })
-    return { demo: false, data }
+    const raw = await req<RawSettings>(t, token, '/activity/settings', { timeoutMs: 15000 })
+    return { demo: false, data: normalizeSettings(raw) }
   } catch (e) {
     if (isNotImplemented(e)) return { demo: true, data: mockSettings() }
     throw e

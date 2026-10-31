@@ -512,6 +512,19 @@ fn agent_start(_app: tauri::AppHandle, _port: u16) -> Result<bool, String> {
     Err("手机上不能启动本机被控端".into())
 }
 
+/// 剥掉 Windows 设备路径前缀，让不认 `\\?\` 的组件（modernc/sqlite）也能用。
+#[cfg(desktop)]
+fn clean_win_path(p: &std::path::Path) -> std::path::PathBuf {
+    let s = p.as_os_str().to_string_lossy().into_owned();
+    if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+        return std::path::PathBuf::from(format!(r"\\{rest}"));
+    }
+    if let Some(rest) = s.strip_prefix(r"\\?\") {
+        return std::path::PathBuf::from(rest);
+    }
+    p.to_path_buf()
+}
+
 #[cfg(desktop)]
 fn agent_start_impl(app: &tauri::AppHandle, port: u16) -> Result<bool, String> {
     use std::process::Command;
@@ -543,6 +556,12 @@ fn agent_start_impl(app: &tauri::AppHandle, port: u16) -> Result<bool, String> {
     // 数据目录放在客户端自己的数据目录下，避免与手动安装的 Agent 抢配置
     let data = dir.join("agent-data");
     let _ = std::fs::create_dir_all(&data);
+
+    // 关键：给子进程的路径必须剥掉 Win32 设备路径前缀（\\?\）。
+    // resource_dir() 在 Windows 上返回 \\?\C:\... 规范化路径，Go 标准库用着没问题，
+    // 但 modernc/sqlite 对这种前缀直接打开失败——表现为活动采集永远 unsupported
+    // （openDB 出错时 supported 被强制置 false）。实测踩过。
+    let data = clean_win_path(&data);
 
     let mut cmd = Command::new(exe);
     cmd.arg("--data").arg(&data);

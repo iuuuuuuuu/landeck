@@ -59,6 +59,13 @@ func clipTitle(t string) string {
 
 // openDB 打开（必要时创建）段库。WAL 模式：写不阻塞读。
 func openDB(path string) (*sql.DB, error) {
+	// 防御：上游可能传来 Win32 设备路径前缀（\\?\C:\...，Tauri resource_dir 的产物）。
+	// Go 标准库能处理，但 modernc/sqlite 不认，会直接打开失败——
+	// 在这里剥掉，保证无论谁启动 agent 采集都可用。
+	path = strings.TrimPrefix(path, `\\?\UNC\`)
+	if strings.HasPrefix(path, `\\?\`) {
+		path = path[len(`\\?\`):]
+	}
 	db, err := sql.Open("sqlite", path+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, err
