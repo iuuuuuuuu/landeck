@@ -57,21 +57,24 @@ type HourSec struct {
 	Secs int64  `json:"secs"`
 }
 
-// TitleRank 应用详情里按窗口标题分组的行（浏览器场景即页面标题）。
-type TitleRank struct {
+// TitleGroup 应用详情里按「窗口标题/网站域名」混合分组的行，按时长降序。
+//
+// 字段名 groups 对齐前端契约（activity-pages）；域名采集未实现前，
+// 组键就是窗口标题——浏览器场景下标题通常已带站点信息，语义足够接近。
+type TitleGroup struct {
 	Title string `json:"title"`
 	Secs  int64  `json:"secs"`
 }
 
 // AppDetail 单应用详情响应。
 type AppDetail struct {
-	App      string      `json:"app"`
-	Category string      `json:"category"`
-	Parent   string      `json:"parent"`
-	Date     string      `json:"date"`
-	TotalSec int64       `json:"totalSec"`
-	Hours    []HourSec   `json:"hours"`
-	ByTitle  []TitleRank `json:"byTitle"`
+	App      string       `json:"app"`
+	Category string       `json:"category"`
+	Parent   string       `json:"parent"`
+	Date     string       `json:"date"`
+	TotalSec int64        `json:"totalSec"`
+	Hours    []HourSec    `json:"hours"`
+	Groups   []TitleGroup `json:"groups"`
 }
 
 // ---------- 范围计算 ----------
@@ -81,7 +84,10 @@ type AppDetail struct {
 func rangeOf(scope, date string, now time.Time) (time.Time, time.Time, string, string) {
 	anchor := now
 	if date != "" {
+		// day/week 锚点用完整日期；month 的前端契约是 "YYYY-MM"
 		if d, err := time.ParseInLocation("2006-01-02", date, time.Local); err == nil {
+			anchor = d
+		} else if d, err := time.ParseInLocation("2006-01", date, time.Local); err == nil {
 			anchor = d
 		}
 	}
@@ -287,16 +293,16 @@ func BuildAppDetail(segs []Segment, rules []CategoryRule, appName string, from, 
 	}
 	sort.Slice(d.Hours, func(i, j int) bool { return d.Hours[i].Hour < d.Hours[j].Hour })
 	for t, secs := range titleSecs {
-		d.ByTitle = append(d.ByTitle, TitleRank{Title: t, Secs: secs})
+		d.Groups = append(d.Groups, TitleGroup{Title: t, Secs: secs})
 	}
-	sort.Slice(d.ByTitle, func(i, j int) bool {
-		if d.ByTitle[i].Secs == d.ByTitle[j].Secs {
-			return d.ByTitle[i].Title < d.ByTitle[j].Title
+	sort.Slice(d.Groups, func(i, j int) bool {
+		if d.Groups[i].Secs == d.Groups[j].Secs {
+			return d.Groups[i].Title < d.Groups[j].Title
 		}
-		return d.ByTitle[i].Secs > d.ByTitle[j].Secs
+		return d.Groups[i].Secs > d.Groups[j].Secs
 	})
-	if len(d.ByTitle) > 50 {
-		d.ByTitle = d.ByTitle[:50]
+	if len(d.Groups) > 50 {
+		d.Groups = d.Groups[:50]
 	}
 	return d
 }

@@ -160,7 +160,7 @@ func TestBuildAppDetail(t *testing.T) {
 		t.Fatalf("09 桶应 3600s，得到 %+v", d.Hours[0])
 	}
 	// 标题分组排序：PR #42 共 70min 排第一
-	if len(d.ByTitle) != 2 || d.ByTitle[0].Title != "GitHub — Pull Request #42" || d.ByTitle[0].Secs != 70*60 {
-		t.Fatalf("标题分组应 PR#42 70min 居首，得到 %+v", d.ByTitle)
+	if len(d.Groups) != 2 || d.Groups[0].Title != "GitHub — Pull Request #42" || d.Groups[0].Secs != 70*60 {
+		t.Fatalf("标题分组应 PR#42 70min 居首，得到 %+v", d.Groups)
 	}
 }

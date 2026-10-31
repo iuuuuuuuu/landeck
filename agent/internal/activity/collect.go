@@ -95,12 +95,16 @@ func decide(t tickCtx, cur *openSegment) tickResult {
 
 // Status 采集状态（前端侧栏状态位）。
 type Status struct {
-	State    string `json:"state"` // collecting | idle | resting | stopped | unsupported
-	Since    string `json:"since"` // 进入当前状态的 RFC3339 时刻
-	App      string `json:"app,omitempty"`
-	Category string `json:"category,omitempty"`
-	Parent   string `json:"parent,omitempty"`
-	Segments int64  `json:"segments"`
+	// 契约三布尔：前端侧栏挂件只消费它们（activity-pages 口径）
+	Enabled    bool   `json:"enabled"`
+	Collecting bool   `json:"collecting"`
+	Idle       bool   `json:"idle"`
+	State      string `json:"state"` // collecting | idle | resting | stopped | unsupported
+	Since      string `json:"since"` // 进入当前状态的 RFC3339 时刻
+	App        string `json:"app,omitempty"`
+	Category   string `json:"category,omitempty"`
+	Parent     string `json:"parent,omitempty"`
+	Segments   int64  `json:"segments"`
 }
 
 // ---------- Manager ----------
@@ -292,7 +296,13 @@ func GetStatus() Status {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	st := Status{State: m.state, Since: m.stateAt.Format(time.RFC3339), App: m.lastApp, Category: m.lastCat, Parent: m.lastPar}
+	st := Status{
+		State: m.state, Since: m.stateAt.Format(time.RFC3339),
+		App: m.lastApp, Category: m.lastCat, Parent: m.lastPar,
+		Enabled:    m.settings.Get().Enabled,
+		Collecting: m.state == "collecting",
+		Idle:       m.state == "idle",
+	}
 	if m.db != nil {
 		if n, err := m.db.count(); err == nil {
 			st.Segments = n
