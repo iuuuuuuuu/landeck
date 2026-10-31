@@ -120,6 +120,13 @@ export function useLive(device?: PairedDevice | null): LiveState {
 
     const connect = () => {
       if (closedRef.current) return
+      // 无令牌目标（本机 / 未配对的本地目标）：agent 的 /ws 端点强制令牌鉴权，
+      // 握手必然 401，按退避试 3 次只是白费 4 个失败请求和最多 5 秒延迟。
+      // 实测（五期 CDP）：空 token 握手 HTTP 401，直接走轮询。
+      if (!client.token) {
+        startPolling()
+        return
+      }
       const url = client.streamUrl()
       if (!url) {
         startPolling()
