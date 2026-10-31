@@ -10,7 +10,7 @@ Status: implemented
 2. **远程桌面永远 demo 模式**：agent 已含 /rd/stream 且版本已升 1.0.19，viewer 仍显示演示图案。
 3. **「最近截图 20737 天前」**：单位契约漏写导致两批各按理解实现。
 
-## Decision 与根因
+## Decision
 
 1. **OCR 乱码根因 = 降采样尺度，不是位图传递分叉**。Lead 最初假设「OCR 读的位图 ≠ 落盘 PNG」——**不成立**（OCR 本来就在读落盘文件）。agent-activity 探针实证：虚拟桌面 4608×1440（双屏拼接），契约的「长边降到 1920」把它压成 1920×600，每屏文字只剩 41%，Windows OCR 在该尺度全输出幻字。决定性对比：全分辨率 OCR 出 `Firefox/deepseek/网易云音乐` 等大量真实词，降采样版全灭。修法：**OCR 消费全分辨率临时文件**（识别后即删+孤儿清扫），落盘仍 1920（存档给人看、OCR 给机器读，分叉是刻意设计）。
 2. **RD 版本门改实时源**：viewer 用设备存储里缓存的 `device.ver`（配对时的 1.0.18）做 demo 门，agent 升 1.0.19 后不同步——已升级的被控端被挡在演示模式。修为 `probeNode()` 免鉴权探测 /hello 的实时 ver（StatusSnapshot 根本没有 ver 字段，useLive 方案类型不过）。

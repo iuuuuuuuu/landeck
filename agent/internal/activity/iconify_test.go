@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -145,5 +146,52 @@ func TestAppIconOnlineNegativeCache(t *testing.T) {
 	}
 	if n := atomic.LoadInt32(&fetches); n != 2 {
 		t.Fatalf("负缓存过期后应重试 1 次，实际 %d", n)
+	}
+}
+
+// 并发单飞（五期体检）：3 个未知应用同时 404，每个 slug 只允许打一次外网。
+// 没有单飞的话，并发请求会各自打外网（3 应用 × 并发数）。
+func TestAppIconConcurrentSingleflight(t *testing.T) {
+	dir := testDir(t)
+	initIconStore(dir)
+
+	var fetches int32
+	iconFetch = func(url string) ([]byte, error) {
+		atomic.AddInt32(&fetches, 1)
+		time.Sleep(50 * time.Millisecond) // 拉宽竞态窗口
+		return []byte("<svg/>"), nil
+	}
+	t.Cleanup(func() {
+		iconFetch = func(url string) ([]byte, error) { panic("测试外的在线拉取") }
+	})
+
+	// 用独立应用（chrome/firefox 已被上面两个测试碰过：iconMem 有缓存、
+	// firefox 还挂着 10 分钟在线失败负缓存——包级状态会泄漏到本测试）
+	apps := []string{"brave", "vivaldi", "opera"}
+	for _, app := range apps {
+		onlineMu.Lock()
+		delete(onlineFailed, app)
+		onlineMu.Unlock()
+	}
+	var wg sync.WaitGroup
+	for _, app := range apps {
+		for i := 0; i < 3; i++ { // 每应用 3 个并发请求
+			wg.Add(1)
+			go func(a string) {
+				defer wg.Done()
+				AppIcon(a) // 结果无所谓：命中或首飞期 miss 都合法
+			}(app)
+		}
+	}
+	wg.Wait()
+
+	if n := atomic.LoadInt32(&fetches); n != 3 {
+		t.Fatalf("3 应用并发应恰好拉取 3 次（每应用单飞），实际 %d", n)
+	}
+	// 收尾：全部最终可命中（缓存已写入）
+	for _, app := range apps {
+		if _, _, _, ok := AppIcon(app); !ok {
+			t.Fatalf("并发结束后 %s 应可命中缓存", app)
+		}
 	}
 }

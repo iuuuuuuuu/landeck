@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"landeck/internal/config"
 	"landeck/internal/store"
 )
 
@@ -110,8 +111,15 @@ var upgrader = websocket.Upgrader{
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	client, ok := s.Auth.Authenticate(bearer(r))
 	if !ok {
-		writeErr(w, http.StatusUnauthorized, "unauthorized", "令牌无效或已失效，请重新配对")
-		return
+		// 本机免令牌：与 HTTP protect() 的 allowLocalNoAuth 同口径——
+		// 只在回环豁免，远程已配对设备照常走令牌，不新开攻击面。
+		// 没有这条时本机/未配对目标的 token 为空 → 握手永远 401，
+		// 前端退化成 2.5s 轮询，实时帧全废（web-shell 集成实测）。
+		if !(s.Cfg.Get().AllowLocalNoAuth && isLocalRequest(r)) {
+			writeErr(w, http.StatusUnauthorized, "unauthorized", "令牌无效或已失效，请重新配对")
+			return
+		}
+		client = &config.Client{ID: "local", Name: "本机", Role: "owner"}
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
