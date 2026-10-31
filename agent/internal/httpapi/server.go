@@ -15,6 +15,7 @@ import (
 	"landeck/internal/config"
 	"landeck/internal/control"
 	"landeck/internal/metrics"
+	"landeck/internal/rd"
 	"landeck/internal/scheduler"
 	"landeck/internal/store"
 )
@@ -135,6 +136,18 @@ func (s *Server) routes() {
 	// AI 日报与对话（agent-ai 的包）：它自己注册 /api/v1/ai/*，
 	// protect 直接传方法值——ai.guarded 与这里的 authed 底层签名一致，
 	// 走同一套 Bearer 鉴权；dataDir 与 activity 同一个，配置落 ai.json。
+	m.HandleFunc("GET /api/v1/memory/search", s.protect(s.handleMemorySearch))
+	m.HandleFunc("GET /api/v1/memory/image", s.protect(s.handleMemoryImage))
+	m.HandleFunc("GET /api/v1/memory/status", s.protect(s.handleMemoryStatus))
+	m.HandleFunc("GET /api/v1/memory/settings", s.protect(s.handleMemorySettingsGet))
+	m.HandleFunc("PUT /api/v1/memory/settings", s.protect(s.handleMemorySettingsPut))
+
+	// 远程桌面（agent-rd 的包）：rd.Register 自注册 /api/v1/rd/stream，
+	// protect 适配与 ai.Register 同款（rd.guarded 未导出，lambda 桥接）
+	rd.Register(s.mux, func(h func(http.ResponseWriter, *http.Request, *config.Client)) http.HandlerFunc {
+		return s.protect(h)
+	})
+
 	ai.Register(s.mux, func(h func(http.ResponseWriter, *http.Request, *config.Client)) http.HandlerFunc {
 		// ai.guarded 未导出：lambda 参数用同形状的未命名函数类型，
 		// 可赋值性由「底层签名一致」保证（authed/guarded 同构）。

@@ -16,8 +16,21 @@ diff 里永远只剩真实内容变更。
 - 文件无格式变更时不写盘（mtime 不动）
 - gofmt 语法错误时保留原文件、非零退出
 """
+import os
 import subprocess
 import sys
+
+
+def expand(paths):
+    """目录递归展开为 .go 文件；文件原样通过。"""
+    out = []
+    for p in paths:
+        if os.path.isdir(p):
+            for root, _, names in os.walk(p):
+                out.extend(os.path.join(root, n) for n in names if n.endswith(".go"))
+        else:
+            out.append(p)
+    return out
 
 
 def main() -> int:
@@ -25,7 +38,7 @@ def main() -> int:
         print(__doc__)
         return 2
     changed = 0
-    for p in sys.argv[1:]:
+    for p in expand(sys.argv[1:]):
         with open(p, "rb") as f:
             raw = f.read()
         was_crlf = b"\r\n" in raw

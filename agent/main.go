@@ -25,6 +25,7 @@ import (
 	"landeck/internal/control"
 	"landeck/internal/discovery"
 	"landeck/internal/httpapi"
+	"landeck/internal/memory"
 	"landeck/internal/metrics"
 	"landeck/internal/scheduler"
 	"landeck/internal/store"
@@ -125,6 +126,8 @@ func runServer() {
 	metrics.WarmUptime()
 	// 活动采集（屏幕时间）：独立子系统，失败只降级不影响控制链路
 	activity.Start(o.dataDir)
+	// 屏幕记忆（截图+OCR）：默认关闭，Start 只是让设置端点可用
+	memory.Start(o.dataDir)
 
 	addr := fmt.Sprintf("%s:%d", bindAddr(cfg, o), effectivePort(cfg))
 	srv := &http.Server{
@@ -203,6 +206,7 @@ func runServer() {
 	log.Println("正在退出…")
 	sched.Stop()
 	activity.Stop()
+	memory.Stop()
 	if ann != nil {
 		ann.Stop()
 	}
