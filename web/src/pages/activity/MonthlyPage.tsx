@@ -53,7 +53,13 @@ export default function ActivityMonthlyPage() {
   )
 
   if (!localAvailable && pairedCount === 0) return <NoDeviceGuide />
-  if (summary.error) return <LoadError error={summary.error} onRetry={summary.reload} />
+  if (summary.error)
+    return (
+      <div className="space-y-4">
+        <ActivityPageHeader title="月统计" subtitle={month} />
+        <LoadError error={summary.error} onRetry={summary.reload} />
+      </div>
+    )
 
   const s = summary.data?.data
   const r = rank.data?.data

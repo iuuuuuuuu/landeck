@@ -46,7 +46,13 @@ export default function ActivityCategoriesPage() {
   }, [data, rank.data])
 
   if (!localAvailable && pairedCount === 0) return <NoDeviceGuide />
-  if (q.error) return <LoadError error={q.error} onRetry={q.reload} />
+  if (q.error)
+    return (
+      <div className="space-y-4">
+        <ActivityPageHeader title="分类管理" subtitle="应用与网站的活动分类" />
+        <LoadError error={q.error} onRetry={q.reload} />
+      </div>
+    )
 
   const demo = !!q.data?.demo
 

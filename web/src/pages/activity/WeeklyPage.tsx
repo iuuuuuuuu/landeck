@@ -12,6 +12,7 @@ import { AppDetailPanel } from '../../components/activity/AppDetailPanel'
 import { fmtDur } from '../../components/activity/bits'
 import { useTheme } from '../../store/theme'
 import { ActivityPageHeader, DateNav, LoadError, NoDeviceGuide, StatCard, addDays, todayStr, useActivityTarget } from './shared'
+import { DevicePicker, SegmentedTabs } from '../../components/shell'
 import type { AppDetailOpen } from './DailyPage'
 
 /**
@@ -35,7 +36,13 @@ export default function ActivityWeeklyPage() {
   })
 
   if (!localAvailable && pairedCount === 0) return <NoDeviceGuide />
-  if (summary.error) return <LoadError error={summary.error} onRetry={summary.reload} />
+  if (summary.error)
+    return (
+      <div className="space-y-4">
+        <ActivityPageHeader title="周统计" subtitle={date} />
+        <LoadError error={summary.error} onRetry={summary.reload} />
+      </div>
+    )
 
   const s = summary.data?.data
   const r = rank.data?.data
@@ -53,39 +60,16 @@ export default function ActivityWeeklyPage() {
       <StatCard
         toolbar={
           <>
-            <div className="flex items-center gap-1 rounded-xl border border-line-soft bg-elevated p-1">
-              {(
-                [
-                  { v: 'hours', label: '时段' },
-                  { v: 'share', label: '占比' },
-                ] as const
-              ).map((o) => (
-                <button
-                  key={o.v}
-                  type="button"
-                  onClick={() => setMode(o.v)}
-                  className={
-                    'rounded-lg px-3 py-1.5 text-[12.5px] transition-colors ' +
-                    (mode === o.v ? 'bg-surface text-fg shadow-sm ring-1 ring-line-soft' : 'text-muted hover:text-fg-soft')
-                  }
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedTabs
+              items={[
+                { key: 'hours', label: '时段' },
+                { key: 'share', label: '占比' },
+              ]}
+              value={mode}
+              onChange={setMode}
+            />
             <div className="flex items-center gap-2">
-              <select
-                aria-label="选择设备"
-                value={device.id}
-                onChange={(e) => setDeviceId(e.target.value)}
-                className="h-10 rounded-xl border border-line-soft bg-elevated px-3 text-[13px] text-fg"
-              >
-                {devices.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
+              <DevicePicker devices={devices} value={device.id} onChange={setDeviceId} className="w-56" />
               <DateNav
                 label={range}
                 todayLabel="本周"

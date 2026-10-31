@@ -36,7 +36,7 @@ export function InlineBar({ sec, max, cat }: { sec: number; max: number; cat: st
   if (sec <= 0 || max <= 0) return <span className="w-16" />
   const pct = Math.max(4, Math.round((sec / max) * 100))
   return (
-    <span className="inline-flex w-20 shrink-0 items-center sm:w-28">
+    <span className="inline-flex w-24 shrink-0 items-center sm:w-40">
       <span className="h-1.5 w-full overflow-hidden rounded-full bg-line-soft">
         <span
           className="block h-full rounded-full"

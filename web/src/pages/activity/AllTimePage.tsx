@@ -54,7 +54,13 @@ export default function ActivityAllTimePage() {
   const activeDays = days.filter((d) => d.sec > 0).length
 
   if (!localAvailable && pairedCount === 0) return <NoDeviceGuide />
-  if (yearQ.error) return <LoadError error={yearQ.error} onRetry={yearQ.reload} />
+  if (yearQ.error)
+    return (
+      <div className="space-y-4">
+        <ActivityPageHeader title="全部历史" subtitle="按年查看活动分布" />
+        <LoadError error={yearQ.error} onRetry={yearQ.reload} />
+      </div>
+    )
 
   return (
     <div className="space-y-4">

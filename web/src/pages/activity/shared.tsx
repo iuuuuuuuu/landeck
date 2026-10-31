@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MonitorSmartphone, WifiOff } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Badge, Button, Card, EmptyState } from '../../components/ui'
+import { PageHeader } from '../../components/shell'
 import { useApp } from '../../store/app'
 import { LOCAL_DOWN_HINT, useActiveTarget } from '../../lib/useActiveTarget'
 
@@ -11,14 +13,14 @@ import { LOCAL_DOWN_HINT, useActiveTarget } from '../../lib/useActiveTarget'
  */
 
 export function ActivityPageHeader({ title, subtitle, demo }: { title: string; subtitle: string; demo?: boolean }) {
+  // 三期统一：活动页大标题走全局 PageHeader（字号层级/移动端降级/间距一套规矩），
+  // 这页自建的 26/30px 版本在移动端偏大、与设备等页并不同款。
   return (
-    <div className="flex flex-wrap items-end justify-between gap-2">
-      <div>
-        <h1 className="text-[26px] font-bold leading-tight text-fg sm:text-[30px]">{title}</h1>
-        <p className="mt-1 text-[13px] text-muted">{subtitle}</p>
-      </div>
-      {demo && <Badge tone="cyan">演示数据</Badge>}
-    </div>
+    <PageHeader
+      title={title}
+      sub={subtitle}
+      actions={demo ? <Badge tone="cyan">演示数据</Badge> : undefined}
+    />
   )
 }
 
@@ -52,7 +54,7 @@ export function DateNav({ label, onPrev, onNext, onToday, todayLabel, currentLab
       <button
         type="button"
         onClick={onToday}
-        className="h-9 rounded-xl border border-line-soft bg-elevated px-3.5 text-[12.5px] text-fg-soft transition-colors hover:bg-elevated/80"
+        className="h-9 shrink-0 whitespace-nowrap rounded-xl border border-line-soft bg-elevated px-3.5 text-[12.5px] text-fg-soft transition-colors hover:bg-elevated/80"
       >
         {todayText}
       </button>
@@ -92,19 +94,36 @@ export function NoDeviceGuide() {
   return (
     <Card>
       <EmptyState
+        icon={<MonitorSmartphone size={26} />}
         title="还没有可查看的设备"
         desc={LOCAL_DOWN_HINT + ' 配对一台电脑后，这里会显示它的活动统计。'}
+        action={
+          <Link to="/scan">
+            <Button variant="primary" size="md">
+              去发现扫描
+            </Button>
+          </Link>
+        }
       />
     </Card>
   )
+}
+
+/** 网络层错误人类化：TypeError("Failed to fetch") 直出会像系统崩了一样。 */
+function humanizeActivityError(err: unknown): string {
+  const msg = String((err as { message?: string })?.message ?? err ?? '')
+  if (/failed to fetch/i.test(msg)) return '连不上被控端：设备可能已离线，或 Agent 没有在运行。'
+  if (/abort/i.test(msg)) return '读取超时：被控端响应太慢，请重试。'
+  return msg
 }
 
 export function LoadError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   return (
     <Card>
       <EmptyState
+        icon={<WifiOff size={26} />}
         title="统计数据读取失败"
-        desc={String(error ?? '')}
+        desc={humanizeActivityError(error)}
         action={
           <Button size="sm" variant="secondary" onClick={onRetry}>
             重试

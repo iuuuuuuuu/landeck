@@ -22,29 +22,31 @@ export function RankList({
 }) {
   const max = Math.max(...items.map((i) => i.sec), 1)
   if (items.length === 0) {
-    return <p className="px-3 py-6 text-center text-[12.5px] text-muted">这段时间没有记录到活动。</p>
+    return <p className="px-3 py-8 text-center text-[12.5px] text-muted">这段时间没有记录到活动。</p>
   }
   return (
-    <ul>
+    <ul className="px-1.5 pb-1.5">
       {items.map((it, i) => (
         <li key={it.app}>
           <button
             type="button"
             onClick={() => onSelectApp?.(it.app, it.cat)}
             className={
-              'flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-elevated ' +
-              (onSelectApp ? 'cursor-pointer' : 'cursor-default') +
-              (i > 0 ? ' border-t border-line-soft' : '')
+              'flex w-full items-center gap-3 rounded-xl px-2.5 py-3 text-left transition-colors ' +
+              (onSelectApp
+                ? 'cursor-pointer hover:bg-hover focus-visible:bg-hover'
+                : 'cursor-default') +
+              (i > 0 ? ' mt-0.5' : '')
             }
           >
-            <span className="w-4 shrink-0 text-center text-[12px] text-faint">{i + 1}</span>
+            <span className="w-5 shrink-0 text-center text-[12px] tabular-nums text-faint">{i + 1}</span>
             <AppIcon app={it.app} cat={it.cat} target={target} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13.5px] text-fg">{it.app}</span>
               <span className="block text-[11px] text-muted">{catLabel(it.cat, cats)}</span>
             </span>
             <InlineBar sec={it.sec} max={max} cat={it.cat} />
-            <span className="w-[86px] shrink-0 text-right text-[13px] tabular-nums text-fg-soft">{fmtDur(it.sec)}</span>
+            <span className="w-[96px] shrink-0 text-right text-[13.5px] font-medium tabular-nums text-fg">{fmtDur(it.sec)}</span>
           </button>
         </li>
       ))}
@@ -56,20 +58,20 @@ export function RankList({
 export function CategoryRankList({ items, cats }: { items: { cat: string; sec: number }[]; cats?: { key: string; label: string }[] }) {
   const max = Math.max(...items.map((i) => i.sec), 1)
   if (items.length === 0) {
-    return <p className="px-3 py-6 text-center text-[12.5px] text-muted">这段时间没有记录到活动。</p>
+    return <p className="px-3 py-8 text-center text-[12.5px] text-muted">这段时间没有记录到活动。</p>
   }
   return (
-    <ul>
+    <ul className="px-1.5 pb-1.5">
       {items.map((it, i) => (
         <li
           key={it.cat}
-          className={'flex items-center gap-3 px-3 py-2.5' + (i > 0 ? ' border-t border-line-soft' : '')}
+          className={'flex items-center gap-3 rounded-xl px-2.5 py-3' + (i > 0 ? ' mt-0.5' : '')}
         >
-          <span className="w-4 shrink-0 text-center text-[12px] text-faint">{i + 1}</span>
+          <span className="w-5 shrink-0 text-center text-[12px] tabular-nums text-faint">{i + 1}</span>
           <CategoryDot cat={it.cat} size={22} />
           <span className="min-w-0 flex-1 text-[13.5px] text-fg">{catLabel(it.cat, cats)}</span>
           <InlineBar sec={it.sec} max={max} cat={it.cat} />
-          <span className="w-[86px] shrink-0 text-right text-[13px] tabular-nums text-fg-soft">{fmtDur(it.sec)}</span>
+          <span className="w-[96px] shrink-0 text-right text-[13.5px] font-medium tabular-nums text-fg">{fmtDur(it.sec)}</span>
         </li>
       ))}
     </ul>

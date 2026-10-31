@@ -89,16 +89,16 @@ export function StackedBarChart({
         type: 'bar' as const,
         stack: 'total',
         // barMaxWidth 只约束宽度；日视图 24 根 / 月视图 31 根都能放下
-        barMaxWidth: slots.length > 20 ? 18 : 30,
+        barMaxWidth: slots.length > 20 ? 26 : 32,
         emphasis: { focus: 'series' as const },
         data: slots.map((s) => ({
           value: valueOf(s, c.key),
           itemStyle: {
             // 顶段圆角 + 类别色；非顶段直角
-            borderRadius: isTopOf(s) ? [3, 3, 0, 0] : 0,
+            borderRadius: isTopOf(s) ? [4, 4, 0, 0] : 0,
             color: catColor(c.key),
             // 同槽多段时给非顶段降一点点透明度，叠色更干净
-            opacity: isTopOf(s) ? 1 : 0.92,
+            opacity: 1,
           },
         })),
         // 工作时段色带挂在第一条 series 上就够（markArea 是坐标系级的）
@@ -131,6 +131,7 @@ export function StackedBarChart({
         borderWidth: 1,
         padding: [8, 10],
         textStyle: { color: tooltipFg, fontSize: 12 },
+        extraCssText: 'border-radius: 12px; box-shadow: 0 12px 32px -12px rgba(4,6,14,0.5);',
         formatter: (params: unknown) => {
           const arr = params as { dataIndex: number; seriesName: string; value: number }[]
           const i = arr?.[0]?.dataIndex ?? 0
@@ -160,8 +161,8 @@ export function StackedBarChart({
         axisTick: { show: false },
         axisLabel: {
           color: labelColor,
-          fontSize: 10.5,
-          margin: 8,
+          fontSize: 12,
+          margin: 10,
           interval: showEveryLabel ? 0 : 'auto',
         },
       },
@@ -173,7 +174,7 @@ export function StackedBarChart({
         splitLine: { lineStyle: { color: splitColor, type: 'dashed' as const } },
         axisLabel: {
           color: labelColor,
-          fontSize: 10.5,
+          fontSize: 12,
           formatter: (v: number) =>
             mode === 'hours'
               ? v >= 60

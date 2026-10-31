@@ -241,6 +241,20 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  /* ---- 全站隐藏滚动条（Owner 要求）----
+     滚动能力保留，仅去掉视觉滚动条：webkit 全局 display:none，
+     Firefox 用 scrollbar-width:none。旧 --ldk-scroll-* 变量与
+     .scroll-area 的细滚动条样式成为无害死代码，保留以免误伤
+     引用点；如需恢复改成改这里。 */
+  ::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  * {
+    scrollbar-width: none;
+  }
 }
 
 @layer components {
