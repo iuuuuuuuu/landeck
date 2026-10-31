@@ -96,7 +96,7 @@ export default function ActivityWeeklyPage() {
           <div className="px-4 py-3">
             <SectionTitle title="最常用应用" desc={r ? `本周合计 ${fmtDur(r.apps.reduce((a, x) => a + x.sec, 0))}` : undefined} />
           </div>
-          {!r ? <Skeleton className="mx-4 mb-4 h-56" /> : <RankList items={r.apps} target={device} onSelectApp={(app, cat) => setDetail({ app, cat })} />}
+          {!r ? <Skeleton className="mx-4 mb-4 h-56" /> : <RankList items={r.apps} target={device} token={device.token} onSelectApp={(app, cat) => setDetail({ app, cat })} />}
         </Card>
         <Card className="p-0">
           <div className="px-4 py-3">
