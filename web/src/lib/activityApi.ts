@@ -820,3 +820,123 @@ export async function clearActivityData(
     throw e
   }
 }
+
+// ==================== 四期：屏幕记忆（截图 + OCR 检索） ====================
+//
+// 契约：docs/design/phase4-memory-and-remote-desktop.md A 节。
+// agent 默认关闭；启用后按 intervalSec 截全屏（隐私命中即跳过本 tick），
+// OCR 文本入 SQLite，保留天数默认 7。检索为 LIKE（v1 不做 FTS），
+// snippet 为命中词前后各 40 字符。
+
+export interface MemorySearchItem {
+  /** shots.id，取缩略图用 */
+  id: number
+  /** 截图时刻（unix ms） */
+  ts: number
+  /** 截屏瞬间的前台应用 */
+  app: string
+  /** 命中词前后各 40 字符 */
+  snippet: string
+}
+
+export interface MemorySearchData {
+  items: MemorySearchItem[]
+  /** 命中总数（可能比返回的 items 多，limit 截断） */
+  total?: number
+}
+
+export interface MemoryStatus {
+  enabled: boolean
+  intervalSec: number
+  retentionDays: number
+  /** 最近一次截图时刻（unix ms）；从未截过为 0/null */
+  lastShotAt: number | null
+  shotsCount: number
+  ocrOk: number
+  ocrFail: number
+}
+
+export interface MemorySettingsPatch {
+  enabled?: boolean
+  intervalSec?: number
+  retentionDays?: number
+}
+
+/** 缩略图 URL。agent 对 memory/image 支持 ?token= 查询串鉴权（对齐 appicon 模式），
+ * 远程设备 <img> 无法带 Authorization 头，必须走查询串。 */
+export function memoryImageUrl(t: Target, token: string | undefined, id: number): string {
+  return `${baseUrl(t)}/memory/image?id=${id}${token ? `&token=${encodeURIComponent(token)}` : ''}`
+}
+
+function mockMemorySearch(p: { q: string; from?: string; to?: string }): MemorySearchData {
+  // 确定性：query+范围做种，同一次搜索前后一致
+  const rand = rng(seedOf(`mem:${p.q}:${p.from}:${p.to}`))
+  const items: MemorySearchItem[] = []
+  const n = 6 + Math.floor(rand() * 7)
+  const fromMs = p.from ? new Date(`${p.from}T00:00:00`).getTime() : Date.now() - 7 * 86400_000
+  const toMs = p.to ? new Date(`${p.to}T23:59:59`).getTime() : Date.now()
+  const span = Math.max(toMs - fromMs, 3600_000)
+  const contexts = [
+    '季度目标对齐会 —— 把 OKR 拆到周维度，', '拉取最新主干后跑了一遍回归，',
+    '把演示文稿的第三章重排了，', '评审意见已回复：抽样逻辑要改成',
+    '客户反馈里提到希望支持一键', '排查内存增长时注意到缓存策略',
+    '周报草稿：本周完成了活动统计的', '设计稿里按钮间距统一改成',
+  ]
+  for (let i = 0; i < n; i++) {
+    const app = MOCK_APPS[Math.floor(rand() * MOCK_APPS.length)].name
+    const ctx = contexts[Math.floor(rand() * contexts.length)]
+    const ts = Math.round(fromMs + rand() * span)
+    items.push({ id: 900000 + i, ts, app, snippet: `${ctx}${p.q}${ctx.slice(0, 12)}` })
+  }
+  items.sort((a, b) => b.ts - a.ts)
+  return { items, total: n }
+}
+
+function mockMemoryStatus(): MemoryStatus {
+  return { enabled: false, intervalSec: 60, retentionDays: 7, lastShotAt: null, shotsCount: 0, ocrOk: 0, ocrFail: 0 }
+}
+
+/** 关键词检索（LIKE，v1 不做 FTS）。q 为空时调用方不应发请求。 */
+export async function fetchMemorySearch(
+  t: Target,
+  token: string | undefined,
+  p: { q: string; from?: string; to?: string; limit?: number },
+): Promise<WithDemo<MemorySearchData>> {
+  try {
+    const params = new URLSearchParams({ q: p.q })
+    if (p.from) params.set('from', p.from)
+    if (p.to) params.set('to', p.to)
+    if (p.limit) params.set('limit', String(p.limit))
+    const raw = await req<MemorySearchData>(t, token, `/memory/search?${params.toString()}`, { timeoutMs: 15000 })
+    return { demo: false, data: raw }
+  } catch (e) {
+    if (isNotImplemented(e)) return { demo: true, data: mockMemorySearch(p) }
+    throw e
+  }
+}
+
+/** 采集状态（设置卡与页头摘要共用）。 */
+export async function fetchMemoryStatus(t: Target, token: string | undefined): Promise<WithDemo<MemoryStatus>> {
+  try {
+    const raw = await req<MemoryStatus>(t, token, '/memory/status', { timeoutMs: 10000 })
+    return { demo: false, data: raw }
+  } catch (e) {
+    if (isNotImplemented(e)) return { demo: true, data: mockMemoryStatus() }
+    throw e
+  }
+}
+
+/** 设置部分更新（enabled/intervalSec/retentionDays）。 */
+export async function putMemorySettings(
+  t: Target,
+  token: string | undefined,
+  patch: MemorySettingsPatch,
+): Promise<{ demo: boolean }> {
+  try {
+    await req(t, token, '/memory/settings', { method: 'PUT', body: patch, timeoutMs: 15000 })
+    return { demo: false }
+  } catch (e) {
+    if (isNotImplemented(e)) return { demo: true }
+    throw e
+  }
+}

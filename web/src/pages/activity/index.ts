@@ -10,9 +10,11 @@
  *   /activity/monthly    → MonthlyPage = ActivityMonthlyPage
  *   /activity/all        → AllTimePage = ActivityAllTimePage
  *   /activity/categories → CategoriesPage = ActivityCategoriesPage
+ *   /activity/memory     → MemoryPage    = ActivityMemoryPage
  */
 export { default as DailyPage, default as ActivityDailyPage } from './DailyPage'
 export { default as WeeklyPage, default as ActivityWeeklyPage } from './WeeklyPage'
 export { default as MonthlyPage, default as ActivityMonthlyPage } from './MonthlyPage'
 export { default as AllTimePage, default as ActivityAllTimePage } from './AllTimePage'
 export { default as CategoriesPage, default as ActivityCategoriesPage } from './CategoriesPage'
+export { default as MemoryPage, default as ActivityMemoryPage } from './MemoryPage'

@@ -60,7 +60,19 @@ export function activityInvalidateAll(_c?: C): void {
     'activity-year|',
     'activity-settings|',
     'activity-categories|',
+    'memory-status|',
+    'memory-search|',
   ]) {
     invalidateCachePrefix(prefix)
   }
+}
+
+/** 屏幕记忆：状态（TTL 5 分钟由 useAsync 侧给） */
+export function memoryStatusKey(c: C): string {
+  return cacheKey(['memory-status', ...ident(c)])
+}
+
+/** 屏幕记忆：检索结果（TTL 30 秒由 useAsync 侧给） */
+export function memorySearchKey(c: C, q: string, from: string, to: string): string {
+  return cacheKey(['memory-search', q, from, to, ...ident(c)])
 }

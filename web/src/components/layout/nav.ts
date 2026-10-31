@@ -98,8 +98,8 @@ export const NAV_ITEMS: NavItem[] = [
  * 需要脱离设备详情独立成页，Hindsight 的信息架构也是这种平铺式。
  * /devices/:id 详情页里的工具抽屉入口保持不变，两处入口并存。
  *
- * 屏幕记忆是二期后续范围（AI 三页已上线）：侧栏先占位（disabled + title 说明），
- * 不注册路由、不进移动底栏，避免给出会 404 的入口。
+ * 屏幕记忆四期已交付（/activity/memory，MemoryPage）：侧栏正常启用；
+ * 路由由 App.tsx 注册（activity 批交付页面与导出契约）。
  * ------------------------------------------------------------------ */
 export interface NavGroup {
   key: string
@@ -143,7 +143,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/files', label: '文件', icon: FolderOpen, desc: '被控端文件浏览与传输' },
       { to: '/schedules', label: '定时任务', icon: CalendarClock, desc: '定时关机、重启与提醒' },
-      { to: '/activity/memory', label: '屏幕记忆', icon: Camera, desc: '截图 OCR 文字检索（二期）', disabled: true },
+      { to: '/activity/memory', label: '屏幕记忆', icon: Camera, desc: '截图 OCR 文字检索，找回屏幕上出现过的内容' },
     ],
   },
   {
