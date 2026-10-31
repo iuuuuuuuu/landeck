@@ -1,7 +1,7 @@
 {
   "name": "landeck-app",
   "private": true,
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "LanDeck 控制端（Tauri v2 壳，复用 web/ 的 SPA）",
   "scripts": {
     "dev": "tauri dev",

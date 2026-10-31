@@ -1,9 +1,10 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { Button, Card } from '../../components/ui'
 import { RdViewer, cmpVer } from '../../components/rd/RdViewer'
 import { useApp } from '../../store/app'
+import { probeNode } from '../../lib/api'
 
 /**
  * 远程桌面查看器页 /rd/:deviceId。
@@ -22,11 +23,26 @@ export default function RdViewerPage() {
     [devices, deviceId],
   )
 
+  // gate on LIVE status ver: the device store caches ver from pairing time,
+  // and a stale cache keeps upgraded agents stuck in demo mode (integration finding)
+  // 版本门读 /hello 的实时 ver（probeNode 免鉴权探测）——设备存储里缓存的是
+  // 配对时的 ver，agent 升级后不同步，会把已升级的被控端挡在 demo 模式里（集成实测踩过）。
+  const [liveVer, setLiveVer] = useState<string | undefined>(device?.ver)
+  useEffect(() => {
+    if (!device) return
+    let alive = true
+    void probeNode(device.host, device.port, device.tls, 4000).then((n) => {
+      if (alive && n?.ver) setLiveVer(n.ver)
+    })
+    return () => {
+      alive = false
+    }
+  }, [device?.host, device?.port, device?.tls])
   const demo = useMemo(() => {
     if (!device) return true
     // 1.0.19 起才有 /rd/stream；ver 缺失当作太旧（宁降级不白屏）
-    return cmpVer(device.ver, '1.0.19') < 0
-  }, [device])
+    return cmpVer(liveVer, '1.0.19') < 0
+  }, [device, liveVer])
 
   if (!device) {
     return (

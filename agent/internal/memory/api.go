@@ -75,7 +75,7 @@ type Status struct {
 	Enabled       bool  `json:"enabled"`
 	IntervalSec   int   `json:"intervalSec"`
 	RetentionDays int   `json:"retentionDays"`
-	LastShotAt    int64 `json:"lastShotAt"` // unix 秒，0=尚未截过
+	LastShotAt    int64 `json:"lastShotAt"` // unix 毫秒（前端 relative 按毫秒算；帧时间戳同单位） 秒，0=尚未截过
 	ShotsCount    int64 `json:"shotsCount"` // 库内总数
 	OcrOk         int64 `json:"ocrOk"`      // 会话计数：OCR 成功
 	OcrFail       int64 `json:"ocrFail"`    // 会话计数：OCR 失败（NOLANG 不算失败）
@@ -97,8 +97,18 @@ func GetStatus() Status {
 	}
 	if m != nil {
 		m.mu.Lock()
-		out.OcrOk, out.OcrFail, out.LastShotAt = m.ocrOk, m.ocrFail, m.lastShotAt
+		out.OcrOk, out.OcrFail = m.ocrOk, m.ocrFail
+		// lastShotAt 两个来源取大：db.stats 是秒（上面已转毫秒），m.lastShotAt 是毫秒
+		//（会话内口径）。重启后 m.lastShotAt=0，不能拿 0 盖掉库里的真实值。
+		if m.lastShotAt > out.LastShotAt {
+			out.LastShotAt = m.lastShotAt
+		}
 		m.mu.Unlock()
+	}
+	// 归一到毫秒：db.stats 给秒、m.lastShotAt 给毫秒（collect 口径）。
+	// 阈值 1e11 = 5138 年，秒级时间戳 30 位内不可能超过；实测 20737 天前就是秒被当毫秒。
+	if out.LastShotAt > 0 && out.LastShotAt < 100_000_000_000 {
+		out.LastShotAt *= 1000
 	}
 	return out
 }

@@ -32,7 +32,7 @@ import (
 	"landeck/internal/tray"
 )
 
-const Version = "1.0.18"
+const Version = "1.0.19"
 
 func main() {
 	log.SetFlags(log.Ltime)
