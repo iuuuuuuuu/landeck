@@ -8,7 +8,7 @@ import type { ReactNode } from 'react'
  * sub 直接放汇总文案（如「已配对 3 台 · 在线 2 台」「6h 48m 日均」），
  * 与 Hindsight 的 "October 2026 · 6h 48m daily avg" 同一节奏。
  *
- * 移动端字号降级（22px），≥1024px 才放大到 30px；
+ * 移动端字号降级（23px），≥1024px 放大到 34px（对齐 Hindsight 的大标题量级）；
  * actions 槽放页级操作（如「扫描」），对齐右侧基线。
  */
 export function PageHeader({
@@ -25,7 +25,7 @@ export function PageHeader({
   return (
     <div className={clsx('flex flex-wrap items-end justify-between gap-x-3 gap-y-2 px-1', className)}>
       <div className="min-w-0">
-        <h1 className="font-display truncate text-[22px] font-semibold tracking-tight text-fg min-[1024px]:text-[30px]">
+        <h1 className="font-display truncate text-[23px] font-semibold tracking-tight text-fg min-[1024px]:text-[34px]">
           {title}
         </h1>
         {sub != null && (

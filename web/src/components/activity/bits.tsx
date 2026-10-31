@@ -83,8 +83,11 @@ export function AppIcon({ app, cat, target, size = 34 }: { app: string; cat: str
 /** 秒数 → 「X 小时 Y 分 / Y 分钟」；排行与浮层共用一套口径。 */
 export function fmtDur(sec: number): string {
   if (sec <= 0) return '0 分'
-  const h = Math.floor(sec / 3600)
-  const m = Math.round((sec % 3600) / 60)
+  // 先取整分钟再拆时分：直接对秒取余再 round 会把 7199s(=1h59m59s) 进位成
+  // 「1 小时 60 分」——真机截图实测出现过，小时进位必须在这里消化掉。
+  const totalMin = Math.round(sec / 60)
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
   if (h === 0) return `${m} 分钟`
   if (m === 0) return `${h} 小时`
   return `${h} 小时 ${m} 分`
