@@ -2,7 +2,9 @@ import type { ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { MobileTabBar } from './MobileTabBar'
 import { AppSidebar } from './AppSidebar'
+import { TitleBar } from '../shell/TitleBar'
 import { ErrorBoundary } from '../ui/ErrorBoundary'
+import { useRuntime } from '../../lib/runtime'
 
 /**
  * 应用外壳（Hindsight 风格骨架）。
@@ -17,9 +19,14 @@ import { ErrorBoundary } from '../ui/ErrorBoundary'
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation()
+  const runtime = useRuntime()
+  // Windows 桌面壳：无边框 + 自绘标题栏（macOS/Linux 用系统原生红绿灯，不渲染）。
+  // UA 判定够用：Tauri 桌面壳的 UA 带 Windows NT。
+  const customTitlebar = runtime === 'desktop' && /Windows NT/i.test(navigator.userAgent)
 
   return (
-    <div className="min-h-full">
+    <div className={customTitlebar ? 'app-custom-tb min-h-full' : 'min-h-full'}>
+      {customTitlebar && <TitleBar />}
       <AppSidebar />
       <div className="flex min-h-full flex-col min-[1024px]:pl-[304px]">
         <main className="px-safe mx-auto w-full max-w-[1240px] flex-1 px-3 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 min-[1024px]:pb-8 min-[1024px]:pt-6">

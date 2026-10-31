@@ -805,6 +805,7 @@ fn setup_window(app: &mut tauri::App) {
                 let _ = win.maximize();
             }
         }
+        apply_window_chrome(&win);
         if silent {
             // 开机自启：直接缩到托盘，不弹窗
             let _ = win.hide();
@@ -926,6 +927,37 @@ fn show_main(app: &tauri::AppHandle) {
     }
 }
 
+/// Windows 用自绘标题栏：去掉系统边框（前端 shell/TitleBar 接管拖拽与
+/// 最小化/最大化/关闭），补 DWM 阴影（无框窗口默认没有）。
+/// macOS/Linux 保持系统原生标题栏（macOS 红绿灯更好用），仅 Windows 调用。
+#[cfg(desktop)]
+fn apply_window_chrome(win: &tauri::WebviewWindow) {
+    if cfg!(windows) {
+        let _ = win.set_decorations(false);
+        let _ = win.set_shadow(true);
+        // tao 的 set_decorations(false) 在部分版本/路径下会保留 WS_CAPTION 位
+        //（实测 v2 里标题栏原样留着），这里直接剥掉并触发 frame 重算，
+        // 保留 WS_THICKFRAME 让边缘 resize 与 DWM 阴影/圆角继续工作。
+        #[cfg(windows)]
+        if let Ok(hwnd) = win.hwnd() {
+            use windows::Win32::UI::WindowsAndMessaging::{
+                GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_STYLE, SWP_FRAMECHANGED,
+                SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, HWND_TOP,
+            };
+            unsafe {
+                let h = windows::Win32::Foundation::HWND(hwnd.0);
+                let style = GetWindowLongPtrW(h, GWL_STYLE);
+                let cleared = style & !windows::Win32::UI::WindowsAndMessaging::WS_CAPTION.0 as isize;
+                SetWindowLongPtrW(h, GWL_STYLE, cleared);
+                let _ = SetWindowPos(
+                    h, Some(HWND_TOP), 0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
+                );
+            }
+        }
+    }
+}
+
 /// 给主窗口挂上「关窗行为」。
 ///
 /// 两种模式：
@@ -982,15 +1014,19 @@ fn create_main_window(
         None => WebviewUrl::App("index.html".into()),
     };
 
-    let win = WebviewWindowBuilder::new(app, "main", url)
+    let mut builder = WebviewWindowBuilder::new(app, "main", url)
         .title("LanDeck")
         .inner_size(w, h)
         .min_inner_size(380.0, 560.0)
         .resizable(true)
-        .decorations(true)
         .transparent(false)
-        .visible(false)
-        .build()?;
+        .visible(false);
+    // Windows 出生即无边框：重建发生在后台线程（托盘/唤出通道触发），
+    // 这里直接给 builder 设 false，避免「创建后 set_decorations」的跨线程时序
+    // 把 CAPTION 留在窗口上（实测踩过：apply 拿 hwnd 时窗口可能还没真正建完）。
+    #[cfg(windows)]
+    let builder = builder.decorations(false);
+    let win = builder.build()?;
 
     if saved.saved && saved.x > -32000.0 && saved.y > -32000.0 {
         let _ = win.set_position(tauri::LogicalPosition::new(saved.x, saved.y));
@@ -998,7 +1034,17 @@ fn create_main_window(
     if saved.maximized {
         let _ = win.maximize();
     }
+    apply_window_chrome(&win);
     attach_window_events(app, &win);
+    // 兜底：非主线程创建时窗口可能异步就绪，500ms 后再涂一次（幂等）。
+    #[cfg(windows)]
+    {
+        let win2 = win.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            apply_window_chrome(&win2);
+        });
+    }
     Ok(win)
 }
 

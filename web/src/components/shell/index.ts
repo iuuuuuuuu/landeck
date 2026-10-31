@@ -4,3 +4,5 @@ export { DateNav } from './DateNav'
 export { DevicePicker } from './DevicePicker'
 export { CardToolbar } from './CardToolbar'
 export { ActivityStatusPill } from './ActivityStatusPill'
+
+export { TitleBar } from './TitleBar'

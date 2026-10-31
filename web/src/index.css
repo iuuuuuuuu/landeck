@@ -628,3 +628,54 @@
     animation: none;
   }
 }
+
+
+/* ---------- Windows 自绘标题栏（见 shell/TitleBar.tsx） ---------- */
+
+/* 拖拽条带：全宽覆盖顶缘，透明（页面自身的 浮面板+留白 透出来） */
+.titlebar {
+  -webkit-app-region: drag;
+  app-region: drag;
+  pointer-events: none; /* 只让按钮可点，其余透传给下层（下层也只是页面背景） */
+}
+
+/* 拖拽区内一切默认不可交互；按钮容器单独恢复 */
+.titlebar > * {
+  pointer-events: auto;
+}
+
+/* 按钮容器本身不接受拖拽（避免按钮间隙拖不动就丢区域） */
+.titlebar > div {
+  pointer-events: none;
+}
+.titlebar > div > button {
+  pointer-events: auto;
+}
+
+.titlebar-btn {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 100%;
+  color: var(--color-fg-soft, var(--tw-prose-body, #666));
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.titlebar-btn:hover {
+  background: color-mix(in oklab, currentColor 12%, transparent);
+  color: var(--color-fg, inherit);
+}
+.titlebar-btn-close:hover {
+  background: #e81123;
+  color: #fff;
+}
+
+/* 自绘标题栏存在时的布局补偿：
+   - 侧栏浮面板从标题条下方开始（原 top-3 会被拖拽区压住）
+   - 主内容补同高内边距 */
+.app-custom-tb aside {
+  top: 50px;
+}
+.app-custom-tb > div > main {
+  padding-top: 58px;
+}
+/* 桌面窄窗口（<1024px）仍保留标题条与补偿：Windows 桌面壳任何宽度都有自绘标题栏 */
