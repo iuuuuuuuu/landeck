@@ -24,7 +24,7 @@ func TestIconCacheDiskScan(t *testing.T) {
 
 	initIconStore(dir)
 
-	data, mime, etag, ok := GetAppIcon("code.EXE") // 查找侧带 .exe 与大小写
+	data, mime, etag, ok := AppIcon("code.EXE") // 查找侧带 .exe 与大小写
 	if !ok {
 		t.Fatal("磁盘上的 Code.ico 应被扫进缓存并命中 code.EXE 查询")
 	}
@@ -35,22 +35,22 @@ func TestIconCacheDiskScan(t *testing.T) {
 		t.Fatalf("mime/etag 不应为空: %q %q", mime, etag)
 	}
 	// 同内容 etag 稳定（304 依赖这一点）
-	_, _, etag2, _ := GetAppIcon("code")
+	_, _, etag2, _ := AppIcon("code")
 	if etag != etag2 {
 		t.Fatalf("同内容 etag 应稳定: %q vs %q", etag, etag2)
 	}
 	// 未缓存的名字 → miss（404 路径）
-	if _, _, _, ok := GetAppIcon("never-seen"); ok {
+	if _, _, _, ok := AppIcon("never-seen"); ok {
 		t.Fatal("未缓存应用不应命中")
 	}
 	// 安全性质：端点只查内存缓存，name 只是缓存键，请求路径上没有任何
 	// 文件系统访问——路径形式的名字最坏是归一后别名命中同一枚公开图标
 	//（normalizeApp 本来就剥路径），不构成目录穿越。
 	// 真正要保证的是：从没见过的应用名必须 miss（404）。
-	if _, _, _, ok := GetAppIcon(`..\..\secrets\never-installed-app`); ok {
+	if _, _, _, ok := AppIcon(`..\..\secrets\never-installed-app`); ok {
 		t.Fatal("从未见过的应用名必须 miss（404 路径）")
 	}
-	if _, _, _, ok := GetAppIcon(""); ok {
+	if _, _, _, ok := AppIcon(""); ok {
 		t.Fatal("空名字必须 miss")
 	}
 }
@@ -72,7 +72,7 @@ func TestIconNegativeCache(t *testing.T) {
 	}
 	extractAppIcon(app, bad) // 提取失败 → 负缓存
 
-	if _, _, _, ok := GetAppIcon(app); ok {
+	if _, _, _, ok := AppIcon(app); ok {
 		t.Fatal("提取失败的应用不应有缓存")
 	}
 	// 已失败：markIconSeen 应回 false，采集循环不会再起 goroutine

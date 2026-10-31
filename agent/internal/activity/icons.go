@@ -2,6 +2,7 @@ package activity
 
 // 应用图标缓存：新应用首次被采样到时，异步从其 exe 提取图标，
 // 按 normalizeApp 名存内存 + 磁盘（dataDir/appicons/<name>.ico）。
+// 本地没有的应用再走在线回退（iconify.go）。
 //
 // 为什么异步：icons.Extract 要解析 PE 资源段（几 ms~几十 ms），
 // 绝不能进 30s 采样热路径；首次见到应用时起一个 goroutine 一次性完成。
@@ -25,14 +26,14 @@ import (
 
 const (
 	// MAX_ICON_CACHE 内存里最多驻留多少个应用的图标。
-	// 单个 ICO 10–100KB，512 个最坏 ~50MB，足够极端多应用用户。
+	// 单个 ICO/SVG 10–100KB，512 个最坏 ~50MB，足够极端多应用用户。
 	MAX_ICON_CACHE = 512
 )
 
 type iconEntry struct {
 	data []byte
 	mime string
-	etag string // 内容摘要前 16 hex，写响应头用
+	etag string // 内容摘要 hex，写响应头用
 }
 
 var (
@@ -64,11 +65,12 @@ func initIconStore(dataDir string) {
 			continue
 		}
 		ext := strings.ToLower(filepath.Ext(name))
-		if ext != ".ico" && ext != ".png" {
+		mime := mimeByExt(ext)
+		if mime == "" {
 			continue
 		}
 		// 键必须与查找侧同一归一（normalizeApp），否则磁盘上存的
-		// 「Code.ico」和用户查的「code.EXE」永远对不上
+		// 「Code.ico」和用户查的「code.EXE」永远对不上（实测踩过）
 		app := normalizeApp(strings.TrimSuffix(name, ext))
 		if app == "" {
 			continue
@@ -80,12 +82,20 @@ func initIconStore(dataDir string) {
 		if len(iconMem) >= MAX_ICON_CACHE {
 			break
 		}
-		mime := icons.MimeICO
-		if ext == ".png" {
-			mime = "image/png"
-		}
 		iconMem[app] = newIconEntry(data, mime)
 	}
+}
+
+func mimeByExt(ext string) string {
+	switch ext {
+	case ".ico":
+		return icons.MimeICO
+	case ".png":
+		return "image/png"
+	case ".svg":
+		return "image/svg+xml"
+	}
+	return ""
 }
 
 func newIconEntry(data []byte, mime string) iconEntry {
@@ -93,7 +103,7 @@ func newIconEntry(data []byte, mime string) iconEntry {
 	return iconEntry{data: data, mime: mime, etag: hexPrefix(sum[:8])}
 }
 
-// markIconSeen 声明「这个应用的图标提取已安排/已结论」。
+// markIconSeen 声明「这个应用的本地图标提取已安排/已结论」。
 // 采集循环在新应用首次出现时调用：true=此前没见过（调用方应发起提取）。
 func markIconSeen(app string) bool {
 	iconMu.Lock()
@@ -129,9 +139,17 @@ func extractAppIcon(app, exePath string) {
 		iconMu.Unlock()
 		return
 	}
+	persistIcon(app, data, mime)
+}
 
+// persistIcon 图标写内存 + 磁盘（本地提取与在线转存共用一条路径）。
+// 落盘失败不影响本次会话（内存里已有），下次启动重新提取/拉取。
+func persistIcon(app string, data []byte, mime string) {
 	ext := ".ico"
-	if mime != icons.MimeICO {
+	switch mime {
+	case "image/svg+xml":
+		ext = ".svg"
+	case "image/png":
 		ext = ".png"
 	}
 
@@ -142,29 +160,51 @@ func extractAppIcon(app, exePath string) {
 		return
 	}
 	iconMem[app] = newIconEntry(data, mime)
+	iconDirCopy := iconDir
 	iconMu.Unlock()
 
-	// 落盘失败不影响本次会话（内存里已有），下次启动重新提取
-	if iconDir != "" {
-		_ = os.WriteFile(filepath.Join(iconDir, app+ext), data, 0o644)
+	if iconDirCopy != "" {
+		_ = os.WriteFile(filepath.Join(iconDirCopy, app+ext), data, 0o644)
 	}
 }
 
-// GetAppIcon 供 HTTP 端点查询：只按「已缓存的应用名」出图。
+// lookupIcon 纯内存查找（AppIcon 链的第一环）。
+func lookupIcon(app string) (iconEntry, bool) {
+	iconMu.RLock()
+	defer iconMu.RUnlock()
+	e, hit := iconMem[app]
+	return e, hit
+}
+
+// AppIcon 图标端点的完整查找链：
 //
-// 安全要点：这里不接受任何路径/通配，name 先过 normalizeApp
-// （小写、去路径、去 .exe），命中不了缓存就是 404——
-// 端点不可能被用来探测文件系统。
-func GetAppIcon(name string) (data []byte, mime, etag string, ok bool) {
+//	本地缓存（内存/磁盘启动时灌入）→ slug 匹配 → 在线拉取（iconify）→ miss
+//
+// name 先过 normalizeApp：端点只按缓存键出图，请求路径上零文件系统访问。
+func AppIcon(name string) (data []byte, mime, etag string, ok bool) {
 	app := normalizeApp(name)
 	if app == "" {
 		return nil, "", "", false
 	}
-	iconMu.RLock()
-	defer iconMu.RUnlock()
-	e, hit := iconMem[app]
-	if !hit {
+	if e, hit := lookupIcon(app); hit {
+		return e.data, e.mime, e.etag, true
+	}
+
+	// 在线回退：slug 没命中不发请求；失败负缓存 10 分钟不打外网
+	slug := matchSlug(app)
+	if slug == "" {
 		return nil, "", "", false
 	}
-	return e.data, e.mime, e.etag, true
+	if onlineFailedRecently(app) {
+		return nil, "", "", false
+	}
+	if d, ok := fetchOnlineIcon(app, slug); ok {
+		e, hit := lookupIcon(app)
+		if !hit {
+			return nil, "", "", false // 理论不可达：fetch 成功必已写入缓存
+		}
+		_ = d
+		return e.data, e.mime, e.etag, true
+	}
+	return nil, "", "", false
 }

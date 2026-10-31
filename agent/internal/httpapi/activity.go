@@ -103,12 +103,14 @@ func (s *Server) handleActivityCategoriesPut(w http.ResponseWriter, r *http.Requ
 
 // GET /api/v1/activity/appicon?name=<app>
 //
-// 只按「已缓存的应用名」出图（normalizeApp 归一后查内存索引），
-// 不接受路径/通配——不可能被用来探测文件系统。
-// 命中走 writeIconData（ETag/304 与其它图标端点一致），未缓存 404。
+// 查找链：本地缓存（内存/磁盘）→ 内置 slug 表在线拉取 iconify 单色品牌
+// SVG（3s 超时、失败负缓存 10 分钟、SVG 落盘转存）→ 404（前端首字母块降级）。
+// 只按缓存键出图（normalizeApp 归一），不接受路径/通配——请求路径上零文件系统
+// 访问，不可能被用来探测文件系统。SVG 原样转发（Content-Type: image/svg+xml），
+// 不执行下载内容。
 func (s *Server) handleActivityAppIcon(w http.ResponseWriter, r *http.Request, _ *config.Client) {
 	name := r.URL.Query().Get("name")
-	data, mime, etag, ok := activity.GetAppIcon(name)
+	data, mime, etag, ok := activity.AppIcon(name)
 	if !ok {
 		iconNotFound(w)
 		return
