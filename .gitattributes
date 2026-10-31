@@ -1,0 +1,31 @@
+# 换行策略（2026-10-31 起）：仓库 blob 统一 LF，少数 Windows 专属类型检出 CRLF。
+# 背景：gofmt 永远输出 LF，CRLF 的 .go 文件被格式化时会产生整文件 EOL diff（已发生两次）。
+# 归一后 gofmt 与任何编辑器都不再产生换行噪音。见 notes implemented/feature/2026-10-31-phase2-integration.md。
+
+* text=auto
+
+# Go / 前端 / 脚本：LF（与 gofmt、前端工具链对齐）
+*.go text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.json text eol=lf
+*.py text eol=lf
+*.rs text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+*.svg text eol=lf
+
+# Windows 专属：必须 CRLF（cmd.exe/PowerShell 解析要求）
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 文档：LF
+*.md text eol=lf
