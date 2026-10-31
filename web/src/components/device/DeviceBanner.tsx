@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import clsx from 'clsx'
 import { Badge, Button, Card, DeviceAvatar, IconButton, Modal } from '../ui'
-import { ArrowLeft, ChevronDown, Info, MoreVertical, Unplug } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Info, MonitorSmartphone, MoreVertical, Unplug } from 'lucide-react'
 import type { PairedDevice } from '../../store/app'
 import type { SystemInfo } from '../../lib/types'
 import { osLabel } from '../../lib/format'
@@ -111,7 +111,17 @@ export function DeviceBanner({
           </div>
         </div>
 
-        <div className="relative shrink-0">
+        <div className="relative flex shrink-0 items-center gap-1.5">
+          <IconButton
+            label="远程桌面"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate(`/rd/${device.id}`)
+            }}
+          >
+            <MonitorSmartphone size={16} />
+          </IconButton>
           <IconButton
             label="更多操作"
             size="sm"

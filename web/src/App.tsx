@@ -16,17 +16,37 @@ import {
   ActivityDailyPage,
   ActivityMonthlyPage,
   ActivityWeeklyPage,
+  ActivityMemoryPage,
 } from './pages/activity/index'
 // AI 三页（ai 批）：懒加载 —— AI 不在首屏路径上，聊天气泡/总结渲染按需进异步 chunk
 const AiChatPage = lazy(() => import('./pages/ai').then((m) => ({ default: m.AiChatPage })))
 const AiSummaryPage = lazy(() => import('./pages/ai').then((m) => ({ default: m.AiSummaryPage })))
 const AiSettingsPage = lazy(() => import('./pages/ai').then((m) => ({ default: m.AiSettingsPage })))
+// 远程桌面查看器：全屏接管页（黑底画布占满视口），不经 AppShell
+const RdViewerPage = lazy(() => import('./pages/rd/RdViewerPage'))
 import { useLocalIdentity } from './lib/useLocalIdentity'
 import { useLastRoute } from './lib/useLastRoute'
+import { useLocation } from 'react-router-dom'
 
 export default function App() {
   useLocalIdentity()
   useLastRoute()
+  const pathname = useLocation().pathname
+  // 远程桌面是全屏接管页：黑底画布占满视口，不能套 AppShell（侧栏/底栏都会漏进来）。
+  // 代价是这页不在 Suspense 熟路里，lazy chunk 加载时给黑底转圈即可。
+  if (pathname.startsWith('/rd/')) {
+    return (
+      <Suspense
+        fallback={
+          <div className="flex h-screen items-center justify-center bg-black">
+            <Spinner size={22} />
+          </div>
+        }
+      >
+        <RdViewerPage />
+      </Suspense>
+    )
+  }
   return (
     <>
       <AppShell>
@@ -61,6 +81,7 @@ export default function App() {
             <Route path="/activity/monthly" element={<ActivityMonthlyPage />} />
             <Route path="/activity/all" element={<ActivityAllTimePage />} />
             <Route path="/activity/categories" element={<ActivityCategoriesPage />} />
+            <Route path="/activity/memory" element={<ActivityMemoryPage />} />
             {/* 统计页旧地址：重定向到新的活动组 */}
             <Route path="/stats" element={<Navigate to="/activity/daily" replace />} />
             {/*
