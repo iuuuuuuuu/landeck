@@ -120,3 +120,6 @@ func captureScreen() (image.Image, error) {
 	}
 	return img, nil
 }
+
+// CaptureScreenForTest 探针用：暴露截屏（仅测试/诊断二进制引用）。
+func CaptureScreenForTest() (image.Image, error) { return captureScreen() }

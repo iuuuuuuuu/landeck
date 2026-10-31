@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -145,6 +146,19 @@ func (m *Manager) prune() {
 	if n > 0 {
 		log.Printf("[memory] 已清理 %d 张过期截图", n)
 	}
+	// 孤儿临时文件清扫：队列丢弃路径漏删、或进程被杀时遗留的 tmp-ocr-*.png
+	entries, err := os.ReadDir(filepath.Join(m.dir, "memory"))
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if !strings.HasPrefix(e.Name(), "tmp-ocr-") || !strings.HasSuffix(e.Name(), ".png") {
+			continue
+		}
+		if info, err := e.Info(); err == nil && time.Since(info.ModTime()) > time.Hour {
+			_ = os.Remove(filepath.Join(m.dir, "memory", e.Name()))
+		}
+	}
 }
 
 // loop 截屏主循环。
@@ -204,6 +218,10 @@ func (m *Manager) tick() {
 	name := shotFilename(now)
 	path := filepath.Join(dir, name)
 
+	// 契约存档：长边 >1920 等比降。⚠️多屏拼接（如 4608x1440）会被压到
+	// 1920x600，每屏文字只剩 41% 大小——OCR 全是乱码（集成实测抓过）。
+	// 所以 OCR 消费**全分辨率**临时文件（识别后即删），落盘仍按契约。
+	// 两条路径分叉是刻意的：存档给人看（1920 足够锐利），OCR 给机器读。
 	scaled := downscale(img)
 	if err := writePNG(path, scaled); err != nil {
 		log.Printf("[memory] PNG 写盘失败: %v", err)
@@ -219,10 +237,20 @@ func (m *Manager) tick() {
 	m.lastShotAt = now.Unix()
 	m.mu.Unlock()
 
-	// OCR 异步排队：忙时丢弃（队列容量 1），OCR 慢一拍不影响采集节奏
+	// 全分辨率临时文件给 OCR：4608 宽下 Windows OCR 能读出
+	// 「LanDeck / Firefox / music.163.com / git 提交」等真实词（降采样版全是乱码）
+	tmpPath := filepath.Join(m.dir, "memory", fmt.Sprintf("tmp-ocr-%d.png", now.UnixMilli()))
+	if err := writePNG(tmpPath, img); err != nil {
+		log.Printf("[memory] OCR 临时文件写盘失败（跳过 OCR）: %v", err)
+		return
+	}
+
+	// OCR 异步排队：忙时丢弃（队列容量 1），OCR 慢一拍不影响采集节奏；
+	// 丢弃时临时文件立即删（否则要等孤儿清扫）
 	select {
-	case m.ocrJobs <- ocrJob{id: id, path: path}:
+	case m.ocrJobs <- ocrJob{id: id, path: tmpPath}:
 	default:
+		_ = os.Remove(tmpPath)
 	}
 }
 
@@ -274,6 +302,7 @@ func (m *Manager) ocrWorker() {
 				continue
 			}
 			r, err := m.ocr.run(job.path)
+			_ = os.Remove(job.path) // 临时文件：OCR 完（无论成败）即删
 			if err != nil {
 				log.Printf("[memory] OCR 失败: %v", err)
 				m.mu.Lock()
@@ -288,3 +317,6 @@ func (m *Manager) ocrWorker() {
 		}
 	}
 }
+
+// DownscaleForTest 探针用：暴露降采样。
+func DownscaleForTest(img image.Image) image.Image { return downscale(img) }

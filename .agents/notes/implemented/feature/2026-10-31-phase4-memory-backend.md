@@ -69,6 +69,28 @@ snippet 窗口塌缩（首轮竟绿——测试是弱门禁，补了宽度下限
 search 命中归一关键词 → image 200 + ETag → If-None-Match 304 → 关闭后 20s 零新增
 → GET/PUT settings 往返。
 
+## 集成修正：多屏降采样毁掉 OCR（Lead 实测抓回）
+
+一期自验时屏幕内容恰好让 OCR 出了几个可读词，「质量缺陷」没暴露；Lead 集成实测
+发现 shots.ocr 大面积乱码且 ocrOk 照计成功。
+
+诊断过程排除了两个假设：
+- 「OCR 与存盘的位图分叉」不成立——OCR 本来就读落盘的 PNG 文件（内存流路由）；
+- 「父进程差异」不成立——Go 父进程探针用真实 PNG 三种 flag 全部成功。
+
+真因（探针实证）：虚拟桌面是 **4608x1440**（2560x1440 主屏 + 1920x1080 副屏拼接），
+契约的「长边降到 1920」把它压到 **1920x600**——每屏文字只剩 41% 大小，Windows OCR
+输出的全是幻字。对比实验：同一时刻全分辨率 OCR 出 `LanDeck / Firefox /
+music.163.com / git 提交 / What a Wonderful Life` 等大量真实词，降采样版全灭。
+
+修法：**OCR 消费全分辨率临时文件**（tmp-ocr-<unixMs>.png，识别后即删），
+落盘仍按契约 1920——存档给人看足够锐利，OCR 给机器读要原始分辨率；
+两条路径的分叉是**刻意设计**并已在代码注释写明。孤儿临时文件由每小时
+prune 顺带清扫（队列丢弃路径漏删/进程被杀的遗留）。
+
+修后真机复验：`search Firefox` 与 `search 文件` 各命中全部截图，
+snippet 带屏上上下文；tmp 文件零残留。
+
 ## 附带接线
 
 - rd.Register 已接入 server.go（agent-rd 的包，lambda 桥接同 ai.Register）
