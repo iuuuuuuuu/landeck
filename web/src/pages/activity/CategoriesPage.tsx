@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button, Card, Input, SectionTitle, Select, Skeleton } from '../../components/ui'
 import { useAsync } from '../../lib/hooks'
 import { activityCategoriesKey, activityRankKey } from '../../lib/activityKeys'
-import { catColor, fetchCategories, fetchRank, putCategories } from '../../lib/activityApi'
+import { fetchCategories, fetchRank, putCategories } from '../../lib/activityApi'
 import type { CategoriesData } from '../../lib/activityApi'
-import { CategoryIcon } from '../../components/activity/bits'
+import { AppIcon, CategoryIcon } from '../../components/activity/bits'
 import { CollectionSettingsCard } from '../../components/activity/CollectionSettingsCard'
 import { DataManageCard } from '../../components/activity/DataManageCard'
 import { ActivityPageHeader, LoadError, NoDeviceGuide, useActivityTarget, useToast } from './shared'
@@ -210,13 +210,7 @@ export default function ActivityCategoriesPage() {
                     key={app}
                     className="flex items-center gap-3 border-t border-line-soft px-4 py-2 first:border-t-0"
                   >
-                    <span
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[12px] font-semibold text-white/95"
-                      style={{ backgroundColor: current ? catColor(current) : 'var(--line-soft, rgba(128,128,128,0.3))' }}
-                      aria-hidden
-                    >
-                      {app[0].toUpperCase()}
-                    </span>
+                    <AppIcon app={known?.app ?? app} cat={current || 'other'} target={device} token={device.token} size={32} />
                     <span className="min-w-0 flex-1 truncate text-[13px] text-fg">{known?.app ?? app}</span>
                     {/* Select 触发器自带 w-full（纯 clsx 无 tailwind-merge，外层 w-36 压不掉），
                         用定宽容器约束，避免把行撑出横向滚动 */}

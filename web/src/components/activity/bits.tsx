@@ -116,8 +116,16 @@ function enqueueIcon(run: () => void): void {
     if (ICON_QUEUE.length > 0) setTimeout(drain, 150)
   }
   if (ICON_QUEUE.length === 1) {
+    // rIC 在无头/后台环境可能长期不调度（实测踩过）：与 600ms 定时器竞速，保证 drain 一定发生
     const idle = typeof requestIdleCallback === 'function' ? requestIdleCallback : (cb: () => void) => setTimeout(cb, 400)
-    idle(() => setTimeout(drain, 0))
+    let started = false
+    const start = () => {
+      if (started) return
+      started = true
+      setTimeout(drain, 0)
+    }
+    idle(start)
+    setTimeout(start, 600)
   }
 }
 
