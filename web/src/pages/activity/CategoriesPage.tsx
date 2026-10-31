@@ -5,6 +5,8 @@ import { activityCategoriesKey, activityRankKey } from '../../lib/activityKeys'
 import { catColor, fetchCategories, fetchRank, putCategories } from '../../lib/activityApi'
 import type { CategoriesData } from '../../lib/activityApi'
 import { CategoryDot } from '../../components/activity/bits'
+import { CollectionSettingsCard } from '../../components/activity/CollectionSettingsCard'
+import { DataManageCard } from '../../components/activity/DataManageCard'
 import { ActivityPageHeader, LoadError, NoDeviceGuide, useActivityTarget, useToast } from './shared'
 
 /**
@@ -237,6 +239,10 @@ export default function ActivityCategoriesPage() {
           )}
         </Card>
       </div>
+
+      {/* 二期：采集与隐私 + 数据管理。活动组内聚合，避免设置页跨组与新增路由 */}
+      <CollectionSettingsCard device={device} />
+      <DataManageCard device={device} />
     </div>
   )
 }

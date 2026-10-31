@@ -22,14 +22,23 @@ export function ActivityPageHeader({ title, subtitle, demo }: { title: string; s
   )
 }
 
-/** 卡头工具条右侧的日期翻页：前后箭头 + 「今天」胶囊（对齐参考截图）。 */
-export function DateNav({ label, onPrev, onNext, onToday, todayLabel = '今天' }: {
+/**
+ * 卡头工具条右侧的日期翻页：前后箭头 + 「今天」胶囊（对齐参考截图）。
+ *
+ * currentLabel 是 todayLabel 的别名：ai-pages 的 SummaryPage 按这个名字调用了本组件
+ * （二期跨批消费点），两个名字都收，避免共享组件把邻居卡在类型检查上。
+ */
+export function DateNav({ label, onPrev, onNext, onToday, todayLabel, currentLabel }: {
   label: string
   onPrev: () => void
   onNext: () => void
   onToday: () => void
   todayLabel?: string
+  /** todayLabel 的别名（ai-pages 侧用法） */
+  currentLabel?: string
 }) {
+  const cur = todayLabel ?? currentLabel ?? '今天'
+  const todayText = cur
   return (
     <div className="flex items-center gap-2">
       <button
@@ -45,7 +54,7 @@ export function DateNav({ label, onPrev, onNext, onToday, todayLabel = '今天' 
         onClick={onToday}
         className="h-9 rounded-xl border border-line-soft bg-elevated px-3.5 text-[12.5px] text-fg-soft transition-colors hover:bg-elevated/80"
       >
-        {todayLabel}
+        {todayText}
       </button>
       <button
         type="button"

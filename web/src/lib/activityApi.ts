@@ -150,8 +150,12 @@ export interface ActivitySettings {
   idleMinutes: number
   workband: { enabled: boolean; from: number; to: number }
   domainCapture: boolean
-  /** 隐私过滤：这些应用/标题关键词不记录 */
+  /** 隐私过滤：这些应用/标题关键词不记录（字符串视图，便于渲染） */
   privacy: string[]
+  /** 数据保留天数（过期段由 agent 每日清理） */
+  retentionDays: number
+  /** 隐私规则原始条目（含 id）：回写时按 id 保留、避免规则 id 漂移 */
+  privateRules: { id: string; kind: string; pattern: string }[]
 }
 
 export interface WithDemo<T> {
@@ -360,6 +364,11 @@ function mockSettings(): ActivitySettings {
     workband: { enabled: false, from: 9, to: 18 },
     domainCapture: true,
     privacy: ['密码', 'bank'],
+    retentionDays: 30,
+    privateRules: [
+      { id: 'mock-r1', kind: 'app', pattern: '密码' },
+      { id: 'mock-r2', kind: 'app', pattern: 'bank' },
+    ],
   }
 }
 
@@ -454,6 +463,8 @@ interface RawSettings {
   workStart: string
   workEnd: string
   privateRules: { id: string; kind: string; pattern: string }[]
+  /** 数据保留天数（二期契约新增；旧 agent 不带时前端用 30 兜底） */
+  retentionDays?: number
 }
 
 function hourOf(hhmm: string): number {
@@ -537,6 +548,8 @@ function normalizeSettings(raw: RawSettings): ActivitySettings {
     },
     domainCapture: false,
     privacy: (raw.privateRules ?? []).map((r) => r.pattern).filter(Boolean),
+    retentionDays: raw.retentionDays ?? 30,
+    privateRules: (raw.privateRules ?? []).filter((r) => r.pattern),
   }
 }
 
@@ -708,6 +721,102 @@ export async function fetchActivitySettings(t: Target, token: string | undefined
     return { demo: false, data: normalizeSettings(raw) }
   } catch (e) {
     if (isNotImplemented(e)) return { demo: true, data: mockSettings() }
+    throw e
+  }
+}
+
+/** 设置部分更新的载体：只填要改的字段（agent 端「只覆盖出现的字段」）。 */
+export interface ActivitySettingsPatch {
+  enabled?: boolean
+  intervalSec?: number
+  idleSec?: number
+  workHoursEnabled?: boolean
+  /** 'HH:MM:SS'（agent 侧解析带秒）；小时数由调用方补齐 */
+  workStart?: string
+  workEnd?: string
+  retentionDays?: number
+  privateRules?: { id?: string; kind: 'app' | 'title'; pattern: string }[]
+}
+
+/** 小时数 -> 'HH:00:00'（工作时段回写用）。 */
+export function hourToWorkTime(h: number): string {
+  const h2 = Math.max(0, Math.min(23, Math.round(h)))
+  return String(h2).padStart(2, '0') + ':00:00'
+}
+
+/**
+ * 设置部分更新。成功后调用方应失效 settings 与 summary/year 缓存
+ * （日视图的工作时段色带来自 settings，见 fetchSummary）。
+ */
+export async function putActivitySettings(
+  t: Target,
+  token: string | undefined,
+  patch: ActivitySettingsPatch,
+): Promise<{ demo: boolean }> {
+  try {
+    await req(t, token, '/activity/settings', { method: 'PUT', body: patch, timeoutMs: 15000 })
+    return { demo: false }
+  } catch (e) {
+    if (isNotImplemented(e)) return { demo: true }
+    throw e
+  }
+}
+
+/**
+ * 导出活动记录（attachment 下载）。
+ * 远程设备要带令牌，不能用 <a href> 直下 —— fetch 成 blob 再触发保存；
+ * 文件名优先取 Content-Disposition，缺省按日期拼。
+ */
+export async function fetchExport(
+  t: Target,
+  token: string | undefined,
+  format: 'json' | 'csv',
+): Promise<{ blob: Blob; filename: string }> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 60000)
+  try {
+    const res = await fetch(baseUrl(t) + '/activity/export?format=' + format, {
+      signal: ctrl.signal,
+      cache: 'no-store',
+      headers: token ? { Authorization: 'Bearer ' + token } : {},
+    })
+    if (!res.ok) {
+      let code = 'HTTP ' + res.status
+      try {
+        const j = (await res.json()) as { error?: string } | null
+        if (j?.error) code = j.error
+      } catch {
+        /* 非 JSON 错误体就用状态码 */
+      }
+      throw new ApiError(code, code, res.status)
+    }
+    const blob = await res.blob()
+    const cd = res.headers.get('Content-Disposition') ?? ''
+    const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+    const filename = m
+      ? decodeURIComponent(m[1])
+      : 'landeck-activity-' + new Date().toISOString().slice(0, 10) + '.' + format
+    return { blob, filename }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** 清理 N 天前的记录（必传 beforeDays，缺省后端 400）。返回删除的段数（agent 给多少算多少）。 */
+export async function clearActivityData(
+  t: Target,
+  token: string | undefined,
+  beforeDays: number,
+): Promise<{ demo: boolean; deleted?: number }> {
+  try {
+    const raw = await req<{ ok?: boolean; deleted?: number }>(t, token, '/activity/clear', {
+      method: 'POST',
+      body: { beforeDays: Math.max(1, Math.round(beforeDays)) },
+      timeoutMs: 30000,
+    })
+    return { demo: false, deleted: raw?.deleted }
+  } catch (e) {
+    if (isNotImplemented(e)) return { demo: true }
     throw e
   }
 }

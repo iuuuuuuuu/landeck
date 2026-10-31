@@ -6,7 +6,7 @@
  * activity-pages 与 web-shell 的文件分界（web-shell 拥有 keys.ts），避免同文件冲突。
  */
 import type { Target } from './api'
-import { cacheKey } from './queryCache'
+import { cacheKey, invalidateCachePrefix } from './queryCache'
 import type { Scope } from './activityApi'
 
 /**
@@ -43,4 +43,24 @@ export function activityCategoriesKey(c: C): string {
 /** 采集设置 */
 export function activitySettingsKey(c: C): string {
   return cacheKey(['activity-settings', ...ident(c)])
+}
+
+/**
+ * 让这台设备的活动数据缓存全部失效（设置/清理保存后调）。
+ *
+ * 用前缀而不是精确 key：设置改变影响全部日期（日视图色带）、清理改变全部历史，
+ * 逐 key 枚举不现实。queryCache 的 key 形如 'activity-summary|day|<date>|<host>|<port>|<token尾>'，
+ * 按类别前缀清会跨设备多清一点 —— 可接受（保存设置是低频操作，重新拉一次成本低）。
+ */
+export function activityInvalidateAll(_c?: C): void {
+  for (const prefix of [
+    'activity-summary|',
+    'activity-rank|',
+    'activity-app|',
+    'activity-year|',
+    'activity-settings|',
+    'activity-categories|',
+  ]) {
+    invalidateCachePrefix(prefix)
+  }
 }

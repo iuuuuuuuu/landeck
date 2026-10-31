@@ -48,14 +48,14 @@ export function InlineBar({ sec, max, cat }: { sec: number; max: number; cat: st
 }
 
 /**
- * 应用图标：真实环境走 agent 的 /apps/icon（exe 名换真图标）；
+ * 应用图标：真实环境走 agent 的 /activity/appicon（按应用名取采集缓存图标，404=未知应用）；
  * 拿不到（demo 模式 / 非当前设备）时退化为类别色首字母块 —— 视觉重量一致，
  * 排版不因图标缺失而跳动。
  */
 export function AppIcon({ app, cat, target, size = 34 }: { app: string; cat: string; target?: { host: string; port: number; tls: boolean }; size?: number }) {
   const [broken, setBroken] = useState(false)
   if (target && !broken) {
-    const url = `${baseUrl(target)}/apps/icon?exe=${encodeURIComponent(app)}`
+    const url = `${baseUrl(target)}/activity/appicon?name=${encodeURIComponent(app)}`
     return (
       <img
         src={url}
