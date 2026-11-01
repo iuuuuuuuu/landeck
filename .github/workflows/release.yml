@@ -295,7 +295,10 @@ jobs:
       # 所有客户端 check() 后判定「已是最新」，优雅降级而不是报网络错误。
       - name: 生成 latest.json（A7 更新清单）
         run: |
+          # 包版本取 tag 去掉 v 与预发布后缀（tauri 产物名用的是 conf 版本
+          # 1.0.20，而 tag 是 v1.0.20-beta——不剥后缀永远找不到 .sig，实测踩过）
           VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${VERSION%%-*}"
           PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           SIG_FILE="artifacts/desktop-windows-latest/LanDeck_${VERSION}_x64-setup.exe.sig"
           ls artifacts/desktop-windows-latest/ || true
