@@ -1,6 +1,7 @@
 package activity
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
@@ -56,12 +57,19 @@ func withMgr(fn func(m *Manager) (any, error)) (any, error) {
 
 // Summary 按 scope（day|week|month）与锚点日期返回堆叠统计。
 func GetSummary(scope, date string) (any, error) {
-	if scope != "day" && scope != "week" && scope != "month" {
-		scope = "day"
+	// 未知 scope 必须显式报错：静默回退「一天」= 假 200，
+	// 全部历史页据此渲染了垃圾数据（集成实测事故）
+	switch scope {
+	case "day", "week", "month", "year":
+	default:
+		return nil, fmt.Errorf("%w: 未知 scope %q", ErrBadScope, scope)
 	}
 	return cachedQuery("summary|"+scope+"|"+date, func() (any, error) {
 		return withMgr(func(m *Manager) (any, error) {
-			from, to, _, _ := rangeOf(scope, date, time.Now())
+			from, to, _, _, err := rangeOf(scope, date, time.Now())
+			if err != nil {
+				return nil, err
+			}
 			segs, err := m.db.rangeSegs(from.Unix(), to.Unix())
 			if err != nil {
 				return nil, err
@@ -75,12 +83,17 @@ func GetSummary(scope, date string) (any, error) {
 
 // Rank 应用与分类排行。
 func GetRank(scope string, limit int, date string) (any, error) {
-	if scope != "day" && scope != "week" && scope != "month" {
-		scope = "day"
+	switch scope {
+	case "day", "week", "month", "year":
+	default:
+		return nil, fmt.Errorf("%w: 未知 scope %q", ErrBadScope, scope)
 	}
 	return cachedQuery("rank|"+scope+"|"+date, func() (any, error) {
 		return withMgr(func(m *Manager) (any, error) {
-			from, to, _, _ := rangeOf(scope, date, time.Now())
+			from, to, _, _, err := rangeOf(scope, date, time.Now())
+			if err != nil {
+				return nil, err
+			}
 			segs, err := m.db.rangeSegs(from.Unix(), to.Unix())
 			if err != nil {
 				return nil, err
@@ -94,7 +107,10 @@ func GetRank(scope string, limit int, date string) (any, error) {
 func GetAppDetail(appName, date string) (any, error) {
 	return cachedQuery("detail|"+appName+"|"+date, func() (any, error) {
 		return withMgr(func(m *Manager) (any, error) {
-			from, to, _, _ := rangeOf("day", date, time.Now())
+			from, to, _, _, err := rangeOf("day", date, time.Now())
+			if err != nil {
+				return nil, err
+			}
 			segs, err := m.db.rangeSegs(from.Unix(), to.Unix())
 			if err != nil {
 				return nil, err

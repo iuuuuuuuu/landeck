@@ -197,6 +197,11 @@ func Stop() {
 	if m.db != nil {
 		_ = m.db.db.Close()
 	}
+	// mgr 置 nil：Stop 后允许重新 Start（httpapi 400 测试等场景依赖这一点；
+	// 不置 nil 的话第二次 Start 会拿到已停机的 Manager，所有查询 500）
+	startMu.Lock()
+	mgr = nil
+	startMu.Unlock()
 }
 
 // loop 采集主循环。每个 tick：取设置 → decide → 执行。

@@ -1,6 +1,7 @@
 package activity
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
@@ -18,17 +19,54 @@ func dayAt(s string) time.Time {
 }
 
 func TestRangeOfWeek(t *testing.T) {
-	// 2026-10-31 是周六。所在 ISO 周：周一 10-26 → 周日 11-01
-	from, to, fs, ts := rangeOf("week", "2026-10-31", dayAt("2026-10-31 12:00:00"))
-	_ = from
-	_ = to
-	if fs != "2026-10-26" || ts != "2026-11-01" {
-		t.Fatalf("周范围应为 2026-10-26..2026-11-01，得到 %s..%s", fs, ts)
+	// 2026-10-31 是周六。所在 ISO 周：周一 10-26 -> 周日 11-01
+	_, _, fs, ts, err := rangeOf("week", "2026-10-31", dayAt("2026-10-31 12:00:00"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	// 无锚点 → 今天所在周
-	from2, to2, _, _ := rangeOf("week", "", dayAt("2026-10-28 08:00:00")) // 周三
+	if fs != "2026-10-26" || ts != "2026-11-01" {
+		t.Fatalf("week range: got %s..%s want 2026-10-26..2026-11-01", fs, ts)
+	}
+	// 无锚点 -> 今天所在周
+	from2, to2, _, _, err := rangeOf("week", "", dayAt("2026-10-28 08:00:00"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if d := to2.Sub(from2).Hours(); d != 168 {
-		t.Fatalf("周跨度应 168h，得到 %v", d)
+		t.Fatalf("week span: got %vh want 168h", d)
+	}
+	// month 锚点契约是 "YYYY-MM"（前端口径）
+	from3, _, fs3, ts3, err := rangeOf("month", "2026-09", dayAt("2026-10-31 12:00:00"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fs3 != "2026-09-01" || ts3 != "2026-09-30" || from3.Month() != time.September {
+		t.Fatalf("month 2026-09: got %s..%s", fs3, ts3)
+	}
+	// year：按天聚合全年，key=YYYY-MM-DD
+	from4, to4, fs4, ts4, err := rangeOf("year", "2026", dayAt("2026-10-31 12:00:00"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if from4.Month() != time.January || from4.Day() != 1 || fs4 != "2026-01-01" || ts4 != "2026-12-31" {
+		t.Fatalf("year 2026: got %s..%s", fs4, ts4)
+	}
+	keys := bucketKeysFor("year", from4, to4)
+	if len(keys) != 365 { // 2026 非闰年：365 天
+		t.Fatalf("year buckets: got %d want 365", len(keys))
+	}
+	if keys[0] != "2026-01-01" || keys[len(keys)-1] != "2026-12-31" {
+		t.Fatalf("year bucket keys: %s..%s", keys[0], keys[len(keys)-1])
+	}
+	// 错误语义：未知 scope / date 格式与 scope 不符 -> ErrBadScope（拒绝静默假 200）
+	if _, _, _, _, err := rangeOf("hour", "", time.Now()); err == nil || !errors.Is(err, ErrBadScope) {
+		t.Fatalf("unknown scope: got %v want ErrBadScope", err)
+	}
+	if _, _, _, _, err := rangeOf("day", "2026-10", time.Now()); err == nil || !errors.Is(err, ErrBadScope) {
+		t.Fatalf("day with YYYY-MM: got %v want ErrBadScope", err)
+	}
+	if _, _, _, _, err := rangeOf("year", "2026-10-31", time.Now()); err == nil || !errors.Is(err, ErrBadScope) {
+		t.Fatalf("year with full date: got %v want ErrBadScope", err)
 	}
 }
 

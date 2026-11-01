@@ -98,6 +98,25 @@ func TestPerfQueries10x(t *testing.T) {
 	}
 	measure("summary week (cold)", time.Since(t0))
 
+	// year（七期）：按天聚合全年，key=YYYY-MM-DD——前端历史页单请求的形状
+	yearKey := now.Format("2006")
+	t0 = time.Now()
+	yearAny, err := GetSummary("year", yearKey)
+	if err != nil {
+		t.Fatalf("summary year: %v", err)
+	}
+	measure("summary year (cold)", time.Since(t0))
+	sum := yearAny.(Summary)
+	if sum.Scope != "year" {
+		t.Fatalf("year 响应应回显 scope=year，得到 %q", sum.Scope)
+	}
+	if len(sum.Buckets) != 365 && len(sum.Buckets) != 366 {
+		t.Fatalf("year 桶应 365/366 个（YYYY-MM-DD），得到 %d", len(sum.Buckets))
+	}
+	if len(sum.Buckets[0].Key) != 10 || sum.Buckets[0].Key[4] != '-' {
+		t.Fatalf("year 桶 key 应为 YYYY-MM-DD，得到 %q", sum.Buckets[0].Key)
+	}
+
 	t0 = time.Now()
 	if _, err := GetRank("month", 10, monthStart[:7]); err != nil {
 		t.Fatalf("rank month: %v", err)

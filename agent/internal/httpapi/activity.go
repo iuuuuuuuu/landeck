@@ -5,6 +5,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -27,6 +28,12 @@ func (s *Server) handleActivitySummary(w http.ResponseWriter, r *http.Request, _
 	q := r.URL.Query()
 	v, err := activity.GetSummary(q.Get("scope"), q.Get("date"))
 	if err != nil {
+		// 参数非法（未知 scope / date 格式不符）必须 400：
+		// 静默假 200 是全部历史页渲染垃圾数据的事故根源
+		if errors.Is(err, activity.ErrBadScope) {
+			writeErr(w, http.StatusBadRequest, "bad-params", err.Error())
+			return
+		}
 		writeErr(w, http.StatusInternalServerError, "activity", err.Error())
 		return
 	}
@@ -44,6 +51,10 @@ func (s *Server) handleActivityRank(w http.ResponseWriter, r *http.Request, _ *c
 	}
 	v, err := activity.GetRank(q.Get("scope"), limit, q.Get("date"))
 	if err != nil {
+		if errors.Is(err, activity.ErrBadScope) {
+			writeErr(w, http.StatusBadRequest, "bad-params", err.Error())
+			return
+		}
 		writeErr(w, http.StatusInternalServerError, "activity", err.Error())
 		return
 	}

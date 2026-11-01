@@ -1,6 +1,8 @@
 package activity
 
 import (
+	"errors"
+	"fmt"
 	"sort"
 	"time"
 )
@@ -81,36 +83,72 @@ type AppDetail struct {
 
 // rangeOf scope+锚点日期 → [from, to) 本地时刻。
 // week 采用 ISO 周（周一起始），month 为自然月。
-func rangeOf(scope, date string, now time.Time) (time.Time, time.Time, string, string) {
+// ErrBadScope summary/rank 的 scope 或 date 参数非法。
+// httpapi 层映射为 400——静默假响应是集成事故的根源
+// （前端形状校验被假 200 骗过两轮验收）。
+var ErrBadScope = errors.New("bad scope or date")
+
+// rangeOf scope+锚点日期 → [from, to) 本地时刻。
+// week 采用 ISO 周（周一起始），month 为自然月，year 为自然年。
+//
+// 错误语义（对齐「拒绝静默假响应」的契约）：scope 未知、date 与 scope 的
+// 格式不符 → 返回 ErrBadScope，调用方必须回 400，而不是悄悄按「一天」算。
+//
+// 本函数区域整体重写过一次：该文件的旧注释含 GBK mojibake 字节
+// （历史写入事故），任何依赖注释文本做锚点的编辑都会失败——
+// 编辑一律用 ASCII 函数锚点做区域替换。
+func rangeOf(scope, date string, now time.Time) (from, to time.Time, fromS, toS string, err error) {
 	anchor := now
 	if date != "" {
-		// day/week 锚点用完整日期；month 的前端契约是 "YYYY-MM"
-		if d, err := time.ParseInLocation("2006-01-02", date, time.Local); err == nil {
-			anchor = d
-		} else if d, err := time.ParseInLocation("2006-01", date, time.Local); err == nil {
-			anchor = d
+		// 各 scope 的锚点格式：day/week="YYYY-MM-DD"、month="YYYY-MM"、year="YYYY"
+		// 格式不符 -> 显式报错（静默回退到今天是假 200 事故的根源）
+		switch scope {
+		case "year":
+			if d, e := time.ParseInLocation("2006", date, time.Local); e == nil {
+				anchor = d
+			} else {
+				err = fmt.Errorf("%w: year anchor must be YYYY, got %q", ErrBadScope, date)
+				return
+			}
+		case "month":
+			if d, e := time.ParseInLocation("2006-01", date, time.Local); e == nil {
+				anchor = d
+			} else if d, e := time.ParseInLocation("2006-01-02", date, time.Local); e == nil {
+				anchor = d
+			} else {
+				err = fmt.Errorf("%w: month anchor must be YYYY-MM, got %q", ErrBadScope, date)
+				return
+			}
+		default:
+			if d, e := time.ParseInLocation("2006-01-02", date, time.Local); e == nil {
+				anchor = d
+			} else {
+				err = fmt.Errorf("%w: %s anchor must be YYYY-MM-DD, got %q", ErrBadScope, scope, date)
+				return
+			}
 		}
 	}
 	switch scope {
+	case "year":
+		from = time.Date(anchor.Year(), 1, 1, 0, 0, 0, 0, time.Local)
+		to = from.AddDate(1, 0, 0)
 	case "week":
-		offset := (int(anchor.Weekday()) + 6) % 7 // Monday=0
-		from := time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 0, 0, 0, 0, time.Local).AddDate(0, 0, -offset)
-		to := from.AddDate(0, 0, 7)
-		return from, to, from.Format("2006-01-02"), to.AddDate(0, 0, -1).Format("2006-01-02")
+		offset := (int(anchor.Weekday()) + 6) % 7
+		from = time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 0, 0, 0, 0, time.Local).AddDate(0, 0, -offset)
+		to = from.AddDate(0, 0, 7)
 	case "month":
-		from := time.Date(anchor.Year(), anchor.Month(), 1, 0, 0, 0, 0, time.Local)
-		to := from.AddDate(0, 1, 0)
-		return from, to, from.Format("2006-01-02"), to.AddDate(0, 0, -1).Format("2006-01-02")
-	default: // day
-		from := time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 0, 0, 0, 0, time.Local)
-		to := from.AddDate(0, 0, 1)
-		return from, to, from.Format("2006-01-02"), to.Format("2006-01-02")
+		from = time.Date(anchor.Year(), anchor.Month(), 1, 0, 0, 0, 0, time.Local)
+		to = from.AddDate(0, 1, 0)
+	case "day":
+		from = time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 0, 0, 0, 0, time.Local)
+		to = from.AddDate(0, 0, 1)
+	default:
+		err = fmt.Errorf("%w: 未知 scope %q", ErrBadScope, scope)
+		return
 	}
+	return from, to, from.Format("2006-01-02"), to.AddDate(0, 0, -1).Format("2006-01-02"), nil
 }
 
-// ---------- 纯聚合（BuildHistory 式拆分，全部可单测） ----------
-
-// BuildSummary 把段聚合为堆叠数据。segs 需已按 start 排序（SQL 保证）。
 func BuildSummary(segs []Segment, rules []CategoryRule, scope string, from, to time.Time) Summary {
 	fromU, toU := from.Unix(), to.Unix()
 	// to 是排他边界（次日零点）；展示用含当天：统一往前推一天
