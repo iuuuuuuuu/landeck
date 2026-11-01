@@ -29,7 +29,16 @@
     "appOfCat": "Apps in {{cat}}"
   },
   "alltime": {
-    "title": "All history"
+    "subtitle": "Yearly activity distribution",
+    "year": "",
+    "activeDays": "{{count}} active days",
+    "yearTable": "Year table",
+    "yearTableHint": "Darker = more usage that day; click a day to scope the ranking below",
+    "clearRange": "Clear {{range}}",
+    "month": "",
+    "calendarHint": "Month calendar · click to sync",
+    "rangeRank": "Ranking for month {{month}}",
+    "pickDate": "Pick a date"
   },
   "categories": {
     "title": "Categories",

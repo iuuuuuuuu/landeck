@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Card, SectionTitle, Skeleton } from '../../components/ui'
 import { useAsync } from '../../lib/hooks'
+import { useT } from '../../i18n'
 import { activityRankKey, activityYearKey } from '../../lib/activityKeys'
 import { fetchRank, fetchYearDays } from '../../lib/activityApi'
 import { HeatMap, MonthCalendar } from '../../components/activity/HeatMap'
@@ -18,6 +19,7 @@ import type { AppDetailOpen } from './DailyPage'
  * 回退 12×month 拼装（settings 已单飞，不再翻倍）。全年走 queryCache（3 分钟 TTL）。
  */
 export default function ActivityAllTimePage() {
+  const t = useT('activity')
   const { device, pairedCount, localAvailable } = useActivityTarget()
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
@@ -68,7 +70,7 @@ export default function ActivityAllTimePage() {
   if (yearQ.error)
     return (
       <div className="space-y-4">
-        <ActivityPageHeader title="全部历史" subtitle="按年查看活动分布" />
+        <ActivityPageHeader title={t('alltime.title')} subtitle={t('alltime.subtitle')} />
         <LoadError error={yearQ.error} onRetry={yearQ.reload} />
       </div>
     )
@@ -76,14 +78,14 @@ export default function ActivityAllTimePage() {
   return (
     <div className="space-y-4">
       <ActivityPageHeader
-        title="全部历史"
-        subtitle={`${year} 年 · 总计 ${fmtDur(yearTotal)} · 活跃 ${activeDays} 天`}
+        title={t('alltime.title')}
+        subtitle={`${year} ${t('alltime.year')} · ${t('activity.daily.total', { duration: fmtDur(yearTotal) })} · ${t('alltime.activeDays', { count: activeDays })}`}
         demo={demo}
       />
 
       <Card className="min-w-0 overflow-hidden">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <SectionTitle title="年表" desc="颜色越深当天用得越久；点选某天，下方排行只统计这一天" />
+          <SectionTitle title={t('alltime.yearTable')} desc={t('alltime.yearTableHint')} />
           <div className="flex items-center gap-2">
             {range && (
               <button
@@ -94,7 +96,7 @@ export default function ActivityAllTimePage() {
                 }}
                 className="h-9 rounded-xl bg-accent px-3.5 text-[12.5px] font-medium text-white hover:opacity-90"
               >
-                清除选择 {range.from.slice(5)}~{range.to.slice(5)}
+                {t('alltime.clearRange', { range: range.from.slice(5) + '~' + range.to.slice(5) })}
               </button>
             )}
             <button
@@ -136,7 +138,7 @@ export default function ActivityAllTimePage() {
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-[320px_1fr]">
         <Card className="min-w-0 overflow-hidden">
-          <SectionTitle title={`${month} 月`} desc="月历 · 点选联动" />
+          <SectionTitle title={`${month} ${t('alltime.month')}`} desc={t('alltime.calendarHint')} />
           <MonthCalendar
             year={year}
             month={month}
@@ -167,10 +169,10 @@ export default function ActivityAllTimePage() {
               <SectionTitle
                 title={
                   selectedDate
-                    ? `${prettyDate(selectedDate)} · 最常用应用`
+                    ? `${prettyDate(selectedDate)} · ${t('daily.topApps')}`
                     : range
                       ? `${range.from.slice(5)} ~ ${range.to.slice(5)} · ${Number(range.from.slice(5, 7))}月排行`
-                      : '选择一个日期'
+                      : t('alltime.pickDate')
                 }
                 desc={
                   rank.data?.data

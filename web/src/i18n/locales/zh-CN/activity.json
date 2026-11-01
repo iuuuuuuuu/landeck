@@ -29,7 +29,16 @@
     "appOfCat": "{{cat}} 的应用构成"
   },
   "alltime": {
-    "title": "全部历史"
+    "subtitle": "按年查看活动分布",
+    "year": "年",
+    "activeDays": "活跃 {{count}} 天",
+    "yearTable": "年表",
+    "yearTableHint": "颜色越深当天用得越久；点选某天，下方排行只统计这一天",
+    "clearRange": "清除选择 {{range}}",
+    "month": "月",
+    "calendarHint": "月历 · 点选联动",
+    "rangeRank": "{{month}} 月排行",
+    "pickDate": "选择一个日期"
   },
   "categories": {
     "title": "分类管理",
