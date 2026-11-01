@@ -1,0 +1,27 @@
+{
+  "title": "Screen memory",
+  "status": {
+    "summary": "{{shots}} shots · OCR ok {{ok}} / failed {{fail}} · keep {{days}} days",
+    "disabled": "Feature off"
+  },
+  "guide": {
+    "title": "Screen memory is off",
+    "desc1": "Once enabled, full-screen shots are taken at fixed intervals and OCR'd — then you can search anything that appeared on screen and jump back to that moment.",
+    "desc2": "Off by default; shots and text stay on the controlled machine; moments hit by privacy rules are not captured; auto-deleted after the retention window.",
+    "openInSettings": "Enable it in \"Collection settings\" below"
+  },
+  "search": {
+    "title": "Text search",
+    "desc": "Search what appeared on screen and jump to the shot and moment.",
+    "placeholder": "Enter keywords, e.g. project name, error message…",
+    "to": "to",
+    "button": "Search",
+    "emptyInitial": "Enter keywords to start searching (any text that ever appeared in a screenshot).",
+    "noHit": "No hits for \"{{q}}\" in this period. Try widening the date range.",
+    "screenshotAlt": "Screenshot of {{app}}",
+    "from": "From date"
+  },
+  "lightbox": {
+    "meta": "{{app}} · {{time}} · hit \"{{snippet}}…\" · click anywhere to close"
+  }
+}

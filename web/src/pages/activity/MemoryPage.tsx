@@ -7,6 +7,7 @@ import { fetchMemorySearch, fetchMemoryStatus, memoryImageUrl } from '../../lib/
 import type { MemorySearchItem } from '../../lib/activityApi'
 import { Highlight, MemoryThumb } from '../../components/memory/MemoryBits'
 import { useTheme, type ThemeName } from '../../store/theme'
+import { useT } from '../../i18n'
 import { ActivityPageHeader, NoDeviceGuide, useActivityTarget } from './shared'
 import { MemorySettingsCard } from '../../components/memory/MemorySettingsCard'
 import { relative } from '../../lib/format'
@@ -24,6 +25,7 @@ function timeLabel(ts: number): string {
 
 /** 屏幕记忆 /activity/memory：截图 + OCR 文字检索（Hindsight 的「屏幕记忆与搜索」）。 */
 export default function MemoryPage() {
+  const t = useT('memory')
   const { device, pairedCount, localAvailable } = useActivityTarget()
   const { theme } = useTheme()
   const [query, setQuery] = useState('')
@@ -59,12 +61,12 @@ export default function MemoryPage() {
   return (
     <div className="space-y-4">
       <ActivityPageHeader
-        title="屏幕记忆"
+        title={t("title")}
         subtitle={
           status
             ? enabled
-              ? `已截 ${status.shotsCount} 张 · OCR 成功 ${status.ocrOk} / 失败 ${status.ocrFail} · 保留 ${status.retentionDays} 天`
-              : '功能未开启'
+              ? t('status.summary', { shots: status.shotsCount, ok: status.ocrOk, fail: status.ocrFail, days: status.retentionDays })
+              : t('status.disabled')
             : ''
         }
         demo={demo || searchDemo}
@@ -77,17 +79,17 @@ export default function MemoryPage() {
         <Card>
           <EmptyState
             icon={<Camera size={30} />}
-            title="屏幕记忆未开启"
+            title={t("guide.title")}
             desc={
               <>
-                开启后会按固定间隔截取全屏并识别文字，之后就能搜「屏幕上出现过的内容」并跳回那一刻。
+                {t("guide.desc1")}
                 <br />
-                默认关闭；截图与文字只存被控机本地；隐私规则命中的时刻不截屏；超过保留期自动删除。
+                {t("guide.desc2")}
               </>
             }
             action={
               <span className="inline-flex items-center gap-2 text-[12px] text-muted">
-                <Camera size={14} /> 在下方「采集设置」里开启
+                <Camera size={14} /> {t("guide.openInSettings")}
               </span>
             }
           />
@@ -95,26 +97,26 @@ export default function MemoryPage() {
       ) : (
         /* 检索卡 */
         <Card>
-          <SectionTitle icon={<Search size={16} />} title="文字检索" desc="搜屏幕上出现过的内容，跳到截图与时刻。" />
+          <SectionTitle icon={<Search size={16} />} title={t("search.title")} desc={t("search.desc")} />
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && runSearch()}
-              placeholder="输入关键词，如 项目名、报错信息…"
+              placeholder={t("search.placeholder")}
               className="h-10 min-w-[220px] flex-1"
             />
-            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-10 w-40" aria-label="开始日期" />
-            <span className="text-[12px] text-faint">至</span>
-            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-10 w-40" aria-label="结束日期" />
+            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-10 w-40" aria-label={t("search.from")} />
+            <span className="text-[12px] text-faint">{t("search.to")}</span>
+            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-10 w-40" aria-label={t("search.to")} />
             <Button size="md" variant="primary" icon={<Search size={15} />} onClick={runSearch} disabled={!query.trim()}>
-              检索
+              {t("search.button")}
             </Button>
           </div>
 
           <div className="mt-4">
             {!submitted?.q ? (
-              <p className="py-8 text-center text-[12.5px] text-muted">输入关键词开始检索（支持截图中出现过的任意文字）。</p>
+              <p className="py-8 text-center text-[12.5px] text-muted">{t("search.emptyInitial")}</p>
             ) : searchQ.loading && !results ? (
               <div className="space-y-2">
                 <Skeleton className="h-16 w-full" />
@@ -125,7 +127,7 @@ export default function MemoryPage() {
               <p className="py-6 text-center text-[12.5px] text-danger">{String(searchQ.error)}</p>
             ) : !results || results.items.length === 0 ? (
               <p className="py-8 text-center text-[12.5px] text-muted">
-                这个时间段没有命中「{submitted.q}」。试试放宽日期范围。
+                {t("search.noHit", { q: submitted.q })}
               </p>
             ) : (
               <ul className="divide-y divide-line-soft">
@@ -136,7 +138,7 @@ export default function MemoryPage() {
                       onClick={() => setLightbox(it)}
                       className="flex w-full items-center gap-3 px-1 py-2.5 text-left transition-colors hover:bg-elevated/60"
                     >
-                      <MemoryThumb target={device} token={device.token} id={it.id} alt={`${it.app} 的屏幕截图`} />
+                      <MemoryThumb target={device} token={device.token} id={it.id} alt={t("search.screenshotAlt", { app: it.app })} />
                       <span className="min-w-0 flex-1">
                         <span className="flex items-baseline gap-2">
                           <span className="truncate text-[13px] font-medium text-fg">{it.app}</span>
@@ -188,11 +190,12 @@ function MemoryLightbox({
   theme: ThemeName
   onClose: () => void
 }) {
+  const t = useT('memory')
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`${item.app} 的屏幕截图`}
+      aria-label={t("search.screenshotAlt", { app: item.app })}
       onClick={onClose}
       className={
         'fixed inset-0 z-[80] flex flex-col items-center justify-center gap-3 p-6 ' +
@@ -201,12 +204,12 @@ function MemoryLightbox({
     >
       <img
         src={memoryImageUrl(device, device.token, item.id)}
-        alt={`${item.app} 的屏幕截图`}
+        alt={t("search.screenshotAlt", { app: item.app })}
         className="max-h-[78vh] max-w-[92vw] rounded-xl border border-line-soft object-contain shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       />
       <div className={'rounded-xl px-4 py-2 text-[13px] text-white ' + (theme === 'dark' ? 'bg-black/60' : 'bg-black/50')}>
-        {item.app} · {timeLabel(item.ts)} · 命中「{item.snippet.slice(0, 24)}…」 · 点击任意处关闭
+        {item.app} · {timeLabel(item.ts)} · {t("lightbox.meta", { app: item.app, time: timeLabel(item.ts), snippet: item.snippet.slice(0, 24) })}
       </div>
     </div>
   )
