@@ -2,15 +2,18 @@ import {
   Copy,
   Info,
   KeyRound,
+  Minus,
   Monitor,
   Moon,
   Palette,
   Radar,
   Save,
   ShieldAlert,
+  SlidersHorizontal,
+  Sparkles,
+  Square,
   Sun,
   UserRound,
-  SlidersHorizontal,
 } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -42,8 +45,17 @@ import {
 import { useRuntime } from '../lib/runtime'
 import { useAsync } from '../lib/hooks'
 import { systemKey } from '../lib/keys'
+import {
+  getAppVersion,
+  checkForUpdate,
+  installUpdate,
+  listenUpdateAvailable,
+  updateAutoGet,
+  updateAutoSet,
+  type UpdateInfo,
+} from '../lib/updaterApi'
 import { useApp, type PairedDevice } from '../store/app'
-import { THEME_LABEL, useTheme, type ThemeMode } from '../store/theme'
+import { THEME_LABEL, THEME_NAME_LABEL, useTheme, type ThemeMode } from '../store/theme'
 import { PageHeader } from '../components/shell'
 
 /** 进入设置页前的会话检查：未配对 / 401 / 离线在这里统一拦成整页提示 */
@@ -188,6 +200,96 @@ function AboutCard({ device }: { device: PairedDevice }) {
     }
   }
 
+  // ---------- A7 自动检查更新（仅桌面壳；浏览器/Android 无 updater 概念） ----------
+  const runtime = useRuntime()
+  const isDesktopShell = runtime === 'desktop'
+  const [appVer, setAppVer] = useState<string | null>(null)
+  const [auto, setAuto] = useState<boolean | null>(null)
+  const [busyAuto, setBusyAuto] = useState(false)
+  const [checking, setChecking] = useState(false)
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const [upToDate, setUpToDate] = useState(false)
+  const [checkError, setCheckError] = useState<string | null>(null)
+  const [installing, setInstalling] = useState(false)
+
+  useEffect(() => {
+    if (!isDesktopShell) return
+    let alive = true
+    void getAppVersion().then((v) => {
+      if (alive) setAppVer(v)
+    })
+    void updateAutoGet().then((v) => {
+      if (alive) setAuto(v)
+    })
+    // Rust 启动静默检查（可在下方开关关闭）的结果事件：有更新就展示，绝不自动安装。
+    // listenUpdateAvailable 是 async：清理函数等它 resolve 后再真正解绑，
+    // 组件先卸载的话由 alive2 标志把迟到的事件丢弃。
+    let un: (() => void) | undefined
+    let alive2 = true
+    void listenUpdateAvailable((info) => {
+      if (alive2) {
+        setUpdateInfo(info)
+        setUpToDate(false)
+        setCheckError(null)
+      }
+    }).then((u) => {
+      if (alive2) un = u
+      else u()
+    })
+    return () => {
+      alive2 = false
+      un?.()
+    }
+  }, [isDesktopShell])
+
+  const toggleAuto = async (next: boolean) => {
+    setBusyAuto(true)
+    const res = await updateAutoSet(next)
+    setBusyAuto(false)
+    if (!res.ok) {
+      toast({ kind: 'error', title: '设置自动检查更新失败', desc: res.error })
+      return
+    }
+    setAuto(next)
+    toast({
+      kind: 'ok',
+      title: next ? '已开启自动检查更新' : '已关闭自动检查更新',
+      desc: next ? '启动 10 秒后后台静默检查，发现新版本只在「关于」里提示。' : '不再自动检查，可随时在这里手动检查。',
+    })
+  }
+
+  const checkNow = async () => {
+    setChecking(true)
+    setCheckError(null)
+    setUpToDate(false)
+    try {
+      const info = await checkForUpdate()
+      if (info) {
+        setUpdateInfo(info)
+        toast({ kind: 'ok', title: `发现新版本 ${info.version}`, desc: '可更新到最新版。' })
+      } else {
+        setUpdateInfo(null)
+        setUpToDate(true)
+      }
+    } catch (e) {
+      setCheckError((e as Error).message || '检查失败')
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  const doUpdate = async () => {
+    if (!updateInfo) return
+    setInstalling(true)
+    // downloadAndInstall（passive 进度条）完成后 relaunch，页面这里不用再收尾
+    try {
+      await installUpdate()
+    } catch (e) {
+      setInstalling(false)
+      toast({ kind: 'error', title: '更新失败', desc: (e as Error).message })
+    }
+  }
+
   return (
     <Card>
       <SectionTitle
@@ -258,14 +360,71 @@ function AboutCard({ device }: { device: PairedDevice }) {
           </div>
         </>
       ) : null}
+
+      {/* A7 自动检查更新：仅桌面壳显示（浏览器/Android 无 updater 概念） */}
+      {isDesktopShell && (
+        <div className="mt-3 rounded-xl border border-line-soft bg-elevated p-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11.5px] text-muted">客户端版本</span>
+            <span className="num text-[12px] text-fg-soft">{appVer ?? '—'}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-[11.5px] text-muted">自动检查更新</span>
+            {auto !== null ? (
+              <Toggle checked={auto} disabled={busyAuto} onChange={(v) => void toggleAuto(v)} />
+            ) : (
+              <span className="text-[11px] text-faint">…</span>
+            )}
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-[11.5px] text-muted">手动检查</span>
+            <Button size="sm" variant="ghost" disabled={checking || installing} onClick={() => void checkNow()}>
+              {checking ? '检查中…' : '检查更新'}
+            </Button>
+          </div>
+          {installing && (
+            <p className="mt-2 text-[11.5px] text-muted">
+              正在下载并安装新版本，完成后自动重启…
+            </p>
+          )}
+          {updateInfo && !installing && (
+            <div className="mt-2 rounded-lg border border-ok/30 bg-ok/[0.08] px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[12px] text-fg-soft">
+                  发现新版本 <span className="num font-semibold">{updateInfo.version}</span>
+                </span>
+                <Button size="sm" variant="primary" icon={<Sparkles size={13} />} onClick={() => void doUpdate()}>
+                  更新并重启
+                </Button>
+              </div>
+              {updateInfo.notes && (
+                <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-muted">{updateInfo.notes}</p>
+              )}
+            </div>
+          )}
+          {upToDate && !updateInfo && (
+            <p className="mt-2 text-[11.5px] text-muted">已是最新版本。</p>
+          )}
+          {checkError && (
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <p className="text-[11.5px] text-danger">检查失败：{checkError}</p>
+              <Button size="sm" variant="ghost" onClick={() => void checkNow()}>
+                重试
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </Card>
   )
 }
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: ReactNode }[] = [
   { value: 'system', label: '跟随系统', icon: <Monitor size={14} /> },
-  { value: 'dark', label: '深色', icon: <Moon size={14} /> },
-  { value: 'light', label: '浅色', icon: <Sun size={14} /> },
+  { value: 'light', label: '明亮', icon: <Sun size={14} /> },
+  { value: 'dark', label: '暗色', icon: <Moon size={14} /> },
+  { value: 'minimal', label: '简约', icon: <Minus size={14} /> },
+  { value: 'flat', label: '留白扁平', icon: <Square size={14} /> },
 ]
 
 /** 第 0 组：外观 + 桌面端自启。不依赖设备，未配对 / 离线时也照样能用 */
@@ -366,7 +525,7 @@ function AppearanceCard() {
         <Segmented value={mode} onChange={setMode} options={THEME_OPTIONS} />
         <span className="text-[12px] text-muted">
           选择：<span className="text-fg-soft">{THEME_LABEL[mode]}</span>
-          <span className="text-faint"> · 当前生效 {theme === 'light' ? '浅色' : '深色'}</span>
+          <span className="text-faint"> · 当前生效 {THEME_NAME_LABEL[theme]}</span>
         </span>
       </div>
 
