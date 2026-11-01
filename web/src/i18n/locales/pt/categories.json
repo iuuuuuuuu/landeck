@@ -1,0 +1,31 @@
+{
+  "title": "分类管理",
+  "subtitleDemo": "演示数据：agent 活动接口上线后自动切真数据",
+  "subtitle": "给应用归类，统计页的图表和排行都按这里来",
+  "cats": {
+    "title": "类别",
+    "desc": "内置 8 类可改名；自建类别可删除",
+    "renameTitle": "点击改名",
+    "deleteTitle": "删除类别（其下应用回到未分类）",
+    "del": "删",
+    "newPlaceholder": "新类别名，如「设计」",
+    "add": "添加"
+  },
+  "mapping": {
+    "title": "应用 → 类别",
+    "count": "共 {{count}} 个应用",
+    "searchPlaceholder": "搜索应用…",
+    "ariaFor": "为 {{app}} 选择类别",
+    "unclassified": "（不归类）",
+    "noMatch": "没有匹配的应用。"
+  },
+  "toast": {
+    "renamed": "类别已改名",
+    "added": "类别已添加",
+    "deleted": "类别已删除",
+    "mappingUpdated": "映射已更新",
+    "saveFailed": "保存失败",
+    "demoDesc": "演示模式：仅本地生效，agent 上线后需重设"
+  },
+  "_note": "※ Tradução provisória automática. Itens não traduzidos aparecem em chinês simplificado. Correções bem-vindas!"
+}

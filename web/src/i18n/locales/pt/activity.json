@@ -1,0 +1,65 @@
+{
+  "daily": {
+    "title": "日统计",
+    "viewHours": "时段",
+    "viewShare": "占比",
+    "topApps": "最常用应用",
+    "topCats": "最常用分类",
+    "total": "总计 {{duration}}"
+  },
+  "weekly": {
+    "title": "周统计"
+  },
+  "monthly": {
+    "yearMonth": "{y} 年 {m} 月",
+    "avgDaily": "日均 {duration}",
+    "thisMonth": "本月",
+    "totalThisMonth": "本月总时长",
+    "dailyAvg": "日均时长",
+    "activeDays": "活跃天数",
+    "activeDaysShort": "活跃 {count} 天",
+    "topCat": "最大类别",
+    "topApp": "最大构成应用",
+    "flat": "持平",
+    "catShare": "类别占比",
+    "catShareHint": "点内环类别查看该类别下的应用构成",
+    "emptyMonth": "本月还没有记录。",
+    "backToAll": "返回全览",
+    "noAppsInCat": "该类别下没有应用明细。",
+    "appOfCat": "{{cat}} 的应用构成"
+  },
+  "alltime": {
+    "subtitle": "按年查看活动分布",
+    "year": "年",
+    "activeDays": "活跃 {{count}} 天",
+    "yearTable": "年表",
+    "yearTableHint": "颜色越深当天用得越久；点选某天，下方排行只统计这一天",
+    "clearRange": "清除选择 {{range}}",
+    "month": "月",
+    "calendarHint": "月历 · 点选联动",
+    "rangeRank": "{{month}} 月排行",
+    "pickDate": "选择一个日期"
+  },
+  "categories": {
+    "title": "分类管理",
+    "subtitle": "应用与网站的活动分类"
+  },
+  "rank": {
+    "empty": "这段时间没有记录到活动。"
+  },
+  "error": {
+    "loadFailed": "统计数据读取失败",
+    "network": "连不上被控端：设备可能已离线，或 Agent 没有在运行。",
+    "timeout": "读取超时：被控端响应太慢，请重试。"
+  },
+  "noDevice": {
+    "title": "还没有可查看的设备",
+    "desc": "本机被控端不可达时无法统计；配对一台电脑后，这里会显示它的活动统计。",
+    "action": "去发现扫描"
+  },
+  "collection": {
+    "title": "活动采集",
+    "state": "状态"
+  },
+  "_note": "※ Tradução provisória automática. Itens não traduzidos aparecem em chinês simplificado. Correções bem-vindas!"
+}

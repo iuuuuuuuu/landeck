@@ -1,0 +1,28 @@
+{
+  "title": "屏幕记忆",
+  "status": {
+    "summary": "已截 {{shots}} 张 · OCR 成功 {{ok}} / 失败 {{fail}} · 保留 {{days}} 天",
+    "disabled": "功能未开启"
+  },
+  "guide": {
+    "title": "屏幕记忆未开启",
+    "desc1": "开启后会按固定间隔截取全屏并识别文字，之后就能搜「屏幕上出现过的内容」并跳回那一刻。",
+    "desc2": "默认关闭；截图与文字只存被控机本地；隐私规则命中的时刻不截屏；超过保留期自动删除。",
+    "openInSettings": "在下方「采集设置」里开启"
+  },
+  "search": {
+    "title": "文字检索",
+    "desc": "搜屏幕上出现过的内容，跳到截图与时刻。",
+    "placeholder": "输入关键词，如 项目名、报错信息…",
+    "to": "至",
+    "button": "检索",
+    "emptyInitial": "输入关键词开始检索（支持截图中出现过的任意文字）。",
+    "noHit": "这个时间段没有命中「{{q}}」。试试放宽日期范围。",
+    "screenshotAlt": "{{app}} 的屏幕截图",
+    "from": "开始日期"
+  },
+  "lightbox": {
+    "meta": "{{app}} · {{time}} · 命中「{{snippet}}…」 · 点击任意处关闭"
+  },
+  "_note": "※ Tradução provisória automática. Itens não traduzidos aparecem em chinês simplificado. Correções bem-vindas!"
+}

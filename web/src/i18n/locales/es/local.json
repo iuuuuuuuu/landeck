@@ -1,0 +1,12 @@
+{
+  "title": "Este PC",
+  "subtitle": "Hardware, estado en vivo y agente de esta máquina",
+  "thisMachine": "Este PC",
+  "thisMachineBadge": "Esta máquina",
+  "agentStartFailed": "Error al iniciar el agente local",
+  "agentStarted": "Agente local iniciado",
+  "readingInfo": "Leyendo información del dispositivo…",
+  "agentDown": "Agent no está en ejecución",
+  "bootTime": "Hora de arranque",
+  "uptime": "Tiempo activo"
+}

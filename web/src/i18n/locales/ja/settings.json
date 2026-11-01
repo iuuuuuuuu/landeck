@@ -1,0 +1,78 @@
+{
+  "title": "設定",
+  "subtitle": "識別、被制御側の設定とセキュリティ",
+  "identity": {
+    "title": "このコンソールの識別名",
+    "desc": "ペアリング時に被制御マシンへ表示される名前です。コンソールを区別するのに使います。",
+    "nameLabel": "クライアント名",
+    "nameHintPrefix": "ローカル識別子：",
+    "nameHintSuffix": "（このブラウザに保存）",
+    "namePlaceholder": "例：YG のノート PC",
+    "saved": "クライアント名を更新しました"
+  },
+  "about": {
+    "title": "情報",
+    "desc": "Agent のバージョン、API 契約の入口、ポートの取り決め。",
+    "sessionError": "デバイスセッションの読み込みに失敗",
+    "agentInfoError": "Agent 情報の読み取りに失敗",
+    "agentVersion": "Agent バージョン",
+    "device": "デバイス",
+    "os": "OS",
+    "uptime": "稼働時間",
+    "apiEntry": "API 契約エントリ",
+    "copyAddress": "アドレスをコピー",
+    "copyOk": "API アドレスをコピーしました",
+    "copyFailed": "コピー失敗",
+    "clipboardDenied": "ブラウザがクリップボードを拒否しました。アドレスを手動で選んでコピーしてください",
+    "fieldNote": "各フィールドの意味はリポジトリ内の docs/API.md が唯一の情報源です。このドキュメントは Agent v1 で凍結済み。",
+    "portCol": "ポート",
+    "protoCol": "プロトコル",
+    "usageCol": "用途",
+    "portHttp": "HTTP API + WebSocket + 内蔵 Web UI",
+    "portDiscovery": "LAN 探索ブロードキャスト（mDNS のフォールバック）",
+    "portTls": "任意の TLS リスナー（自己署名証明書）"
+  },
+  "update": {
+    "clientVersion": "クライアントバージョン",
+    "autoCheck": "自動更新チェック",
+    "manual": "手動チェック",
+    "checking": "確認中…",
+    "checkNow": "更新を確認",
+    "downloading": "新バージョンをダウンロードしてインストール中。完了後に自動再起動します…",
+    "found": "新バージョンあり",
+    "foundToast": "最新版へ更新できます。",
+    "updateAndRestart": "更新して再起動",
+    "upToDate": "最新版です。",
+    "checkFailed": "確認失敗：",
+    "autoOn": "自動更新チェックを有効化",
+    "autoOff": "自動更新チェックを無効化",
+    "autoOnDesc": "起動 10 秒後にバックグラウンドで静かに確認し、新バージョンは「情報」に表示だけします。",
+    "autoOffDesc": "自動確認は行いません。いつでもここで手動確認できます。",
+    "autoSetFailed": "自動更新チェックの設定に失敗",
+    "updateFailed": "更新失敗",
+    "retry": "再試行"
+  },
+  "gate": {
+    "pairTitle": "まずデバイスをペアリング",
+    "pairDesc": "設定はペアリング済みマシンの Agent に適用されます。先に LAN をスキャンし、確認コードか固定キーでペアリングしてください。",
+    "pairAction": "LAN をスキャン",
+    "authTitle": "まずデバイスをペアリング",
+    "authDesc": "トークンが無効か権限がありません。再ペアリングで設定を変更できます。",
+    "rescan": "再ペアリング",
+    "unreachable": "{{name}}：{{err}}。電源が入っているか、Agent が起動しているか、同じ LAN にいるか確認してください。",
+    "unreachableTitle": "デバイスに到達できません"
+  },
+  "agentCard": {
+    "title": "被制御側の設定",
+    "desc": "スマホはコンソールとしてのみ動作し、ローカルに Agent はありません。",
+    "line1": "「{{name}}」のデバイス名・ポート・起動設定を変えるには、そのマシンで LanDeck を開くか、",
+    "line2": "「デバイス」から詳細ページを開いて操作してください。"
+  },
+  "startupToast": {
+    "autostartFailed": "起動時自動開始の設定に失敗",
+    "autostartOn": "起動時自動開始を有効化",
+    "autostartOff": "起動時自動開始を無効化"
+  },
+  "save": "保存",
+  "retry": "再試行"
+}

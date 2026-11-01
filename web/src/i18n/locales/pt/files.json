@@ -1,0 +1,19 @@
+{
+  "title": "文件",
+  "subtitle": "浏览、下载、上传、新建目录、重命名与删除",
+  "roots": "选择要浏览的位置",
+  "sysError": "读取设备信息失败",
+  "rootsError": "文件根目录读取失败",
+  "pairLost": "配对失效，请重新配对",
+  "disabled": {
+    "title": "文件管理已在设置里关闭",
+    "desc": "在被控端「设置 → 文件管理」中开启后，这里会出现浏览、上传与下载入口。"
+  },
+  "noPairedHint": "还没有已配对的设备，当前显示本机",
+  "localError": {
+    "tokenTitle": "本机访问需要令牌",
+    "tokenDesc": "被控端关掉了「本机免令牌」，到那台电脑的「设置」里重新开启即可。",
+    "downTitle": "本机被控端无响应"
+  },
+  "_note": "※ Tradução provisória automática. Itens não traduzidos aparecem em chinês simplificado. Correções bem-vindas!"
+}

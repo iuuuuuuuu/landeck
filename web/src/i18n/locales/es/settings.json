@@ -1,0 +1,78 @@
+{
+  "title": "Ajustes",
+  "subtitle": "Identidad, opciones del agente y seguridad",
+  "identity": {
+    "title": "Identidad de esta consola",
+    "desc": "Este nombre se muestra a la máquina controlada durante el emparejamiento, para distinguir las consolas.",
+    "nameLabel": "Nombre del cliente",
+    "nameHintPrefix": "Identidad local: ",
+    "nameHintSuffix": " (guardado en este navegador)",
+    "namePlaceholder": "p. ej. portátil de YG",
+    "saved": "Nombre del cliente actualizado"
+  },
+  "about": {
+    "title": "Acerca de",
+    "desc": "Versión del Agent, entrada del contrato de API y convenciones de puertos.",
+    "sessionError": "Error al leer la sesión del dispositivo",
+    "agentInfoError": "Error al leer la información del Agent",
+    "agentVersion": "Versión del Agent",
+    "device": "Dispositivo",
+    "os": "SO",
+    "uptime": "Tiempo activo",
+    "apiEntry": "Entrada del contrato de API",
+    "copyAddress": "Copiar dirección",
+    "copyOk": "Dirección de la API copiada",
+    "copyFailed": "Error al copiar",
+    "clipboardDenied": "El navegador denegó el acceso al portapapeles — selecciona y copia la dirección manualmente",
+    "fieldNote": "docs/API.md en el repositorio es la única fuente de verdad; este documento está congelado en la versión v1 del Agent.",
+    "portCol": "Puerto",
+    "protoCol": "Protocolo",
+    "usageCol": "Uso",
+    "portHttp": "API HTTP + WebSocket + Web UI integrada",
+    "portDiscovery": "Broadcast de descubrimiento en LAN (respaldo de mDNS)",
+    "portTls": "Listener TLS opcional, certificado autofirmado"
+  },
+  "update": {
+    "clientVersion": "Versión del cliente",
+    "autoCheck": "Comprobación automática de actualizaciones",
+    "manual": "Comprobación manual",
+    "checking": "Comprobando…",
+    "checkNow": "Buscar actualizaciones",
+    "downloading": "Descargando e instalando la nueva versión; la app se reinicia al terminar…",
+    "found": "Nueva versión encontrada",
+    "foundToast": "Puedes actualizar a la última versión.",
+    "updateAndRestart": "Actualizar y reiniciar",
+    "upToDate": "Ya tienes la última versión.",
+    "checkFailed": "La comprobación falló: ",
+    "autoOn": "Comprobación automática activada",
+    "autoOff": "Comprobación automática desactivada",
+    "autoOnDesc": "Comprueba en segundo plano 10 s después de iniciar; las nuevas versiones solo se avisan en \"Acerca de\".",
+    "autoOffDesc": "Sin comprobación automática; puedes comprobarla manualmente aquí cuando quieras.",
+    "autoSetFailed": "Error al configurar la comprobación automática",
+    "updateFailed": "Error en la actualización",
+    "retry": "Reintentar"
+  },
+  "gate": {
+    "pairTitle": "Empareja un dispositivo primero",
+    "pairDesc": "Estos ajustes actúan sobre el Agent de una máquina controlada. Escanea la LAN primero y empareja con el código o la clave fija.",
+    "pairAction": "Escanear LAN",
+    "authTitle": "Empareja un dispositivo primero",
+    "authDesc": "El token no es válido o no tiene acceso — vuelve a emparejar para cambiar los ajustes.",
+    "rescan": "Volver a emparejar",
+    "unreachable": "{{name}}: {{err}}. Comprueba que esté encendido, que el Agent se esté ejecutando y que esté en la misma LAN.",
+    "unreachableTitle": "Dispositivo inaccesible"
+  },
+  "agentCard": {
+    "title": "Ajustes del agente",
+    "desc": "El teléfono funciona solo como consola — no hay agente local que configurar.",
+    "line1": "Para cambiar el nombre, puerto o comportamiento de arranque de \"{{name}}\", abre LanDeck en esa máquina,",
+    "line2": "o abre su página de detalles desde \"Dispositivos\"."
+  },
+  "startupToast": {
+    "autostartFailed": "Error al configurar el inicio con el sistema",
+    "autostartOn": "Inicio con el sistema activado",
+    "autostartOff": "Inicio con el sistema desactivado"
+  },
+  "save": "Guardar",
+  "retry": "Reintentar"
+}

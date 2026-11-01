@@ -33,7 +33,45 @@ import zhTWMemory from './locales/zh-TW/memory.json'
 import zhTWRd from './locales/zh-TW/rd.json'
 import zhTWSync from './locales/zh-TW/sync.json'
 import zhTWPlugins from './locales/zh-TW/plugins.json'
-import { jaCommon, ptCommon, esCommon } from './locales/stubs'
+import jaCommon from './locales/ja/common.json'
+import jaNav from './locales/ja/nav.json'
+import jaSettings from './locales/ja/settings.json'
+import jaDevices from './locales/ja/devices.json'
+import jaLocal from './locales/ja/local.json'
+import jaActivity from './locales/ja/activity.json'
+import jaFiles from './locales/ja/files.json'
+import jaSchedules from './locales/ja/schedules.json'
+import jaAi from './locales/ja/ai.json'
+import jaCategories from './locales/ja/categories.json'
+import jaMemory from './locales/ja/memory.json'
+import jaRd from './locales/ja/rd.json'
+import jaSync from './locales/ja/sync.json'
+import ptCommon from './locales/pt/common.json'
+import ptNav from './locales/pt/nav.json'
+import ptSettings from './locales/pt/settings.json'
+import ptDevices from './locales/pt/devices.json'
+import ptLocal from './locales/pt/local.json'
+import ptActivity from './locales/pt/activity.json'
+import ptFiles from './locales/pt/files.json'
+import ptSchedules from './locales/pt/schedules.json'
+import ptAi from './locales/pt/ai.json'
+import ptCategories from './locales/pt/categories.json'
+import ptMemory from './locales/pt/memory.json'
+import ptRd from './locales/pt/rd.json'
+import ptSync from './locales/pt/sync.json'
+import esCommon from './locales/es/common.json'
+import esNav from './locales/es/nav.json'
+import esSettings from './locales/es/settings.json'
+import esDevices from './locales/es/devices.json'
+import esLocal from './locales/es/local.json'
+import esActivity from './locales/es/activity.json'
+import esFiles from './locales/es/files.json'
+import esSchedules from './locales/es/schedules.json'
+import esAi from './locales/es/ai.json'
+import esCategories from './locales/es/categories.json'
+import esMemory from './locales/es/memory.json'
+import esRd from './locales/es/rd.json'
+import esSync from './locales/es/sync.json'
 
 export type Lang = 'zh-CN' | 'en' | 'zh-TW' | 'ja' | 'pt' | 'es'
 type Bundle = Record<string, Record<string, unknown>>
@@ -76,17 +114,65 @@ export const enLoader = async (): Promise<Bundle> => enBundle
 
 export const zhTWLoader = async (): Promise<Bundle> => zhTWBundle
 
-/** ja/pt/es：框架占位（仅 common 少量条目，未覆盖 key 回退 zh-CN）——欢迎纠错后补全 */
-const stubLoader = (code: 'ja' | 'pt' | 'es') => async (): Promise<Bundle> => {
-  const map = { ja: jaCommon, pt: ptCommon, es: esCommon } as const
-  return { common: map[code] as unknown as Record<string, unknown> }
+const jaBundle: Bundle = {
+  common: jaCommon,
+  nav: jaNav,
+  settings: jaSettings,
+  devices: jaDevices,
+  local: jaLocal,
+  activity: jaActivity,
+  files: jaFiles,
+  schedules: jaSchedules,
+  ai: jaAi,
+  categories: jaCategories,
+  memory: jaMemory,
+  rd: jaRd,
+  sync: jaSync,
 }
+
+export const jaLoader = async (): Promise<Bundle> => jaBundle
+
+const ptBundle: Bundle = {
+  common: ptCommon,
+  nav: ptNav,
+  settings: ptSettings,
+  devices: ptDevices,
+  local: ptLocal,
+  activity: ptActivity,
+  files: ptFiles,
+  schedules: ptSchedules,
+  ai: ptAi,
+  categories: ptCategories,
+  memory: ptMemory,
+  rd: ptRd,
+  sync: ptSync,
+}
+
+export const ptLoader = async (): Promise<Bundle> => ptBundle
+
+const esBundle: Bundle = {
+  common: esCommon,
+  nav: esNav,
+  settings: esSettings,
+  devices: esDevices,
+  local: esLocal,
+  activity: esActivity,
+  files: esFiles,
+  schedules: esSchedules,
+  ai: esAi,
+  categories: esCategories,
+  memory: esMemory,
+  rd: esRd,
+  sync: esSync,
+}
+
+export const esLoader = async (): Promise<Bundle> => esBundle
 
 /** 按语言取资源加载器 */
 export const langLoaders: Record<Exclude<Lang, 'zh-CN'>, () => Promise<Bundle>> = {
   en: enLoader,
   'zh-TW': zhTWLoader,
-  ja: () => stubLoader('ja')(),
-  pt: () => stubLoader('pt')(),
-  es: () => stubLoader('es')(),
+  ja: jaLoader,
+  pt: ptLoader,
+  es: esLoader,
 }

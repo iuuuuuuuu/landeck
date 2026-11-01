@@ -1,0 +1,12 @@
+{
+  "title": "この PC",
+  "subtitle": "このマシンのハードウェア・稼働状態と被制御側",
+  "thisMachine": "この PC",
+  "thisMachineBadge": "このマシン",
+  "agentStartFailed": "ローカル Agent の起動に失敗",
+  "agentStarted": "ローカル Agent を起動しました",
+  "readingInfo": "端末情報を読み込み中…",
+  "agentDown": "Agent が未起動",
+  "bootTime": "起動時刻",
+  "uptime": "稼働時間"
+}
