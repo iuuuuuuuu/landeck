@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Check, Copy, Download, FileText, Loader2, Sparkles } from 'lucide-react'
-import { Button, Card, Segmented } from '../../components/ui'
+import { Check, ChevronRight, Copy, Download, FileText, History, Loader2, Sparkles } from 'lucide-react'
+import { Badge, Button, Card, SectionTitle, Segmented, Skeleton } from '../../components/ui'
 import { DateNav, PageHeader } from '../../components/shell'
-import { aiSummaryKey } from '../../lib/aiKeys'
-import { generateSummary, type SummaryScope } from '../../lib/aiApi'
-import { readCache, writeCache } from '../../lib/queryCache'
+import { aiReportContentKey, aiReportsKey, aiSummaryKey } from '../../lib/aiKeys'
+import { useAsync } from '../../lib/hooks'
+import { fetchAiReports, fetchReportContent, generateSummary, type ReportMeta, type SummaryScope } from '../../lib/aiApi'
+import { invalidateCache, readCache, writeCache } from '../../lib/queryCache'
+import { relative } from '../../lib/format'
 import { useApp } from '../../store/app'
 import { useActiveTarget } from '../../lib/useActiveTarget'
 import { AiErrorCard, AiNoDeviceGuide, DemoBadge, MiniMarkdown } from './shared'
@@ -104,12 +106,52 @@ export default function AiSummaryPage() {
       setContent({ content: r.data, demo: r.demo })
       // 结果落缓存：重进页面直接回显，不重复烧 token
       writeCache(aiSummaryKey(dev, scope, date), { content: r.data, demo: r.demo }, 12 * 60 * 60_000)
+      // 生成成功（agent 会把它存进报告库）→ 失效历史列表，让新报告出现在顶部。
+      // mock 模式（demo=true）没有真报告库，不刷。
+      if (!r.demo) {
+        invalidateCache(aiReportsKey(dev))
+        reports.reload()
+      }
     } catch (e) {
       setError(e)
     } finally {
       setPending(false)
     }
   }, [dev, scope, date])
+
+  // 报告历史（七期）：生成的日报/周报会进 agent 的报告库，这里列出来供回看。
+  // 60s TTL——生成成功后会主动失效重拉，让新报告出现在顶部。
+  const reports = useAsync<{ list: ReportMeta[]; demo: boolean }>(
+    dev ? () => fetchAiReports(dev, dev.token, 30).then((r) => ({ list: r.data, demo: r.demo })) : null,
+    [dev?.host, dev?.port, dev?.token],
+    { key: dev ? aiReportsKey(dev) : undefined, ttlMs: 60_000 },
+  )
+  const [openingId, setOpeningId] = useState<string | null>(null)
+
+  const openReport = useCallback(
+    async (m: ReportMeta) => {
+      if (!dev) return
+      setOpeningId(m.id)
+      setError(null)
+      try {
+        // 内容缓存：重复点击同一份报告不发请求
+        const cached = readCache<{ content: string; demo: boolean }>(aiReportContentKey(dev, m.id))
+        const fetched = await fetchReportContent(dev, dev.token, m.id)
+        const r = cached ?? { content: fetched.data.content, demo: fetched.demo }
+        writeCache(aiReportContentKey(dev, m.id), r, 12 * 60 * 60_000)
+        // 内容写进 summary 缓存再切 scope/date：让「切范围/日期」的 effect 正常
+        // 接管视图（复制/下载的工具条也自动带上正确的 scope/date 语境）。
+        writeCache(aiSummaryKey(dev, m.type, m.date), r, 12 * 60 * 60_000)
+        setScope(m.type)
+        setDate(m.date)
+      } catch (e) {
+        setError(e)
+      } finally {
+        setOpeningId(null)
+      }
+    },
+    [dev],
+  )
 
   const copy = useCallback(async () => {
     if (!content) return
@@ -192,6 +234,53 @@ export default function AiSummaryPage() {
               生成总结
             </Button>
           </div>
+        )}
+      </Card>
+
+      {/* 报告历史（七期）：点击加载进上方查看器，复制/导出复用同一工具条 */}
+      <Card className="p-4 sm:p-5">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <SectionTitle icon={<History size={16} />} title="报告历史" desc="自动与手动生成的日报/周报" />
+          {reports.data?.demo ? <Badge tone="cyan">演示数据</Badge> : undefined}
+        </div>
+        {reports.loading && !reports.data ? (
+          <div className="space-y-2">
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-2/3" />
+          </div>
+        ) : reports.error && !reports.data ? (
+          <p className="text-[12px] text-danger">读取报告历史失败：{String(reports.error)}</p>
+        ) : (reports.data?.list ?? []).length === 0 ? (
+          <p className="rounded-xl border border-line-soft bg-elevated px-3 py-3 text-[12px] text-muted">
+            还没有生成的报告。生成总结后（或在被控端开启自动总结），这里会列出最近 30 份。
+          </p>
+        ) : (
+          <ul className="divide-y divide-line-soft">
+            {(reports.data?.list ?? []).map((m: ReportMeta) => (
+              <li key={m.id}>
+                <button
+                  type="button"
+                  disabled={openingId === m.id}
+                  onClick={() => void openReport(m)}
+                  className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-elevated disabled:opacity-60"
+                >
+                  <Badge tone={m.type === 'day' ? 'accent' : 'cyan'} className="shrink-0">
+                    {m.type === 'day' ? '日报' : '周报'}
+                  </Badge>
+                  <span className="min-w-0 flex-1">
+                    <span className="num block truncate text-[13px] text-fg">{m.date}</span>
+                    <span className="num block text-[11px] text-faint">{relative(m.generatedAt)}生成</span>
+                  </span>
+                  {openingId === m.id ? (
+                    <Loader2 size={14} className="shrink-0 animate-spin text-muted" />
+                  ) : (
+                    <ChevronRight size={14} className="shrink-0 text-faint" />
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </Card>
     </div>

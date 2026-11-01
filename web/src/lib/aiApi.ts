@@ -5,8 +5,12 @@
  *   GET  /ai/settings → {provider, baseURL, model, hasKey, keyTail, enabled}
  *   PUT  /ai/settings 部分更新 {provider?, baseURL?, model?, apiKey?, clearKey?, enabled?}
  *                     → 更新后的完整 settings（同 GET 形状）
- *   POST /ai/chat     {messages: [{role, content}]} → {content}（非流式，整段返回）
+ *   POST /ai/chat     {messages: [{role, content}]} → {content, citations?}
+ *                     （非流式整段返回；citations 是回答依据的前端路由锚点，七期契约）
  *   POST /ai/summary  {scope: 'day'|'week'|'month', date} → {content}（markdown 文本）
+ *   GET  /ai/reports?limit=30 → [{id, type:'day'|'week', date, generatedAt}]（报告历史，七期）
+ *   GET  /ai/reports/content?id= → markdown（响应可能是裸文本或 {content|markdown} JSON，两者都容）
+ *   settings 扩展：autoSummary: {enabled, time:'23:00'}（每日自动日报，PUT 部分更新，七期）
  *
  * 错误语义（两层，页面必须分流）：
  *   - 404/501：agent 版本过老，没有这组路由（< 1.0.19）。设置页显示「需要 1.0.19+」
@@ -35,6 +39,8 @@ export interface AiSettings {
   /** 已存密钥的尾 4 位，用于表单回显「已保存（尾号 …）」 */
   keyTail: string
   enabled: boolean
+  /** 七期：每日自动生成日报（缺失视为关闭，老版本 agent 兼容） */
+  autoSummary?: AutoSummaryConfig
 }
 
 /** 保存用的部分更新体；apiKey 只在用户本轮输入了新值时带，clearKey 单独发 */
@@ -45,11 +51,44 @@ export interface AiSettingsPatch {
   apiKey?: string
   clearKey?: boolean
   enabled?: boolean
+  autoSummary?: AutoSummaryConfig
+}
+
+export interface Citation {
+  /** 展示文案，如「日报 · 昨天」 */
+  label: string
+  /** 前端 hash 路由，如 '#/activity/daily?date=2026-10-31'（'#' 可有可无，跳转时归一） */
+  route: string
+}
+
+export interface ChatReply {
+  content: string
+  /** 回答依据的跳转链接；agent 未提供时缺省，聊天页不渲染 */
+  citations?: Citation[]
 }
 
 export interface ChatMsg {
   role: 'user' | 'assistant' | 'system'
   content: string
+  /** 仅 assistant 消息使用：回答依据（来自 /ai/chat 的 citations） */
+  citations?: Citation[]
+}
+
+/** 报告历史条目（七期）：自动/手动生成的日报与周报。 */
+export interface ReportMeta {
+  id: string
+  type: 'day' | 'week'
+  /** 报告覆盖的日期：日报=当天，周报=周一锚点 */
+  date: string
+  /** 生成时间（ISO） */
+  generatedAt: string
+}
+
+/** 每日自动总结配置。 */
+export interface AutoSummaryConfig {
+  enabled: boolean
+  /** 'HH:mm'，默认 23:00 */
+  time: string
 }
 
 export interface WithDemo<T> {
@@ -70,7 +109,7 @@ async function req<T>(
   t: Target,
   token: string | undefined,
   path: string,
-  opts: { method?: string; body?: unknown; timeoutMs?: number } = {},
+  opts: { method?: string; body?: unknown; timeoutMs?: number; raw?: boolean } = {},
 ): Promise<T> {
   const ctrl = new AbortController()
   // LLM 调用天然慢（本地模型小机器上几十秒很常见），超时给足 90s——
@@ -100,7 +139,8 @@ async function req<T>(
       const p = parsed as { error?: string; message?: string } | null
       throw new ApiError(p?.error ?? `HTTP ${res.status}`, p?.message ?? p?.error ?? `HTTP ${res.status}`, res.status)
     }
-    return parsed as T
+    // raw=true：返回原始文本（报告内容接口按契约返回裸 markdown，不是 JSON）
+    return (opts.raw ? text : parsed) as T
   } finally {
     clearTimeout(timer)
   }
@@ -123,10 +163,88 @@ const MOCK_CHAT_REPLIES = [
   `这个问题我需要更多上下文。你可以这样问：\n\n1. 「这周我在哪个项目上花的时间最多？」\n2. 「今天比昨天多用了多久？」\n3. 「帮我总结一下昨天的工作」\n\n（演示模式：配置模型后即可基于真实记录回答。）`,
 ]
 
-function mockChatReply(messages: ChatMsg[]): string {
+function mockChatReply(messages: ChatMsg[]): ChatReply {
   const lastUser = [...messages].reverse().find((m) => m.role === 'user')
   const seed = seedOf(lastUser?.content ?? 'ping')
-  return MOCK_CHAT_REPLIES[seed % MOCK_CHAT_REPLIES.length]
+  const d = new Date()
+  d.setDate(d.getDate() - 1)
+  const yesterday = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return {
+    content: MOCK_CHAT_REPLIES[seed % MOCK_CHAT_REPLIES.length],
+    // mock 也带 citations：让「查看依据」的渲染与跳转在演示模式就可验证，
+    // 不用等 agent-ai 落地（验收要求 mock 全链路）。
+    citations: [
+      { label: '日报 · ' + yesterday, route: `#/activity/daily?date=${yesterday}` },
+      { label: '月度占比', route: '#/activity/monthly' },
+    ],
+  }
+}
+
+// ---------- mock：报告历史（七期）----------
+
+function dateStr(n: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function isoAgo(minutes: number): string {
+  return new Date(Date.now() - minutes * 60_000).toISOString()
+}
+
+function mockReports(): ReportMeta[] {
+  const monday = (n: number) => {
+    const d = new Date()
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7) - n * 7)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+  return [
+    { id: 'rep-mock-1', type: 'day', date: dateStr(1), generatedAt: isoAgo(95) },
+    { id: 'rep-mock-2', type: 'week', date: monday(1), generatedAt: isoAgo(60 * 26) },
+    { id: 'rep-mock-3', type: 'day', date: dateStr(2), generatedAt: isoAgo(60 * 50) },
+    { id: 'rep-mock-4', type: 'day', date: dateStr(3), generatedAt: isoAgo(60 * 74) },
+  ]
+}
+
+function mockReportContent(m: ReportMeta): string {
+  if (m.type === 'week') {
+    return `# 周报（${m.date} 起的一周）
+
+## 概览
+
+本周活跃 5 天，总计 **31 小时 08 分**，日均 6 小时 13 分。
+
+## 分类占比
+
+- 编程 16h 42m（53%）
+- 浏览 6h 30m（21%）
+- 沟通 4h 05m（13%）
+- 其余 3h 51m（12%）
+
+## 值得注意
+
+- 周三最长专注 2h 40m
+- 周五晚间游戏时间比上周多 47 分钟
+
+---
+
+*演示数据：配置模型后基于真实记录生成。*`
+  }
+  return `# 日报（${m.date}）
+
+## 概览
+
+总计 **5 小时 12 分**，比前一天多 23 分钟。
+
+## 分时段
+
+- **上午**：编程为主（Code 2h 10m）
+- **午后**：浏览与沟通穿插
+- **晚间**：影音 1 小时
+
+---
+
+*演示数据：配置模型后基于真实记录生成。*`
 }
 
 function mockSummary(p: { scope: SummaryScope; date: string }): string {
@@ -146,13 +264,55 @@ export async function putAiSettings(t: Target, token: string | undefined, patch:
   return req<AiSettings>(t, token, '/ai/settings', { method: 'PUT', body: patch, timeoutMs: 15000 })
 }
 
-/** 发起对话。404 → mock；ai_not_configured → 原样抛给页面渲染引导卡。 */
-export async function sendChat(t: Target, token: string | undefined, messages: ChatMsg[]): Promise<WithDemo<string>> {
+/** 发起对话。404 → mock（含 citations 演示）；ai_not_configured → 原样抛给页面渲染引导卡。 */
+export async function sendChat(t: Target, token: string | undefined, messages: ChatMsg[]): Promise<WithDemo<ChatReply>> {
   try {
-    const r = await req<{ content: string }>(t, token, '/ai/chat', { method: 'POST', body: { messages }, timeoutMs: 120_000 })
-    return { demo: false, data: r.content }
+    const r = await req<ChatReply>(t, token, '/ai/chat', { method: 'POST', body: { messages }, timeoutMs: 120_000 })
+    return { demo: false, data: { content: r.content, citations: r.citations } }
   } catch (e) {
     if (isNotImplemented(e)) return { demo: true, data: mockChatReply(messages) }
+    throw e
+  }
+}
+
+// ---------- 报告历史（七期）----------
+
+/** 报告历史列表（最新在前由 agent 保证）。404 → mock。 */
+export async function fetchAiReports(t: Target, token: string | undefined, limit = 30): Promise<WithDemo<ReportMeta[]>> {
+  try {
+    const r = await req<ReportMeta[]>(t, token, `/ai/reports?limit=${limit}`, { timeoutMs: 15000 })
+    return { demo: false, data: Array.isArray(r) ? r : [] }
+  } catch (e) {
+    if (isNotImplemented(e)) return { demo: true, data: mockReports() }
+    throw e
+  }
+}
+
+/**
+ * 报告内容。契约返回裸 markdown，但为防 agent-ai 包一层 JSON（{content}/{markdown}），
+ * 做了双形状容错——与 generateSummary 的教训一致（契约两边各实现一半）。
+ * 404 → mock 内容。
+ */
+export async function fetchReportContent(t: Target, token: string | undefined, id: string): Promise<WithDemo<{ content: string }>> {
+  try {
+    const text = await req<string>(t, token, `/ai/reports/content?id=${encodeURIComponent(id)}`, { timeoutMs: 20000, raw: true })
+    let content = text
+    const trimmed = (text ?? '').trim()
+    if (trimmed.startsWith('{')) {
+      try {
+        const j = JSON.parse(trimmed) as { content?: string; markdown?: string }
+        content = j.content ?? j.markdown ?? text
+      } catch {
+        /* 不是 JSON，按裸 markdown 用 */
+      }
+    }
+    return { demo: false, data: { content } }
+  } catch (e) {
+    if (isNotImplemented(e)) {
+      // 从 mock 列表里找不到也无所谓：按 id 无关给一份 mock 内容（自审够用）
+      const meta = mockReports().find((m) => m.id === id)
+      return { demo: true, data: { content: mockReportContent(meta ?? { id, type: 'day', date: dateStr(1), generatedAt: '' }) } }
+    }
     throw e
   }
 }

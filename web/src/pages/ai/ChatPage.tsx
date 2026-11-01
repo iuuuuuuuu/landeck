@@ -56,7 +56,7 @@ export default function AiChatPage() {
       try {
         const r = await sendChat(dev, dev.token, next)
         setLastDemo(r.demo)
-        setMessages([...next, { role: 'assistant', content: r.data }])
+        setMessages([...next, { role: 'assistant', content: r.data.content, citations: r.data.citations }])
       } catch (e) {
         if (isAiNotConfigured(e)) {
           setError(e)

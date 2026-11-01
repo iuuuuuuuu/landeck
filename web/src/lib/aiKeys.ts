@@ -30,3 +30,13 @@ export function aiSummaryKey(c: C, scope: SummaryScope, date: string): string {
 export function aiSettingsKey(c: C): string {
   return cacheKey(['ai-settings', ...ident(c)])
 }
+
+/** 报告历史列表 */
+export function aiReportsKey(c: C): string {
+  return cacheKey(['ai-reports', ...ident(c)])
+}
+
+/** 报告内容（点击历史条目后缓存，重复点击不重复请求） */
+export function aiReportContentKey(c: C, id: string): string {
+  return cacheKey(['ai-report-content', id, ...ident(c)])
+}
