@@ -1,0 +1,39 @@
+{
+  "app": {
+    "name": "LanDeck",
+    "tagline": "Consola LAN"
+  },
+  "status": {
+    "online": "En línea",
+    "offline": "Desconectado",
+    "checking": "Comprobando",
+    "local": "Este PC",
+    "unpaired": "Sin dispositivo",
+    "connected": "Conectado",
+    "connecting": "Conectando",
+    "realtime": "Datos en vivo",
+    "paused": "Datos en vivo en pausa"
+  },
+  "actions": {
+    "retry": "Reintentar",
+    "refresh": "Actualizar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "close": "Cerrar",
+    "delete": "Eliminar",
+    "rename": "Renombrar",
+    "remove": "Quitar",
+    "scan": "Escanear",
+    "back": "Volver"
+  },
+  "empty": {
+    "noActivity": "No hay actividad registrada en este período.",
+    "loading": "Cargando"
+  },
+  "error": {
+    "loadFailed": "Error al cargar",
+    "network": "No se puede acceder al dispositivo: puede estar sin conexión o el Agent no se está ejecutando.",
+    "timeout": "Tiempo agotado: el dispositivo respondió demasiado lento, reintenta."
+  }
+}

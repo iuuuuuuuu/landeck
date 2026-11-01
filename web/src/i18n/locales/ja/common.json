@@ -1,0 +1,39 @@
+{
+  "app": {
+    "name": "LanDeck",
+    "tagline": "LAN コンソール"
+  },
+  "status": {
+    "online": "オンライン",
+    "offline": "オフライン",
+    "checking": "確認中",
+    "local": "この端末",
+    "unpaired": "未ペアリング",
+    "connected": "接続済み",
+    "connecting": "接続中",
+    "realtime": "ライブデータ",
+    "paused": "ライブデータ停止中"
+  },
+  "actions": {
+    "retry": "再試行",
+    "refresh": "更新",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "close": "閉じる",
+    "delete": "削除",
+    "rename": "名前変更",
+    "remove": "削除する",
+    "scan": "スキャン",
+    "back": "戻る"
+  },
+  "empty": {
+    "noActivity": "この期間の記録はありません。",
+    "loading": "読み込み中"
+  },
+  "error": {
+    "loadFailed": "読み込み失敗",
+    "network": "端末に接続できません：オフラインか、Agent が起動していない可能性があります。",
+    "timeout": "タイムアウト：応答が遅すぎます。再試行してください。"
+  }
+}

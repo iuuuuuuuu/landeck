@@ -1,0 +1,56 @@
+{
+  "groups": {
+    "device": "デバイス",
+    "activity": "アクティビティ",
+    "ai": "AI",
+    "data": "データ",
+    "system": "システム"
+  },
+  "items": {
+    "devices": "デバイス",
+    "local": "この PC",
+    "scan": "探索",
+    "daily": "日統計",
+    "weekly": "週統計",
+    "monthly": "月統計",
+    "alltime": "全履歴",
+    "categories": "カテゴリ",
+    "aiChat": "AI チャット",
+    "aiSummary": "AI サマリー",
+    "aiSettings": "AI 設定",
+    "files": "ファイル",
+    "schedules": "スケジュール",
+    "memory": "画面メモリ",
+    "settings": "設定"
+  },
+  "desc": {
+    "devices": "ペアリング済みホストの状態とクイック操作",
+    "local": "このマシンのハードウェアとライブ状態",
+    "scan": "LAN をスキャンして新しい Agent をペアリング",
+    "daily": "24 時間のアクティビティ内訳と上位アプリ",
+    "weekly": "一週間の概要",
+    "monthly": "月間の使用時間とカテゴリ比率",
+    "alltime": "年間ヒートマップと長期レビュー",
+    "categories": "アプリとサイトの分類",
+    "aiChat": "アクティビティ記録に基づく Q&A",
+    "aiSummary": "日次・週次レポート生成",
+    "aiSettings": "ローカルモデルとクラウド API",
+    "files": "端末のファイル閲覧と転送",
+    "schedules": "電源・再起動・リマインダーの予約",
+    "memory": "スクリーンショット OCR 検索",
+    "settings": "識別、被制御側の設定とセキュリティ"
+  },
+  "collection": {
+    "label": "アクティビティ記録",
+    "collecting": "記録中",
+    "resting": "休憩中",
+    "stopped": "停止中",
+    "unsupported": "利用不可",
+    "toggleHint": "クリックで停止 / 再開"
+  },
+  "sidebar": {
+    "paired": "ペアリング済み {{count}} 台",
+    "noDevices": "デバイスがありません",
+    "goScan": "「探索」で LAN をスキャン"
+  }
+}

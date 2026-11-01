@@ -1,0 +1,56 @@
+{
+  "groups": {
+    "device": "Dispositivos",
+    "activity": "Actividad",
+    "ai": "IA",
+    "data": "Datos",
+    "system": "Sistema"
+  },
+  "items": {
+    "devices": "Dispositivos",
+    "local": "Este PC",
+    "scan": "Descubrir",
+    "daily": "Diario",
+    "weekly": "Semanal",
+    "monthly": "Mensual",
+    "alltime": "Todo el historial",
+    "categories": "Categorías",
+    "aiChat": "Chat con IA",
+    "aiSummary": "Resumen con IA",
+    "aiSettings": "Ajustes de IA",
+    "files": "Archivos",
+    "schedules": "Programaciones",
+    "memory": "Memoria de pantalla",
+    "settings": "Ajustes"
+  },
+  "desc": {
+    "devices": "Equipos emparejados, estado y acciones rápidas",
+    "local": "Hardware y estado en vivo de esta máquina",
+    "scan": "Escanear la LAN y emparejar un nuevo Agent",
+    "daily": "Desglose de 24h y aplicaciones principales",
+    "weekly": "Tu semana de un vistazo",
+    "monthly": "Duración mensual y reparto por categoría",
+    "alltime": "Mapa de calor anual y revisión a largo plazo",
+    "categories": "Clasificar aplicaciones y sitios",
+    "aiChat": "Preguntas sobre tus registros de actividad",
+    "aiSummary": "Informes diarios y semanales",
+    "aiSettings": "Modelos locales y APIs en la nube",
+    "files": "Explorar y transferir archivos del dispositivo",
+    "schedules": "Apagado, reinicio y recordatorios programados",
+    "memory": "Búsqueda por OCR en capturas",
+    "settings": "Identidad, opciones del agente y seguridad"
+  },
+  "collection": {
+    "label": "Registro de actividad",
+    "collecting": "Registrando",
+    "resting": "Descansando",
+    "stopped": "Detenido",
+    "unsupported": "No disponible",
+    "toggleHint": "Clic para detener / reanudar el registro"
+  },
+  "sidebar": {
+    "paired": "{{count}} emparejados",
+    "noDevices": "Aún no hay dispositivos",
+    "goScan": "Abre \"Descubrir\" para escanear la LAN"
+  }
+}

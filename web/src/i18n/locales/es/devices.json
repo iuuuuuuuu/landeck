@@ -1,0 +1,39 @@
+{
+  "title": "Dispositivos",
+  "paired": "{{count}} emparejados",
+  "online": "{{count}} en línea",
+  "probing": "Comprobando estado",
+  "refreshHint": "El estado se actualiza cada 10 s · haz clic en una tarjeta para ver detalles",
+  "searchPlaceholder": "Buscar por nombre o IP",
+  "empty": {
+    "title": "Aún no hay dispositivos emparejados",
+    "desc": "Escanea la LAN para encontrar un Agent e introduce el código o la clave fija para apagado remoto, volumen y estado.",
+    "action": "Escanear LAN"
+  },
+  "noMatch": {
+    "title": "Ningún dispositivo coincide",
+    "desc": "Ningún dispositivo tiene \"{{q}}\" en el nombre o la dirección.",
+    "clear": "Limpiar búsqueda"
+  },
+  "noPairedHint": "Aún no hay dispositivos emparejados — mostrando este PC",
+  "card": {
+    "recentOnline": "Última vez visto",
+    "justNow": "ahora mismo",
+    "control": "Controlar",
+    "cpu": "CPU",
+    "mem": "Memoria",
+    "menu": "Más acciones"
+  },
+  "rename": {
+    "title": "Renombrar dispositivo",
+    "desc": "Solo cambia el nombre mostrado aquí, no el nombre de host de la máquina controlada.",
+    "label": "Nombre visible",
+    "ok": "Renombrado",
+    "failed": "Error al renombrar"
+  },
+  "remove": {
+    "title": "Quitar dispositivo",
+    "desc": "El token local queda inválido de inmediato; el registro del cliente en el lado controlado puede revocarse en sus Ajustes.",
+    "ok": "Dispositivo eliminado"
+  }
+}

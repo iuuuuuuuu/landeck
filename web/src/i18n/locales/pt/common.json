@@ -1,0 +1,39 @@
+{
+  "app": {
+    "name": "LanDeck",
+    "tagline": "Console LAN"
+  },
+  "status": {
+    "online": "Online",
+    "offline": "Offline",
+    "checking": "Verificando",
+    "local": "Este PC",
+    "unpaired": "Sem dispositivo",
+    "connected": "Conectado",
+    "connecting": "Conectando",
+    "realtime": "Dados ao vivo",
+    "paused": "Dados ao vivo pausados"
+  },
+  "actions": {
+    "retry": "Tentar novamente",
+    "refresh": "Atualizar",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "close": "Fechar",
+    "delete": "Excluir",
+    "rename": "Renomear",
+    "remove": "Remover",
+    "scan": "Escanear",
+    "back": "Voltar"
+  },
+  "empty": {
+    "noActivity": "Nenhuma atividade registrada neste período.",
+    "loading": "Carregando"
+  },
+  "error": {
+    "loadFailed": "Falha ao carregar",
+    "network": "Não foi possível acessar o dispositivo: pode estar offline ou o Agent não está em execução.",
+    "timeout": "Tempo esgotado: o dispositivo respondeu muito devagar, tente novamente."
+  }
+}
