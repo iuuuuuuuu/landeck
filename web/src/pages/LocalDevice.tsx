@@ -16,6 +16,7 @@ import { PairingSecurityCard } from '../components/pair/PairingSecurityCard'
 import { AgentClient } from '../lib/api'
 import { dateTime, duration, osLabel } from '../lib/format'
 import { useAsync, useLive } from '../lib/hooks'
+import { useT } from '../i18n'
 import { systemKey } from '../lib/keys'
 import { agentStart, agentStatus, DEFAULT_PORT } from '../lib/discovery'
 import { isPhoneOS, useRuntime } from '../lib/runtime'
@@ -84,6 +85,8 @@ function LocalAgentView() {
     [port],
   )
 
+  const t = useT('local')
+  const tc = useT('common')
   const live = useLive(device)
   const sys = useAsync<SystemInfo>(() => client.system(), [port, nonce], {
     // 系统信息是静态文本；与详情页/文件页/设置页共用同一条缓存，
@@ -114,10 +117,10 @@ function LocalAgentView() {
     const res = await agentStart(port)
     setStarting(false)
     if (!res.ok) {
-      toast({ kind: 'error', title: '启动本机被控端失败', desc: res.error })
+        toast({ kind: 'error', title: t('agentStartFailed'), desc: res.error })
       return
     }
-    toast({ kind: 'ok', title: '本机被控端已启动', desc: '正在读取本机信息…' })
+      toast({ kind: 'ok', title: t('agentStarted'), desc: t('readingInfo') })
     for (let i = 0; i < 12; i++) {
       await new Promise((r) => setTimeout(r, 500))
       if (await agentStatus(port)) break
@@ -131,7 +134,7 @@ function LocalAgentView() {
 
   return (
     <div className="space-y-3">
-      <PageHeader title="本机" sub="当前这台机器的硬件、运行状态与被控端" />
+      <PageHeader title={t('title')} sub={t('subtitle')} />
       {/* ① 身份卡：与详情页 DeviceBanner 同一套版式（头像 / 名称 / 徽章 / 信息网格） */}
       <Card className="p-0">
         <div className="flex flex-wrap items-center gap-3 px-3.5 py-3">
@@ -139,13 +142,13 @@ function LocalAgentView() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="truncate text-[16px] font-semibold text-fg">
-                {sys.data?.name || sys.data?.hostname || '本机'}
+                {sys.data?.name || sys.data?.hostname || t('thisMachine')}
               </h1>
               <Badge tone="cyan" dot>
-                当前机器
+                {t('thisMachineBadge')}
               </Badge>
               <Badge tone={live.connected ? 'ok' : 'warn'} dot>
-                {live.connected ? '实时' : offline ? '未运行被控端' : '重连中'}
+                {live.connected ? tc('status.realtime') : offline ? t('agentDown') : tc('status.connecting')}
               </Badge>
             </div>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted">

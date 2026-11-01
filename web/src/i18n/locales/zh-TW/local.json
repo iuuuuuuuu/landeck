@@ -3,7 +3,12 @@
   "subtitle": "当前这臺機器的硬件、運行状態与被控端",
   "uptime": "已運行",
   "bootTime": "開機時間",
-  "agentDown": "本機被控端无響應",
+  "agentDown": "未執行被控端",
   "agentStart": "啟動被控端",
-  "agentStarting": "啟動中"
+  "agentStarting": "啟動中",
+  "thisMachine": "本機",
+  "thisMachineBadge": "目前機器",
+  "agentStartFailed": "啟動本機被控端失敗",
+  "agentStarted": "本機被控端已啟動",
+  "readingInfo": "正在讀取本機資訊…"
 }

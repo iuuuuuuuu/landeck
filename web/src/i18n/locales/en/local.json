@@ -3,7 +3,12 @@
   "subtitle": "Hardware, live status and agent of this machine",
   "uptime": "Uptime",
   "bootTime": "Boot time",
-  "agentDown": "Local agent not responding",
+  "agentDown": "Agent not running",
   "agentStart": "Start agent",
-  "agentStarting": "Starting"
+  "agentStarting": "Starting",
+  "thisMachine": "This PC",
+  "thisMachineBadge": "This machine",
+  "agentStartFailed": "Failed to start the local agent",
+  "agentStarted": "Local agent started",
+  "readingInfo": "Reading device info…"
 }
