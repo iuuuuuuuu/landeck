@@ -19,5 +19,12 @@
   "saveFailed": "Failed to save cloud sync settings",
   "syncDone": "Sync complete",
   "syncDoneDesc": "Pushed {{pushed}}, pulled {{pulled}}, {{errors}} errors.",
-  "syncFailed": "Sync failed"
+  "syncFailed": "Sync failed",
+  "themeImportTitle": "Import theme package",
+  "themeImportDesc": "Pick a JSON theme package file — it gets registered as a theme, persisted, and shows up in the theme picker.",
+  "themeImportBtn": "Import theme",
+  "themeImportedCount": "{{count}} themes imported",
+  "themeImported": "Theme imported",
+  "themeImportFailed": "Theme import failed",
+  "themeRemove": "Remove"
 }

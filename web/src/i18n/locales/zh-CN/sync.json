@@ -19,5 +19,12 @@
   "saveFailed": "云同步设置保存失败",
   "syncDone": "同步完成",
   "syncDoneDesc": "推送 {{pushed}} 段，拉取 {{pulled}} 段，{{errors}} 个错误。",
-  "syncFailed": "同步失败"
+  "syncFailed": "同步失败",
+  "themeImportTitle": "导入主题包",
+  "themeImportDesc": "选择 JSON 主题包文件，导入后注册为主题并持久化，出现在主题选择器里。",
+  "themeImportBtn": "导入主题包",
+  "themeImportedCount": "已导入 {{count}} 个主题",
+  "themeImported": "主题已导入",
+  "themeImportFailed": "主题导入失败",
+  "themeRemove": "删除"
 }

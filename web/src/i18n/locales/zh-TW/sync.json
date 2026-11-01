@@ -19,5 +19,12 @@
   "saveFailed": "雲端同步設定儲存失敗",
   "syncDone": "同步完成",
   "syncDoneDesc": "推送 {{pushed}} 段，拉取 {{pulled}} 段，{{errors}} 個錯誤。",
-  "syncFailed": "同步失敗"
+  "syncFailed": "同步失敗",
+  "themeImportTitle": "匯入主題包",
+  "themeImportDesc": "選擇 JSON 主題包檔案，匯入後註冊為主題並持久化，出現在工作階段的選擇器裡。",
+  "themeImportBtn": "匯入主題包",
+  "themeImportedCount": "已匯入 {{count}} 個主題",
+  "themeImported": "主題已匯入",
+  "themeImportFailed": "主題匯入失敗",
+  "themeRemove": "刪除"
 }
