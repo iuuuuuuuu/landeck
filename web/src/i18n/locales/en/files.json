@@ -1,5 +1,18 @@
 {
   "title": "Files",
   "subtitle": "Browse, download, upload, create folders, rename and delete",
-  "roots": "Choose a location to browse"
+  "roots": "Choose a location to browse",
+  "sysError": "Failed to read device info",
+  "rootsError": "Failed to read file roots",
+  "pairLost": "Pairing lost — please pair again",
+  "disabled": {
+    "title": "File management is disabled in Settings",
+    "desc": "Enable it under \"Settings → Files\" on the controlled machine; browse, upload and download will appear here."
+  },
+  "noPairedHint": "No paired devices yet — showing this PC",
+  "localError": {
+    "tokenTitle": "Local access needs a token",
+    "tokenDesc": "The controlled machine turned off \"token-free local access\" — re-enable it in its Settings.",
+    "downTitle": "Local agent not responding"
+  }
 }

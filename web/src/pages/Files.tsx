@@ -11,16 +11,17 @@ import { AuthLost } from '../components/device/AuthLost'
 import { errText, isAuthError, isAuthMessage } from '../components/device/apiHelpers'
 import { FileBrowser } from '../components/files/FileBrowser'
 import { PageHeader } from '../components/shell'
+import { useT } from '../i18n'
 
-/** 本机目标的失败文案：别让用户以为是自己网络断了 */
-function localError(err: unknown): { title: string; desc: string } {
+/** 本机目标的失败文案：别让用户以为是自己网络断了。t 由调用方传入（模块级函数保持纯度）。 */
+function localError(err: unknown, t: (k: string) => string): { title: string; desc: string } {
   if (isAuthError(err)) {
     return {
-      title: '本机访问需要令牌',
-      desc: '被控端关掉了「本机免令牌」，到那台电脑的「设置」里重新开启即可。',
+      title: t('localError.tokenTitle'),
+      desc: t('localError.tokenDesc'),
     }
   }
-  return { title: '本机被控端无响应', desc: `${LOCAL_DOWN_HINT}（${errText(err)}）` }
+  return { title: t('localError.downTitle'), desc: `${LOCAL_DOWN_HINT}（${errText(err)}）` }
 }
 
 /**
@@ -41,6 +42,7 @@ export function FilesPanel({
   onAuthError?: () => void
   headerExtra?: ReactNode
 }) {
+  const t = useT('files')
   /** 目标身份：换设备 / 换令牌都要重新拉数据 */
   const targetKey = [device.id, client.target.host, client.target.port, client.token]
 
@@ -60,8 +62,8 @@ export function FilesPanel({
   return (
     <div className="space-y-3">
       <PageHeader
-        title="文件"
-        sub="浏览、下载、上传、新建目录、重命名与删除"
+        title={t("title")}
+        sub={t("subtitle")}
         actions={
           <>
             {headerExtra}
@@ -77,7 +79,7 @@ export function FilesPanel({
             }}
               disabled={sys.loading || roots.loading}
             >
-              刷新
+              {t("actions.refresh")}
             </Button>
           </>
         }
@@ -91,17 +93,17 @@ export function FilesPanel({
         <Card>
           <EmptyState
             icon={<ShieldAlert size={24} />}
-            title={isLocal ? localError(sys.error).title : '读取设备信息失败'}
+            title={isLocal ? localError(sys.error, t).title : t('sysError')}
             desc={
               isLocal
-                ? localError(sys.error).desc
+                ? localError(sys.error, t).desc
                 : isAuthMessage(errText(sys.error))
-                  ? '配对失效，请重新配对'
+                  ? t('pairLost')
                   : errText(sys.error)
             }
             action={
               <Button variant="secondary" onClick={sys.reload}>
-                重试
+                {t("actions.retry")}
               </Button>
             }
           />
@@ -110,16 +112,16 @@ export function FilesPanel({
         <Card>
           <EmptyState
             icon={<ShieldAlert size={26} />}
-            title="文件管理已在设置里关闭"
-            desc="在被控端「设置 → 文件管理」中开启后，这里会出现浏览、上传与下载入口。"
+            title={t("disabled.title")}
+            desc={t("disabled.desc")}
           />
         </Card>
       ) : roots.error ? (
         <Card>
           <EmptyState
             icon={<ShieldAlert size={24} />}
-            title={isLocal ? localError(roots.error).title : '文件根目录读取失败'}
-            desc={isLocal ? localError(roots.error).desc : errText(roots.error)}
+            title={isLocal ? localError(roots.error, t).title : t('rootsError')}
+            desc={isLocal ? localError(roots.error, t).desc : errText(roots.error)}
             action={
               <Button
                 variant="secondary"
@@ -128,7 +130,7 @@ export function FilesPanel({
                   roots.reload()
                 }}
               >
-                重试
+                {t("actions.retry")}
               </Button>
             }
           />
@@ -159,6 +161,7 @@ export function FilesPanel({
  * 方便以后从别处再次挂载，也保证本文件自洽。
  */
 export default function Files() {
+  const t = useT('files')
   const { devices, device, deviceId, setDeviceId, isLocal, pairedCount, client } = useActiveTarget()
   // 401 记在「哪个目标上」：换目标后自动失效，不用 effect 去清，也不会被旧结果卡住
   const [authLostFor, setAuthLostFor] = useState<string | null>(null)
@@ -183,7 +186,7 @@ export default function Files() {
           <>
             <DevicePicker devices={devices} value={deviceId} onChange={setDeviceId} />
             {pairedCount === 0 && (
-              <span className="text-[11.5px] text-faint">还没有已配对的设备，当前显示本机</span>
+              <span className="text-[11.5px] text-faint">{t("noPairedHint")}</span>
             )}
           </>
         }
