@@ -4,6 +4,7 @@ import { NAV_GROUPS, NAV_ICON_PROPS } from './nav'
 import { ActivityStatusPill } from '../shell/ActivityStatusPill'
 import { ThemeToggle } from './ThemeToggle'
 import { useApp } from '../../store/app'
+import { useT } from '../../i18n'
 
 /**
  * 桌面侧栏（≥1024px）—— Hindsight 风格骨架。
@@ -23,6 +24,8 @@ import { useApp } from '../../store/app'
  *    /devices 精确匹配，详情页用 parentActive 兜底点亮父级。
  */
 export function AppSidebar() {
+  const t = useT('nav')
+  const tc = useT()
   const devices = useApp((s) => s.devices)
   const activeId = useApp((s) => s.activeId)
   const active = devices.find((d) => d.id === activeId) ?? devices[0] ?? null
@@ -48,7 +51,7 @@ export function AppSidebar() {
           </span>
           <div className="min-w-0">
             <div className="grad-text text-[17px] font-semibold tracking-tight">LanDeck</div>
-            <div className="text-[10px] uppercase tracking-[0.2em] text-faint">局域网控制台</div>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-faint">{tc("app.tagline")}</div>
           </div>
         </div>
 
@@ -56,7 +59,7 @@ export function AppSidebar() {
         <nav className="scroll-area -mx-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1">
           {NAV_GROUPS.map((group) => (
             <div key={group.key}>
-              <div className="nav-group-label px-2.5 pb-1.5">{group.label}</div>
+              <div className="nav-group-label px-2.5 pb-1.5">{t(group.label)}</div>
               <div className="flex flex-col gap-0.5">
                 {group.items.map((item) => {
                   const parentActive =
@@ -70,7 +73,7 @@ export function AppSidebar() {
                         aria-disabled
                       >
                         <item.icon {...NAV_ICON_PROPS} className="shrink-0" />
-                        <span className="text-[13.5px] font-medium">{item.label}</span>
+                        <span className="text-[13.5px] font-medium">{t(item.label)}</span>
                       </span>
                     )
                   }
@@ -92,7 +95,7 @@ export function AppSidebar() {
                               isActive || parentActive ? 'text-accent' : 'text-faint',
                             )}
                           />
-                          <span className="text-[13.5px] font-medium">{item.label}</span>
+                          <span className="text-[13.5px] font-medium">{t(item.label)}</span>
                         </span>
                       )}
                     </NavLink>
@@ -112,9 +115,9 @@ export function AppSidebar() {
           <div className="rounded-xl border border-line-soft bg-elevated p-3">
             <div className="flex items-center gap-1.5 text-[10.5px] uppercase tracking-[0.12em] text-faint">
               <span className="h-1.5 w-1.5 rounded-full bg-accent-soft" />
-              已配对 <span className="num text-fg-soft">{devices.length}</span> 台
+              {t("sidebar.paired", { count: devices.length })}
             </div>
-            <div className="mt-1.5 truncate text-[13px] text-fg">{active ? active.name : '还没有设备'}</div>
+            <div className="mt-1.5 truncate text-[13px] text-fg">{active ? active.name : t('sidebar.noDevices')}</div>
             <div className="mt-0.5 truncate text-[11px] text-muted">
               {active ? (
                 <span className="num">

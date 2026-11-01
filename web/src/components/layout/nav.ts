@@ -82,10 +82,10 @@ export const NAV_ICON_PROPS = {
  *     Settings2 / SlidersHorizontal 更像「调节/筛选」，会和设备参数混。
  */
 export const NAV_ITEMS: NavItem[] = [
-  { to: '/local', label: 'nav.items.local', icon: MonitorSmartphone, desc: 'nav.desc.local' },
-  { to: '/devices', label: 'nav.items.devices', icon: Monitor, desc: 'nav.desc.devices' },
-  { to: '/scan', label: 'nav.items.scan', icon: Radar, desc: 'nav.desc.scan' },
-  { to: '/settings', label: 'nav.items.settings', icon: Settings, desc: 'nav.desc.settings' },
+  { to: '/local', label: 'items.local', icon: MonitorSmartphone, desc: 'desc.local' },
+  { to: '/devices', label: 'items.devices', icon: Monitor, desc: 'desc.devices' },
+  { to: '/scan', label: 'items.scan', icon: Radar, desc: 'desc.scan' },
+  { to: '/settings', label: 'items.settings', icon: Settings, desc: 'desc.settings' },
 ]
 
 /* ------------------------------------------------------------------ *
@@ -110,57 +110,57 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   {
     key: 'device',
-    label: 'nav.groups.device',
+    label: 'groups.device',
     items: [
-      { to: '/devices', label: 'nav.items.devices', icon: Monitor, desc: 'nav.desc.devices' },
-      { to: '/local', label: 'nav.items.local', icon: MonitorSmartphone, desc: 'nav.desc.local' },
-      { to: '/scan', label: 'nav.items.scan', icon: Radar, desc: 'nav.desc.scan' },
+      { to: '/devices', label: 'items.devices', icon: Monitor, desc: 'desc.devices' },
+      { to: '/local', label: 'items.local', icon: MonitorSmartphone, desc: 'desc.local' },
+      { to: '/scan', label: 'items.scan', icon: Radar, desc: 'desc.scan' },
     ],
   },
   {
     key: 'activity',
-    label: 'nav.groups.activity',
+    label: 'groups.activity',
     items: [
-      { to: '/activity/daily', label: 'nav.items.daily', icon: CalendarDays, desc: 'nav.desc.daily' },
-      { to: '/activity/weekly', label: 'nav.items.weekly', icon: ChartColumn, desc: 'nav.desc.weekly' },
-      { to: '/activity/monthly', label: 'nav.items.monthly', icon: CalendarRange, desc: 'nav.desc.monthly' },
-      { to: '/activity/all', label: 'nav.items.alltime', icon: History, desc: 'nav.desc.alltime' },
-      { to: '/activity/categories', label: 'nav.items.categories', icon: Shapes, desc: 'nav.desc.categories' },
+      { to: '/activity/daily', label: 'items.daily', icon: CalendarDays, desc: 'desc.daily' },
+      { to: '/activity/weekly', label: 'items.weekly', icon: ChartColumn, desc: 'desc.weekly' },
+      { to: '/activity/monthly', label: 'items.monthly', icon: CalendarRange, desc: 'desc.monthly' },
+      { to: '/activity/all', label: 'items.alltime', icon: History, desc: 'desc.alltime' },
+      { to: '/activity/categories', label: 'items.categories', icon: Shapes, desc: 'desc.categories' },
     ],
   },
   {
     key: 'ai',
     label: 'AI',
     items: [
-      { to: '/ai/chat', label: 'nav.items.aiChat', icon: MessageSquare, desc: 'nav.desc.aiChat' },
-      { to: '/ai/summary', label: 'nav.items.aiSummary', icon: Sparkles, desc: 'nav.desc.aiSummary' },
-      { to: '/ai/settings', label: 'nav.items.aiSettings', icon: Bot, desc: 'nav.desc.aiSettings' },
+      { to: '/ai/chat', label: 'items.aiChat', icon: MessageSquare, desc: 'desc.aiChat' },
+      { to: '/ai/summary', label: 'items.aiSummary', icon: Sparkles, desc: 'desc.aiSummary' },
+      { to: '/ai/settings', label: 'items.aiSettings', icon: Bot, desc: 'desc.aiSettings' },
     ],
   },
   {
     key: 'data',
-    label: 'nav.groups.data',
+    label: 'groups.data',
     items: [
-      { to: '/files', label: 'nav.items.files', icon: FolderOpen, desc: 'nav.desc.files' },
-      { to: '/schedules', label: 'nav.items.schedules', icon: CalendarClock, desc: 'nav.desc.schedules' },
-      { to: '/activity/memory', label: 'nav.items.memory', icon: Camera, desc: '截图 OCR 文字检索，找回屏幕上出现过的内容' },
+      { to: '/files', label: 'items.files', icon: FolderOpen, desc: 'desc.files' },
+      { to: '/schedules', label: 'items.schedules', icon: CalendarClock, desc: 'desc.schedules' },
+      { to: '/activity/memory', label: 'items.memory', icon: Camera, desc: '截图 OCR 文字检索，找回屏幕上出现过的内容' },
     ],
   },
   {
     key: 'system',
-    label: 'nav.groups.system',
+    label: 'groups.system',
     items: [
-      { to: '/settings', label: 'nav.items.settings', icon: Settings, desc: 'nav.desc.settings' },
+      { to: '/settings', label: 'items.settings', icon: Settings, desc: 'desc.settings' },
     ],
   },
 ]
 
 /** 移动底栏（<1024px）：一级四项；AI 组与统计子页不进底栏，从活动页二级进入 */
 export const MOBILE_TABS: NavItem[] = [
-  { to: '/devices', label: 'nav.items.devices', icon: Monitor, desc: '' },
-  { to: '/activity/daily', label: 'nav.items.daily', icon: ChartColumn, desc: '' },
-  { to: '/files', label: 'nav.items.files', icon: FolderOpen, desc: '' },
-  { to: '/settings', label: 'nav.items.settings', icon: Settings, desc: '' },
+  { to: '/devices', label: 'items.devices', icon: Monitor, desc: '' },
+  { to: '/activity/daily', label: 'items.daily', icon: ChartColumn, desc: '' },
+  { to: '/files', label: 'items.files', icon: FolderOpen, desc: '' },
+  { to: '/settings', label: 'items.settings', icon: Settings, desc: '' },
 ]
 
 /** 路由 → 导航项（/devices/:id 归到「设备」；/activity/*、/ai/* 归到各自组首项） */
