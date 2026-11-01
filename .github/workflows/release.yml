@@ -315,12 +315,14 @@ jobs:
           cat out/latest.json
 
       # draft: false —— 之前用 draft，结果是「发版了但用户看不到」，还得手动去后台点发布。
-      # 按项目规矩（未经批准只发预测试版），这里固定 prerelease，但**直接可见**。
-      - name: 发布 pre-release
+      # prerelease 也已去掉：updater 端点 releases/latest 不解析预发布 release，
+      # 标成 prerelease 会让自动更新永远 404（实测踩过）。beta 状态由版本号
+      # 后缀（v1.0.20-beta）与发布名传达。
+      - name: 发布 release
         uses: softprops/action-gh-release@v2
         with:
-          name: "LanDeck ${{ github.ref_name }}（预测试版）"
+          name: "LanDeck ${{ github.ref_name }}"
           draft: false
-          prerelease: true
+          prerelease: false
           files: out/*
           generate_release_notes: true
