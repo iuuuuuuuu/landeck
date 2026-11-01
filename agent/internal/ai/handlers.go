@@ -101,6 +101,12 @@ func Register(m *http.ServeMux, protect func(guarded) http.HandlerFunc, dataDir 
 					cfg.AutoSummary.Time = v
 				}
 			}
+			// chat：对话专用模型（同款「出现即覆盖」语义）
+			if m, ok := bodyMap["chat"].(map[string]any); ok {
+				if v, ok := m["model"].(string); ok {
+					cfg.Chat.Model = v
+				}
+			}
 		})
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, "ai", err.Error())
@@ -185,6 +191,12 @@ func Register(m *http.ServeMux, protect func(guarded) http.HandlerFunc, dataDir 
 			return
 		}
 		cfg := Get()
+		// 对话模型路由（B4）：chat.model 非空 ? chat.model : model。
+		// 改副本的 cfg.Model 再走 configured()——「只配了 chat.model」的对话
+		// 也能通过就绪检查，而 summary（用自己的 cfg.Model）不受影响。
+		if cfg.Chat.Model != "" {
+			cfg.Model = cfg.Chat.Model
+		}
 		if !configured(cfg) {
 			writeErr(w, http.StatusBadRequest, "ai_not_configured", "尚未配置 AI 提供方（在设置里填模型与密钥并启用）")
 			return

@@ -31,6 +31,12 @@ type AutoSummaryCfg struct {
 	Time    string `json:"time"`
 }
 
+// ChatCfg 对话专用的模型覆盖。Model 为空 = 回退总结用的 cfg.Model
+// （对标 Hindsight「总结和对话各自选择模型」——对话可以指定不同模型）。
+type ChatCfg struct {
+	Model string `json:"model"`
+}
+
 // Config 持久化到 dataDir/ai.json。
 //
 // APIKey 是敏感字段：json tag 有 omitempty 无用（持久化必须含它），
@@ -44,6 +50,9 @@ type Config struct {
 	// AutoSummary 自动总结调度。指针？不——值类型 + serde 默认零值
 	// （enabled=false, time=""）即「未配置」，与老配置文件兼容。
 	AutoSummary AutoSummaryCfg `json:"autoSummary"`
+	// Chat 对话侧覆盖。零值（model=""）与老配置文件兼容——
+	// 旧 ai.json 没有 chat 字段，缺字段自动零值，读取不炸。
+	Chat ChatCfg `json:"chat"`
 }
 
 // View 是 GET /ai/settings 的响应形状：apiKey 打码。
@@ -54,6 +63,7 @@ type View struct {
 	Enabled  bool   `json:"enabled"`
 	// AutoSummary 自动总结配置（GET 返回完整形状，PUT 按出现的字段覆盖）。
 	AutoSummary AutoSummaryCfg `json:"autoSummary"`
+	Chat        ChatCfg        `json:"chat"`
 	HasKey      bool           `json:"hasKey"`
 	// KeyTail 明文 key 的末 4 位，帮用户辨认是哪把 key；无 key 时为空。
 	KeyTail string `json:"keyTail"`
@@ -73,6 +83,7 @@ func sanitize(cfg Config) Config {
 	cfg.Provider = strings.TrimSpace(cfg.Provider)
 	cfg.BaseURL = strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
 	cfg.Model = strings.TrimSpace(cfg.Model)
+	cfg.Chat.Model = strings.TrimSpace(cfg.Chat.Model)
 	if cfg.Provider != ProviderOpenAI && cfg.Provider != ProviderOllama {
 		cfg.Provider = ProviderOpenAI
 	}
@@ -108,6 +119,7 @@ func view(cfg Config) View {
 		HasKey:      cfg.APIKey != "",
 		KeyTail:     tail,
 		AutoSummary: sanitizeAutoSummary(cfg.AutoSummary),
+		Chat:        cfg.Chat,
 	}
 }
 
