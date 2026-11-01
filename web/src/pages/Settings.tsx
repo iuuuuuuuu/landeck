@@ -2,6 +2,7 @@ import {
   Copy,
   Info,
   KeyRound,
+  Languages,
   Minus,
   Monitor,
   Moon,
@@ -56,6 +57,7 @@ import {
 } from '../lib/updaterApi'
 import { useApp, type PairedDevice } from '../store/app'
 import { THEME_LABEL, THEME_NAME_LABEL, useTheme, type ThemeMode } from '../store/theme'
+import { LANG_LABEL, LANGS, currentLang, setLang, type Lang } from '../i18n'
 import { PageHeader } from '../components/shell'
 
 /** 进入设置页前的会话检查：未配对 / 401 / 离线在这里统一拦成整页提示 */
@@ -428,6 +430,51 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: ReactNode }[] = [
 ]
 
 /** 第 0 组：外观 + 桌面端自启。不依赖设备，未配对 / 离线时也照样能用 */
+
+/** 界面语言卡：跟随系统 + 六语言，切换立即生效（i18next reactive，无需刷新）。 */
+function LanguageCard() {
+  const [current, setCurrent] = useState<Lang>(() => currentLang())
+  const [busy, setBusy] = useState(false)
+
+  const pick = async (lang: Lang) => {
+    if (lang === current || busy) return
+    setBusy(true)
+    try {
+      await setLang(lang)
+      setCurrent(lang)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card>
+      <div className="flex items-center gap-2 text-[15px] font-medium">
+        <Languages size={16} />
+        界面语言
+      </div>
+      <p className="mt-1 text-[12px] text-fg-muted">切换立即生效；跟随系统时由系统语言决定，AI 总结的语言也会跟随。</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {LANGS.map((lang) => (
+          <button
+            key={lang}
+            onClick={() => void pick(lang)}
+            disabled={busy}
+            className={
+              'rounded-full border px-3 py-1.5 text-[12.5px] transition-colors ' +
+              (lang === current
+                ? 'border-transparent bg-accent text-white'
+                : 'border-line-soft text-fg hover:border-accent/40')
+            }
+          >
+            {LANG_LABEL[lang]}
+          </button>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
 function AppearanceCard() {
   const { mode, theme, setMode } = useTheme()
   const toast = useApp((s) => s.toast)
@@ -582,6 +629,8 @@ export default function Settings() {
     <div className="mx-auto w-full max-w-[900px] space-y-3">
       <PageHeader title="设置" sub="身份、被控端参数与安全策略" />
       <AppearanceCard />
+
+      <LanguageCard />
 
       {!device ? (
         <Card>
