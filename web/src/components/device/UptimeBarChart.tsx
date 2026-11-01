@@ -1,3 +1,4 @@
+import type { ThemeName } from '../../store/theme'
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts/core'
 import { BarChart } from 'echarts/charts'
@@ -29,7 +30,7 @@ export function UptimeBarChart({
 }: {
   data: { date: string; label: string; onSec: number; boots: number }[]
   height?: number
-  theme: 'dark' | 'light'
+  theme: ThemeName
   monthly?: boolean
   /** 需要高亮的柱（默认最后一根 = 本月），其余柱降透明度做层次 */
   highlightIndex?: number

@@ -1,3 +1,4 @@
+import type { ThemeName } from '../../store/theme'
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts/core'
 import { BarChart } from 'echarts/charts'
@@ -31,7 +32,7 @@ export function StackedBarChart({
   showEveryLabel = false,
 }: {
   slots: SummarySlot[]
-  theme: 'dark' | 'light'
+  theme: ThemeName
   /** hours=绝对时长；share=占比（每槽归一到 100%） */
   mode?: 'hours' | 'share'
   height?: number

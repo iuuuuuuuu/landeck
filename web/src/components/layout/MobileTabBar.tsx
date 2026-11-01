@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { NavLink } from 'react-router-dom'
 import { MOBILE_TABS, NAV_ICON_PROPS } from './nav'
+import { ActivityStatusFab } from '../shell/ActivityStatusFab'
 
 /**
  * 移动端（<1024px）底部毛玻璃 tab bar，触控目标 56px。
@@ -10,6 +11,8 @@ import { MOBILE_TABS, NAV_ICON_PROPS } from './nav'
 export function MobileTabBar() {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 min-[1024px]:hidden">
+      {/* 采集状态浮动位（B5）：与侧栏同逻辑，点击停/恢复采集 */}
+      <ActivityStatusFab />
       <div className="pb-safe pointer-events-auto mx-3 mb-1">
         {/* 列数跟随导航项数量：写死 5 会在加了「文件」后挤到第二行并遮住内容 */}
         <div

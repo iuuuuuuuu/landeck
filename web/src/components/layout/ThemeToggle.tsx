@@ -1,14 +1,16 @@
-import { Monitor, Moon, Sun } from 'lucide-react'
+import { Minus, Monitor, Moon, Square, Sun } from 'lucide-react'
 import { THEME_LABEL, useTheme } from '../../store/theme'
 import { IconButton } from '../ui'
 
 /**
- * 顶栏主题按钮：跟随系统 → 深色 → 浅色 三态循环。
+ * 侧栏底部主题按钮：五主题循环（跟随系统 → 明亮 → 暗色 → 简约 → 留白扁平）。
  * tooltip / aria-label 都带上当前模式，键盘用户也能读到。
  */
+const ICONS = { system: Monitor, light: Sun, dark: Moon, minimal: Minus, flat: Square } as const
+
 export function ThemeToggle() {
   const { mode, cycle } = useTheme()
-  const Icon = mode === 'system' ? Monitor : mode === 'dark' ? Moon : Sun
+  const Icon = ICONS[mode]
   const label = `主题：${THEME_LABEL[mode]}（点击切换）`
 
   return (

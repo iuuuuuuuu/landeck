@@ -2,29 +2,41 @@ import { create } from 'zustand'
 import { themeGet, themeSet } from '../lib/discovery'
 import { persist } from 'zustand/middleware'
 
-/** 用户可选的三态；'system' 跟随 prefers-color-scheme */
-export type ThemeMode = 'system' | 'dark' | 'light'
-/** 实际落到 <html data-theme> 上的值 */
-export type ThemeName = 'dark' | 'light'
+/** 用户可选的主题；'system' 跟随 prefers-color-scheme（只解析明亮/暗色） */
+export type ThemeMode = 'system' | 'dark' | 'light' | 'minimal' | 'flat'
+/** 实际落到 <html data-theme> 上的值（七期扩为四套 token 集） */
+export type ThemeName = 'dark' | 'light' | 'minimal' | 'flat'
 
 /** 持久化 key：改这里要同步迁移旧数据 */
 export const THEME_STORAGE_KEY = 'landeck.theme.v1'
 
 const LIGHT_QUERY = '(prefers-color-scheme: light)'
 
-/** 三态循环顺序（TopBar 图标按钮用） */
-export const THEME_ORDER: ThemeMode[] = ['system', 'dark', 'light']
+/** 循环顺序（ThemeToggle 用）：跟随系统 -> 明亮 -> 暗色 -> 简约 -> 留白扁平 */
+export const THEME_ORDER: ThemeMode[] = ['system', 'light', 'dark', 'minimal', 'flat']
 
 export const THEME_LABEL: Record<ThemeMode, string> = {
   system: '跟随系统',
-  dark: '深色',
-  light: '浅色',
+  light: '明亮',
+  dark: '暗色',
+  minimal: '简约',
+  flat: '留白扁平',
+}
+
+/** 已解析主题的显示名（设置页「当前生效」用） */
+export const THEME_NAME_LABEL: Record<ThemeName, string> = {
+  light: '明亮',
+  dark: '暗色',
+  minimal: '简约',
+  flat: '留白扁平',
 }
 
 /** 供浏览器 UI（地址栏/状态栏）取色 */
 export const THEME_CHROME: Record<ThemeName, string> = {
   dark: '#06070c',
   light: '#f2f4fb',
+  minimal: '#f4f5f7',
+  flat: '#ffffff',
 }
 
 function mediaQuery(): MediaQueryList | null {
@@ -39,6 +51,8 @@ function systemPrefersLight(): boolean {
 export function resolveTheme(mode: ThemeMode, prefersLight = systemPrefersLight()): ThemeName {
   if (mode === 'light') return 'light'
   if (mode === 'dark') return 'dark'
+  if (mode === 'minimal') return 'minimal'
+  if (mode === 'flat') return 'flat'
   return prefersLight ? 'light' : 'dark'
 }
 
@@ -141,7 +155,7 @@ export function initTheme(): void {
 async function hydrateFromDisk(): Promise<void> {
   const saved = await themeGet()
   if (!saved) return
-  const mode = (['system', 'dark', 'light'] as ThemeMode[]).find((m) => m === saved)
+  const mode = (['system', 'dark', 'light', 'minimal', 'flat'] as ThemeMode[]).find((m) => m === saved)
   if (!mode) return
   const { mode: current } = useThemeStore.getState()
   if (current === mode) return

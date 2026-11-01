@@ -1,3 +1,4 @@
+import type { ThemeName } from '../../store/theme'
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts/core'
 import { PieChart } from 'echarts/charts'
@@ -33,7 +34,7 @@ export function DonutChart({
   /** 当前选中的类别（null = 未选中，外环显示全部应用） */
   selected: CatKey | null
   onSelect: (cat: CatKey | null) => void
-  theme: 'dark' | 'light'
+  theme: ThemeName
   height?: number
 }) {
   const ref = useRef<HTMLDivElement>(null)

@@ -6,7 +6,7 @@ import { memorySearchKey, memoryStatusKey } from '../../lib/activityKeys'
 import { fetchMemorySearch, fetchMemoryStatus, memoryImageUrl } from '../../lib/activityApi'
 import type { MemorySearchItem } from '../../lib/activityApi'
 import { Highlight, MemoryThumb } from '../../components/memory/MemoryBits'
-import { useTheme } from '../../store/theme'
+import { useTheme, type ThemeName } from '../../store/theme'
 import { ActivityPageHeader, NoDeviceGuide, useActivityTarget } from './shared'
 import { MemorySettingsCard } from '../../components/memory/MemorySettingsCard'
 import { relative } from '../../lib/format'
@@ -185,7 +185,7 @@ function MemoryLightbox({
 }: {
   item: MemorySearchItem
   device: { host: string; port: number; tls: boolean; token?: string }
-  theme: 'dark' | 'light'
+  theme: ThemeName
   onClose: () => void
 }) {
   return (

@@ -159,10 +159,158 @@
   --ldk-cat-other: #94a3b8;
 
   /* 侧栏激活导航胶囊：深色用亮一档的玻璃底 + 细环 */
-  --ldk-nav-active-bg: rgba(255, 255, 255, 0.09);
-  --ldk-nav-active-ring: rgba(255, 255, 255, 0.13);
-  --ldk-nav-active-shadow: 0 10px 26px -16px rgba(0, 0, 0, 0.7);
-  --ldk-nav-group-label: rgba(255, 255, 255, 0.34);
+  --ldk-nav-active-bg: #ffffff;
+  --ldk-nav-active-ring: rgba(19, 22, 35, 0.07);
+  --ldk-nav-active-shadow: 0 10px 24px -14px rgba(23, 27, 46, 0.4);
+  --ldk-nav-group-label: rgba(19, 22, 35, 0.4);
+}
+
+/* ============================================================
+   简约主题（data-theme='minimal'）—— Hindsight「简约」对标：
+   中性色、低饱和。底色中性灰、accent 换石板蓝灰、
+   极光背景几乎撤掉、图表色转中性。
+   ============================================================ */
+[data-theme='minimal'] {
+  color-scheme: light;
+
+  --color-ink: #f4f5f7;
+  --color-void: #eceef1;
+  --color-surface: #fbfbfc;
+  --color-surface-2: #ffffff;
+  --color-surface-3: #f0f1f4;
+
+  --color-fg: #1c2333;
+  --color-fg-soft: #3c4356;
+  --color-muted: #5c6478;
+  --color-faint: #6d7488;
+
+  --color-warn: #8a5f06;
+  --color-danger: #c62f47;
+
+  --color-elevated-2: rgba(30, 35, 50, 0.07);
+  --color-hover: rgba(30, 35, 50, 0.05);
+  --color-raised: #ffffff;
+  --color-selected: rgba(100, 116, 139, 0.1);
+  --color-track: rgba(30, 35, 50, 0.1);
+  --color-glass: rgba(255, 255, 255, 0.78);
+  --color-popover: rgba(255, 255, 255, 0.98);
+  --color-scrim: rgba(15, 18, 32, 0.3);
+  --color-topbar: rgba(244, 245, 247, 0.72);
+
+  --ldk-sel-bg: rgba(100, 116, 139, 0.18);
+  --ldk-sel-fg: #14162a;
+  --ldk-focus: rgba(100, 116, 139, 0.55);
+  --ldk-scroll-thumb: rgba(30, 35, 50, 0.16);
+  --ldk-scroll-thumb-hover: rgba(30, 35, 50, 0.28);
+  --shadow-lift: 0 24px 60px -28px rgba(24, 28, 48, 0.28);
+
+  --color-accent: #64748b;
+  --color-accent-soft: #94a3b8;
+  --color-cyan: #64748b;
+  --color-pink: #94a3b8;
+  --color-ok: #64748b;
+
+  --ldk-aurora-1: rgba(100, 116, 139, 0.05);
+  --ldk-aurora-2: rgba(100, 116, 139, 0.03);
+  --ldk-bg-top: #f5f6f8;
+  --ldk-bg-mid: #f2f3f6;
+  --ldk-bg-bottom: #eef0f3;
+  --ldk-grain: 0.02;
+
+  --ldk-panel-bg: rgba(255, 255, 255, 0.82);
+  --ldk-panel-border: rgba(30, 35, 50, 0.09);
+  --ldk-edge-a: rgba(100, 116, 139, 0.22);
+  --ldk-edge-b: rgba(100, 116, 139, 0.16);
+
+  --ldk-grad-text: linear-gradient(120deg, #475569, #334155 60%, #475569 100%);
+  --grad-primary-a: #475569;
+  --grad-primary-b: #334155;
+  --grad-primary-c: #64748b;
+
+  --tone-accent-a: #64748b;
+  --tone-accent-b: #475569;
+  --tone-accent-glow: rgba(100, 116, 139, 0.2);
+  --tone-cyan-a: #64748b;
+  --tone-cyan-b: #475569;
+  --tone-ok-a: #64748b;
+  --tone-ok-b: #475569;
+
+  --ldk-nav-active-bg: #ffffff;
+  --ldk-nav-active-ring: rgba(30, 35, 50, 0.08);
+  --ldk-nav-active-shadow: 0 8px 20px -14px rgba(30, 35, 50, 0.35);
+  --ldk-nav-group-label: rgba(30, 35, 50, 0.42);
+}
+
+/* ============================================================
+   留白扁平主题（data-theme='flat'）—— Hindsight day-flat 对标：
+   纯白底、极简投影、发丝级分隔、无极光无噪点。
+   ============================================================ */
+[data-theme='flat'] {
+  color-scheme: light;
+
+  --color-ink: #ffffff;
+  --color-void: #fafafa;
+  --color-surface: #ffffff;
+  --color-surface-2: #fafafa;
+  --color-surface-3: #f4f4f5;
+
+  --color-fg: #18181b;
+  --color-fg-soft: #3f3f46;
+  --color-muted: #52525b;
+  --color-faint: #71717a;
+
+  --color-warn: #a16207;
+  --color-danger: #dc2626;
+
+  --color-elevated-2: rgba(19, 22, 35, 0.06);
+  --color-hover: rgba(19, 22, 35, 0.04);
+  --color-raised: #ffffff;
+  --color-selected: rgba(24, 24, 27, 0.06);
+  --color-track: rgba(19, 22, 35, 0.1);
+  --color-glass: rgba(255, 255, 255, 0.85);
+  --color-popover: rgba(255, 255, 255, 0.99);
+  --color-scrim: rgba(19, 22, 35, 0.25);
+  --color-topbar: rgba(255, 255, 255, 0.8);
+
+  --ldk-sel-bg: rgba(24, 24, 27, 0.12);
+  --ldk-sel-fg: #18181b;
+  --ldk-focus: rgba(24, 24, 27, 0.45);
+  --ldk-scroll-thumb: rgba(19, 22, 35, 0.14);
+  --ldk-scroll-thumb-hover: rgba(19, 22, 35, 0.26);
+  --shadow-lift: 0 16px 40px -24px rgba(19, 22, 35, 0.2);
+
+  --color-line: rgba(19, 22, 35, 0.07);
+  --color-line-soft: rgba(19, 22, 35, 0.045);
+  --color-line-strong: rgba(19, 22, 35, 0.13);
+  --color-elevated: #fafafa;
+  --color-hover: rgba(19, 22, 35, 0.04);
+  --color-selected: rgba(19, 22, 35, 0.045);
+
+  --ldk-aurora-1: rgba(19, 22, 35, 0.015);
+  --ldk-aurora-2: rgba(19, 22, 35, 0.01);
+  --ldk-bg-top: #ffffff;
+  --ldk-bg-mid: #ffffff;
+  --ldk-bg-bottom: #fcfcfd;
+  --ldk-grain: 0;
+
+  --ldk-panel-bg: #ffffff;
+  --ldk-panel-border: rgba(19, 22, 35, 0.08);
+  --ldk-panel-shadow: 0 1px 2px rgba(19, 22, 35, 0.05);
+  --ldk-edge-opacity: 0;
+
+  --ldk-grad-text: linear-gradient(120deg, #18181b, #3f3f46 100%);
+  --grad-primary-a: #27272a;
+  --grad-primary-b: #18181b;
+  --grad-primary-c: #3f3f46;
+
+  --tone-accent-a: #18181b;
+  --tone-accent-b: #3f3f46;
+  --tone-accent-glow: rgba(24, 24, 27, 0.14);
+
+  --ldk-nav-active-bg: #ffffff;
+  --ldk-nav-active-ring: rgba(19, 22, 35, 0.1);
+  --ldk-nav-active-shadow: 0 1px 3px rgba(19, 22, 35, 0.08);
+  --ldk-nav-group-label: rgba(19, 22, 35, 0.42);
 }
 
 @layer base {
