@@ -1,18 +1,38 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, Maximize, Minimize, MonitorOff, Keyboard, Type, Minus, Plus, Unplug } from 'lucide-react'
 import clsx from 'clsx'
+import {
+  ChevronsLeft,
+  ChevronsRight,
+  Film,
+  Gauge,
+  Hand,
+  Keyboard,
+  Loader2,
+  Maximize,
+  Minimize,
+  Minus,
+  MonitorOff,
+  MousePointer2,
+  Plus,
+  Type,
+  Unplug,
+} from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { RdClient, type RdState } from '../../lib/rdClient'
 import { domKeyToVk } from '../../lib/rdKeys'
 
 /**
- * 远程桌面查看器（B 节 RD-1 viewer 端）。
+ * 远程桌面查看器（phase4 设计文档 B 节 RD-1 viewer 端）。
  *
- * 职责：JPEG 帧渲染（等比缩放黑边留白）、PC 鼠标/键盘输入、手机触摸映射
- * （tap=左键 / 长按 500ms=右键 / 双指滑动=滚动 / 捏合=本地缩放）、悬浮工具条、
- * 连接状态覆盖层。协议细节见 lib/rdClient.ts 头注释。
+ * 职责：JPEG 帧渲染（等比缩放黑边留白）、PC 鼠标/键盘输入、手机触摸映射、
+ * 工具条（桌面顶条 / 移动端右侧竖排）、连接状态覆盖层、demo 降级。
+ * 协议细节见 lib/rdClient.ts 头注释（B 节 RD-1，字段名与 agent-rd 共享）。
  *
- * demo 模式（agent 无 RD 路由）：不建 WS，canvas 画内置测试图案，
- * 页面层负责「需要 Agent 1.0.19+」横幅。
+ * 移动端交互（六期，参考「uu 远程」）：
+ *  - 输入模式双切换（持久化 localStorage）：触摸=点按映射；鼠标=虚拟光标
+ *    （拖=移动光标、点按=左键、长按=右键，光标本地渲染与 agent 光标解耦）
+ *  - 按压落点触摸指示圈（跟手视觉反馈）；鼠标模式按住拖 = 光标 1:1 连续跟随
+ *  - 操作栏窄屏改右侧竖排（收起=把手，展开=半透明面板），不挡画面主体
+ *  - 捏合缩放、Esc 三连逃生口沿用
  */
 
 /** 版本比较：'1.0.18' vs '1.0.19'；解析不了返回 -1（当作太旧）。 */
@@ -28,7 +48,7 @@ export function cmpVer(a: string | undefined, b: string): number {
   return 0
 }
 
-/** demo 模式的测试图案帧（内部画，不走 JPEG 链路）。 */
+/** demo 模式的测试图案帧（本地画，不走 JPEG 链路）。 */
 function drawDemoFrame(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -38,7 +58,6 @@ function drawDemoFrame(
 ): void {
   ctx.fillStyle = '#0b0e1a'
   ctx.fillRect(0, 0, w, h)
-  // 网格
   ctx.strokeStyle = 'rgba(140,150,190,0.16)'
   ctx.lineWidth = 1
   for (let x = 0; x <= w; x += 80) {
@@ -47,7 +66,6 @@ function drawDemoFrame(
   for (let y = 0; y <= h; y += 80) {
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke()
   }
-  // 移动的色块（证明画面在动、链路活着）
   const x = ((tick * 7) % (w + 160)) - 80
   const grad = ctx.createLinearGradient(x - 80, 0, x + 80, 0)
   grad.addColorStop(0, 'rgba(167,139,250,0)')
@@ -55,7 +73,6 @@ function drawDemoFrame(
   grad.addColorStop(1, 'rgba(167,139,250,0)')
   ctx.fillStyle = grad
   ctx.fillRect(x - 80, h * 0.42, 160, h * 0.16)
-  // 文案
   ctx.fillStyle = '#e8eaf6'
   ctx.font = '600 42px system-ui, sans-serif'
   ctx.textAlign = 'center'
@@ -69,6 +86,8 @@ function drawDemoFrame(
 
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 3
+/** 连续 move 节流：触摸采样 60-120Hz，WS 发 30/s 跟手且不刷爆链路 */
+const MOVE_THROTTLE_MS = 30
 
 export function RdViewer({
   deviceName,
@@ -97,7 +116,24 @@ export function RdViewer({
   const [zoom, setZoom] = useState(1)
   const [textModal, setTextModal] = useState(false)
   const [textDraft, setTextDraft] = useState('')
-    const [isMobile, setIsMobile] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  // ---------- 六期：输入模式（持久化）+ 移动端右栏开关 ----------
+  const [inputMode, setInputMode] = useState<'touch' | 'mouse'>(() => {
+    const v = localStorage.getItem('landeck.rd.inputMode')
+    return v === 'mouse' ? 'mouse' : 'touch'
+  })
+  const [barOpen, setBarOpen] = useState(false)
+  const setInputModePersist = useCallback((m: 'touch' | 'mouse') => {
+    setInputMode(m)
+    localStorage.setItem('landeck.rd.inputMode', m)
+  }, [])
+
+  // 触摸指示圈（落点视觉反馈）与虚拟光标（鼠标模式）都走 ref 直改样式，
+  // 不进 React 状态——触摸采样 60-120Hz，setState 会把渲染打爆。
+  const touchDotRef = useRef<HTMLDivElement>(null)
+  const cursorRef = useRef<HTMLDivElement>(null)
+  const lastMoveSent = useRef(0)
 
   const hideTimer = useRef<number | null>(null)
   const escTimes = useRef<number[]>([])
@@ -105,7 +141,6 @@ export function RdViewer({
 
   // ---------- 触摸手势状态 ----------
   const touchRef = useRef<{
-    /** 单指：起始时间/位置 */
     startTime: number
     startX: number
     startY: number
@@ -113,12 +148,15 @@ export function RdViewer({
     lastY: number
     longPressTimer: number | null
     moved: boolean
-    /** 双指：初始距离/中点/累积滚动 */
     startDist: number
     startZoom: number
     gesture: 'none' | 'scroll' | 'pinch' | 'unknown'
     lastScrollY: number
-  }>({ startTime: 0, startX: 0, startY: 0, lastX: 0, lastY: 0, longPressTimer: null, moved: false, startDist: 0, startZoom: 1, gesture: 'none', lastScrollY: 0 })
+  }>({
+    startTime: 0, startX: 0, startY: 0, lastX: 0, lastY: 0,
+    longPressTimer: null, moved: false, startDist: 0, startZoom: 1,
+    gesture: 'none', lastScrollY: 0,
+  })
 
   // ---------- 画布尺寸：等比缩放黑边留白（ResizeObserver 算 CSS 尺寸） ----------
   const fitCanvas = useCallback(() => {
@@ -140,14 +178,19 @@ export function RdViewer({
     return () => ro.disconnect()
   }, [fitCanvas])
 
+  // 响应式：跨断点（旋转/分屏/调试视口变化）都要重新评估，
+  // 只在挂载时求值一次的话，视口后变（如远程会话中旋转手机）侧栏形态就错了。
   useEffect(() => {
-    setIsMobile(window.matchMedia('(max-width: 1023px)').matches)
+    const mq = window.matchMedia('(max-width: 1023px)')
+    const onChange = () => setIsMobile(mq.matches)
+    setIsMobile(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
   }, [])
 
   // ---------- 连接 ----------
   useEffect(() => {
     if (demo) {
-      // demo：本地测试图案，2fps 走 rAF 节流
       const canvas = canvasRef.current
       if (!canvas) return
       const ctx = canvas.getContext('2d')
@@ -179,7 +222,7 @@ export function RdViewer({
             if (canvas.width !== bmp.width || canvas.height !== bmp.height) {
               canvas.width = bmp.width
               canvas.height = bmp.height
-                      fitCanvas()
+              fitCanvas()
             }
             canvas.getContext('2d')?.drawImage(bmp, 0, 0)
             bmp.close()
@@ -190,9 +233,7 @@ export function RdViewer({
           })
       },
       onHello: (peer) => setPeer(peer),
-      onBusy: undefined, // state 已驱动覆盖层
       onState: (s) => setState(s),
-      onClosed: () => undefined, // failed 态已驱动覆盖层
     })
     clientRef.current = client
     client.connect()
@@ -203,7 +244,7 @@ export function RdViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demo, target.host, target.port, target.tls, token, deviceName, fitCanvas])
 
-  // ---------- 工具条自动隐藏 ----------
+  // ---------- 工具条自动隐藏（桌面顶条用；移动右栏由 barOpen 控制） ----------
   const pokeToolbar = useCallback(() => {
     setToolbarVisible(true)
     if (hideTimer.current !== null) clearTimeout(hideTimer.current)
@@ -215,6 +256,36 @@ export function RdViewer({
       if (hideTimer.current !== null) clearTimeout(hideTimer.current)
     }
   }, [pokeToolbar])
+
+  // ---------- 触摸指示圈 / 虚拟光标（ref 直改样式，不走 setState） ----------
+  const showTouchDot = useCallback((clientX: number, clientY: number) => {
+    const el = touchDotRef.current
+    const container = containerRef.current
+    if (!el || !container) return
+    const c = container.getBoundingClientRect()
+    el.style.left = `${clientX - c.left}px`
+    el.style.top = `${clientY - c.top}px`
+    el.style.opacity = '1'
+  }, [])
+  const moveTouchDot = useCallback((clientX: number, clientY: number) => {
+    const el = touchDotRef.current
+    const container = containerRef.current
+    if (!el || !container) return
+    const c = container.getBoundingClientRect()
+    el.style.left = `${clientX - c.left}px`
+    el.style.top = `${clientY - c.top}px`
+  }, [])
+  const hideTouchDot = useCallback(() => {
+    if (touchDotRef.current) touchDotRef.current.style.opacity = '0'
+  }, [])
+  const moveCursorDot = useCallback((clientX: number, clientY: number) => {
+    const el = cursorRef.current
+    const container = containerRef.current
+    if (!el || !container) return
+    const c = container.getBoundingClientRect()
+    el.style.left = `${clientX - c.left}px`
+    el.style.top = `${clientY - c.top}px`
+  }, [])
 
   // ---------- 输入：坐标归一（画布矩形 → 0..1） ----------
   const norm = useCallback((clientX: number, clientY: number) => {
@@ -234,6 +305,17 @@ export function RdViewer({
       clientRef.current?.send({ t: 'm', x: p.x, y: p.y, b, a })
     },
     [norm],
+  )
+
+  /** 连续 move 节流：触摸采样 60-120Hz，WS 发 30/s 跟手且不刷爆链路 */
+  const throttledMove = useCallback(
+    (clientX: number, clientY: number, force = false) => {
+      const now = Date.now()
+      if (!force && now - lastMoveSent.current < MOVE_THROTTLE_MS) return
+      lastMoveSent.current = now
+      sendMouse('move', 'l', clientX, clientY)
+    },
+    [sendMouse],
   )
 
   // ---------- PC 鼠标 ----------
@@ -306,10 +388,11 @@ export function RdViewer({
     clientRef.current?.send({ t: 'k', code: vk.code, mods: vk.mods, down: false })
   }
 
-  // ---------- 触摸映射（同一 web 服务手机端） ----------
-  // 参数用最小结构类型：React.Touch 与 DOM 全局 Touch 同名，直接标 Touch 会类型打架
-  const dist2 = (t0: { clientX: number; clientY: number }, t1: { clientX: number; clientY: number }): number =>
-    Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY)
+  // ---------- 触摸（双模式） ----------
+  const dist2 = (
+    t0: { clientX: number; clientY: number },
+    t1: { clientX: number; clientY: number },
+  ): number => Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY)
 
   const onTouchStart = (e: React.TouchEvent) => {
     pokeToolbar()
@@ -322,7 +405,21 @@ export function RdViewer({
       t.startY = t.lastY = p.clientY
       t.moved = false
       t.gesture = 'unknown'
-      // 长按 500ms = 右键单击
+      showTouchDot(p.clientX, p.clientY)
+      if (inputMode === 'mouse') {
+        // 鼠标模式：按下光标立即跳到手指（跟手），长按 = 右键
+        sendMouse('move', 'l', p.clientX, p.clientY)
+        moveCursorDot(p.clientX, p.clientY)
+        t.longPressTimer = window.setTimeout(() => {
+          if (!t.moved) {
+            sendMouse('down', 'r', t.lastX, t.lastY)
+            sendMouse('up', 'r', t.lastX, t.lastY)
+          }
+          t.longPressTimer = null
+        }, 500)
+        return
+      }
+      // 触摸模式：长按 500ms = 右键单击
       t.longPressTimer = window.setTimeout(() => {
         if (!t.moved) {
           sendMouse('down', 'r', t.lastX, t.lastY)
@@ -331,7 +428,10 @@ export function RdViewer({
         t.longPressTimer = null
       }, 500)
     } else if (e.touches.length === 2) {
-      if (t.longPressTimer !== null) { clearTimeout(t.longPressTimer); t.longPressTimer = null }
+      if (t.longPressTimer !== null) {
+        clearTimeout(t.longPressTimer)
+        t.longPressTimer = null
+      }
       t.startDist = dist2(e.touches[0], e.touches[1])
       t.startZoom = zoom
       t.gesture = 'unknown'
@@ -346,10 +446,19 @@ export function RdViewer({
       const p = e.touches[0]
       if (!t.moved && Math.hypot(p.clientX - t.startX, p.clientY - t.startY) > 12) {
         t.moved = true
-        if (t.longPressTimer !== null) { clearTimeout(t.longPressTimer); t.longPressTimer = null }
+        if (t.longPressTimer !== null) {
+          clearTimeout(t.longPressTimer)
+          t.longPressTimer = null
+        }
       }
-      // 单指移动 = 鼠标移动（悬停）
-      if (t.moved) sendMouse('move', 'l', p.clientX, p.clientY)
+      moveTouchDot(p.clientX, p.clientY)
+      if (inputMode === 'mouse') {
+        // 鼠标模式：拖 = 光标 1:1 连续跟随（无阈值，按住即拖）
+        throttledMove(p.clientX, p.clientY)
+      } else if (t.moved) {
+        // 触摸模式：单指移动 = 悬停移动
+        sendMouse('move', 'l', p.clientX, p.clientY)
+      }
       t.lastX = p.clientX
       t.lastY = p.clientY
     } else if (e.touches.length === 2 && t.startDist > 0) {
@@ -366,10 +475,9 @@ export function RdViewer({
         const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, t.startZoom * (d / t.startDist)))
         setZoom(z)
       } else if (t.gesture === 'scroll') {
-        // 双指滑动 = 滚轮；步进按 40px 一格
+        // 双指滑动 = 滚轮；40px 一格
         const step = Math.trunc((midY - t.lastScrollY) / 40)
         if (step !== 0) {
-          // 指下滑 = 内容向下 = 滚轮向下 = dy 负
           clientRef.current?.send({ t: 'w', dy: -step })
           t.lastScrollY = midY
         }
@@ -381,9 +489,13 @@ export function RdViewer({
     if (demo) return
     const t = touchRef.current
     if (e.touches.length === 0 && t.startTime) {
-      if (t.longPressTimer !== null) { clearTimeout(t.longPressTimer); t.longPressTimer = null }
-      // tap：未移动、按住 <300ms → 左键单击（down+up 同点）
-      if (!t.moved && Date.now() - t.startTime < 300) {
+      if (t.longPressTimer !== null) {
+        clearTimeout(t.longPressTimer)
+        t.longPressTimer = null
+      }
+      const quickTap = !t.moved && Date.now() - t.startTime < 300
+      if (quickTap) {
+        // tap：两种模式都是左键单击（down+up 同点）
         sendMouse('down', 'l', t.startX, t.startY)
         sendMouse('up', 'l', t.startX, t.startY)
       }
@@ -391,6 +503,7 @@ export function RdViewer({
       t.gesture = 'none'
     }
     if (e.touches.length < 2) t.startDist = 0
+    hideTouchDot()
   }
 
   // ---------- 全屏 ----------
@@ -416,9 +529,8 @@ export function RdViewer({
     clientRef.current?.send({ t: 'fps', fps: f })
   }
   const sendText = () => {
-    const text = textDraft
-    if (!text) return
-    clientRef.current?.send({ t: 'txt', text })
+    if (!textDraft) return
+    clientRef.current?.send({ t: 'txt', text: textDraft })
     setTextDraft('')
     setTextModal(false)
   }
@@ -437,6 +549,15 @@ export function RdViewer({
               : demo
                 ? '演示模式'
                 : ''
+
+  /** 移动端竖排栏按钮的统一样式 */
+  const BAR_BTN =
+    'flex h-11 w-11 flex-col items-center justify-center gap-0.5 rounded-xl border border-white/15 bg-white/5 text-[8.5px] leading-none text-white/70'
+  const modeBtnCls = (active: boolean) =>
+    clsx(
+      'flex h-11 w-11 flex-col items-center justify-center gap-0.5 rounded-xl border text-[8.5px] leading-none',
+      active ? 'border-accent/40 bg-accent/15 text-accent' : 'border-white/15 bg-white/5 text-white/70',
+    )
 
   return (
     <div
@@ -460,10 +581,7 @@ export function RdViewer({
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        className={clsx(
-          'outline-none select-none',
-          !demo && 'cursor-default focus:ring-0',
-        )}
+        className="outline-none select-none"
         style={{
           transform: `scale(${zoom})`,
           transformOrigin: 'center center',
@@ -471,118 +589,199 @@ export function RdViewer({
         }}
       />
 
-      {/* 悬浮工具条：顶部居中，闲置自动隐藏 */}
+      {/* 触摸指示圈：落点视觉反馈（两种模式都有） */}
       <div
-        className={clsx(
-          'pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 transition-all duration-200',
-          toolbarVisible ? 'translate-y-0 opacity-100' : '-translate-y-14 opacity-0',
-        )}
-      >
-        <div className="pointer-events-auto flex items-center gap-2 rounded-2xl border border-line bg-surface/95 px-3 py-2 shadow-2xl backdrop-blur">
-          <span
-            className={clsx(
-              'h-2 w-2 rounded-full',
-              state === 'connected' ? 'bg-ok' : state === 'failed' ? 'bg-danger' : 'bg-warn',
-            )}
-          />
-          <span className="max-w-[180px] truncate text-[12px] text-fg-soft sm:max-w-[280px]">
-            {statusLabel}
-          </span>
-          <span className="mx-1 h-4 w-px bg-line-soft" />
-          {/* 画质 30–90 */}
-          <label className="flex items-center gap-1.5 text-[11px] text-muted">
-            画质
-            <input
-              type="range"
-              min={30}
-              max={90}
-              step={5}
-              value={quality}
-              disabled={demo}
-              onChange={(e) => changeQuality(parseInt(e.target.value, 10))}
-              className="w-16 accent-[var(--tone-accent)]"
+        ref={touchDotRef}
+        aria-hidden
+        className="pointer-events-none absolute z-10 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent/70 bg-accent/20 opacity-0 transition-opacity duration-150"
+      />
+      {/* 鼠标模式虚拟光标：本地渲染，与 agent 真实光标解耦 */}
+      {isMobile && inputMode === 'mouse' && (
+        <div
+          ref={cursorRef}
+          aria-hidden
+          className="pointer-events-none absolute z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/85 bg-accent/50 shadow-[0_0_0_1px_rgba(0,0,0,0.6)]"
+          style={{ left: '-100px', top: '-100px' }}
+        />
+      )}
+
+      {/* ---------- 桌面顶条：顶部居中，闲置自动隐藏 ---------- */}
+      {!isMobile && (
+        <div
+          className={clsx(
+            'pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 transition-all duration-200',
+            toolbarVisible ? 'translate-y-0 opacity-100' : '-translate-y-14 opacity-0',
+          )}
+        >
+          <div className="pointer-events-auto flex items-center gap-2 rounded-2xl border border-line bg-surface/95 px-3 py-2 shadow-2xl backdrop-blur">
+            <span
+              className={clsx(
+                'h-2 w-2 rounded-full',
+                state === 'connected' ? 'bg-ok' : state === 'failed' ? 'bg-danger' : 'bg-warn',
+              )}
             />
-            <span className="num w-5 text-fg-soft">{quality}</span>
-          </label>
-          {/* 帧率 */}
-          <select
-            aria-label="帧率"
-            value={fps}
-            disabled={demo}
-            onChange={(e) => changeFps(parseInt(e.target.value, 10))}
-            className="h-7 rounded-lg border border-line-soft bg-elevated px-1.5 text-[11px] text-fg"
-          >
-            {[5, 10, 15, 24, 30].map((f) => (
-              <option key={f} value={f}>
-                {f} fps
-              </option>
-            ))}
-          </select>
-          <span className="mx-1 h-4 w-px bg-line-soft" />
-          {/* 键盘捕获开关（PC）；软键盘（手机） */}
-          <button
-            type="button"
-            title={capture ? '键盘已捕获（Esc 三连释放）' : '键盘捕获已释放，点击开启'}
-            onClick={() => setCapture((v) => !v)}
-            className={clsx(
-              'grid h-7 w-7 place-items-center rounded-lg border text-[11px]',
-              capture
-                ? 'border-accent/40 bg-accent/15 text-accent'
-                : 'border-line-soft text-muted hover:text-fg-soft',
-            )}
-          >
-            <Keyboard size={14} />
-          </button>
-          {isMobile && (
+            <span className="max-w-[180px] truncate text-[12px] text-fg-soft sm:max-w-[280px]">
+              {statusLabel}
+            </span>
+            <span className="mx-1 h-4 w-px bg-line-soft" />
+            <label className="flex items-center gap-1.5 text-[11px] text-muted">
+              画质
+              <input
+                type="range"
+                min={30}
+                max={90}
+                step={5}
+                value={quality}
+                disabled={demo}
+                onChange={(e) => changeQuality(parseInt(e.target.value, 10))}
+                className="w-16 accent-[var(--tone-accent)]"
+              />
+              <span className="num w-5 text-fg-soft">{quality}</span>
+            </label>
+            <select
+              aria-label="帧率"
+              value={fps}
+              disabled={demo}
+              onChange={(e) => changeFps(parseInt(e.target.value, 10))}
+              className="h-7 rounded-lg border border-line-soft bg-elevated px-1.5 text-[11px] text-fg"
+            >
+              {[5, 10, 15, 24, 30].map((f) => (
+                <option key={f} value={f}>
+                  {f} fps
+                </option>
+              ))}
+            </select>
             <button
               type="button"
-              title="发送文本"
-              onClick={() => setTextModal(true)}
+              title={capture ? '键盘已捕获（Esc 三连释放）' : '键盘捕获已释放'}
+              onClick={() => setCapture((v) => !v)}
+              className={clsx(
+                'grid h-7 w-7 place-items-center rounded-lg border text-[11px]',
+                capture
+                  ? 'border-accent/40 bg-accent/15 text-accent'
+                  : 'border-line-soft text-muted hover:text-fg-soft',
+              )}
+            >
+              <Keyboard size={14} />
+            </button>
+            <button
+              type="button"
+              title={fullscreen ? '退出全屏' : '全屏'}
+              onClick={toggleFullscreen}
               className="grid h-7 w-7 place-items-center rounded-lg border border-line-soft text-muted hover:text-fg-soft"
             >
-              <Type size={14} />
+              {fullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
+            </button>
+            <button
+              type="button"
+              title="断开并返回"
+              onClick={onDisconnect}
+              className="grid h-7 w-7 place-items-center rounded-lg border border-danger/40 text-danger hover:bg-danger/10"
+            >
+              <Unplug size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- 移动端右侧竖排操作栏：收起=把手，展开=半透明竖面板 ---------- */}
+      {isMobile && (
+        <>
+          {!barOpen && (
+            <button
+              type="button"
+              aria-label="展开操作栏"
+              onClick={() => setBarOpen(true)}
+              className="absolute right-2 top-1/2 z-20 flex h-14 w-10 -translate-y-1/2 items-center justify-center rounded-l-2xl border border-white/15 bg-black/45 text-white/85 backdrop-blur"
+            >
+              <ChevronsLeft size={18} className="rotate-180" />
             </button>
           )}
-          {/* 本地缩放（移动端捏合的等效按钮） */}
-          {isMobile && (
-            <span className="flex items-center gap-0.5 text-muted">
+          {barOpen && (
+            <div className="absolute bottom-3 right-0 top-3 z-20 flex w-14 flex-col items-center gap-1 overflow-y-auto rounded-l-2xl border border-white/12 bg-black/55 py-2 backdrop-blur scroll-area">
               <button
                 type="button"
-                aria-label="缩小"
+                aria-label="收起操作栏"
+                onClick={() => setBarOpen(false)}
+                className="mb-1 grid h-9 w-9 place-items-center rounded-lg text-white/60"
+              >
+                <ChevronsRight size={18} />
+              </button>
+              {/* 输入模式开关：触摸 / 鼠标（虚拟光标）。选择持久化 */}
+              <button
+                type="button"
+                onClick={() => setInputModePersist(inputMode === 'touch' ? 'mouse' : 'touch')}
+                className={modeBtnCls(inputMode === 'touch')}
+              >
+                {inputMode === 'touch' ? <Hand size={16} /> : <MousePointer2 size={16} />}
+                {inputMode === 'touch' ? '触摸' : '鼠标'}
+              </button>
+              {/* 画质：点按在 30/45/60/75/90 间步进 */}
+              <button type="button" onClick={() => changeQuality(quality >= 90 ? 30 : quality + 15)} className={BAR_BTN}>
+                <Gauge size={16} />
+                画质 {quality}
+              </button>
+              {/* 帧率：点按 5/10/15/24/30 循环 */}
+              <button type="button" onClick={() => changeFps(fps >= 30 ? 5 : fps + 5)} className={BAR_BTN}>
+                <Film size={16} />
+                {fps} fps
+              </button>
+              <button
+                type="button"
+                title={capture ? '键盘已捕获（Esc 三连释放）' : '键盘捕获已释放'}
+                onClick={() => setCapture((v) => !v)}
+                className={clsx(
+                  'flex h-11 w-11 flex-col items-center justify-center gap-0.5 rounded-xl border text-[8.5px] leading-none',
+                  capture
+                    ? 'border-accent/40 bg-accent/15 text-accent'
+                    : 'border-white/15 bg-white/5 text-white/60',
+                )}
+              >
+                <Keyboard size={16} />
+                键盘
+              </button>
+              <button type="button" onClick={() => setTextModal(true)} className={BAR_BTN}>
+                <Type size={16} />
+                文本
+              </button>
+              {/* 本地缩放：捏合的等效按钮 */}
+              <button
+                type="button"
                 onClick={() => setZoom((z) => Math.max(MIN_ZOOM, Math.round((z - 0.25) * 4) / 4))}
-                className="grid h-7 w-7 place-items-center rounded-lg border border-line-soft"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-white/70"
+                aria-label="缩小"
               >
-                <Minus size={13} />
+                <Minus size={14} />
               </button>
-              <span className="num w-9 text-center text-[11px]">{Math.round(zoom * 100)}%</span>
+              <span className="num text-[9px] text-white/50">{Math.round(zoom * 100)}%</span>
               <button
                 type="button"
-                aria-label="放大"
                 onClick={() => setZoom((z) => Math.min(MAX_ZOOM, Math.round((z + 0.25) * 4) / 4))}
-                className="grid h-7 w-7 place-items-center rounded-lg border border-line-soft"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-white/70"
+                aria-label="放大"
               >
-                <Plus size={13} />
+                <Plus size={14} />
               </button>
-            </span>
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="mt-auto flex h-11 w-11 flex-col items-center justify-center gap-0.5 rounded-xl border border-white/15 bg-white/5 text-[8.5px] leading-none text-white/70"
+              >
+                {fullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+                全屏
+              </button>
+              <button
+                type="button"
+                onClick={onDisconnect}
+                className="flex h-11 w-11 flex-col items-center justify-center gap-0.5 rounded-xl border border-danger/40 bg-danger/10 text-[8.5px] leading-none text-danger"
+              >
+                <Unplug size={16} />
+                断开
+              </button>
+            </div>
           )}
-          <button
-            type="button"
-            title={fullscreen ? '退出全屏' : '全屏'}
-            onClick={toggleFullscreen}
-            className="grid h-7 w-7 place-items-center rounded-lg border border-line-soft text-muted hover:text-fg-soft"
-          >
-            {fullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
-          </button>
-          <button
-            type="button"
-            title="断开并返回"
-            onClick={onDisconnect}
-            className="grid h-7 w-7 place-items-center rounded-lg border border-danger/40 text-danger hover:bg-danger/10"
-          >
-            <Unplug size={14} />
-          </button>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* 覆盖层：非 connected 的状态卡 */}
       {state !== 'connected' && !demo && (

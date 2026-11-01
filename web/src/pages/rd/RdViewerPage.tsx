@@ -66,6 +66,12 @@ export default function RdViewerPage() {
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-black">
+      {/* 安全区：手机状态栏不压顶缘（与 web-shell 的全局注入约定互不依赖） */}
+      <div
+        aria-hidden
+        className="shrink-0"
+        style={{ height: 'max(env(safe-area-inset-top), var(--ldk-safe-top, 0px))' }}
+      />
       {/* 顶缘：返回 + 标题 + demo 横幅 */}
       <div className="relative z-20 flex shrink-0 items-center gap-3 px-3 py-2.5">
         <button
