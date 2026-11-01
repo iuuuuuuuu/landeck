@@ -68,8 +68,9 @@ export function CategoryBadge({ cat, cats }: { cat: string; cats?: { key: string
 export function InlineBar({ sec, max, cat }: { sec: number; max: number; cat: string }) {
   if (sec <= 0 || max <= 0) return <span className="w-16" />
   const pct = Math.max(4, Math.round((sec / max) * 100))
+  // 移动端隐藏：行宽不够时名称列（w-0 flex-1）会被挤到 0 宽竖排；时长数字就在旁边
   return (
-    <span className="inline-flex w-24 shrink-0 items-center sm:w-40">
+    <span className="hidden w-24 shrink-0 items-center sm:inline-flex sm:w-40">
       <span className="h-1.5 w-full overflow-hidden rounded-full bg-line-soft">
         <span
           className="block h-full rounded-full"

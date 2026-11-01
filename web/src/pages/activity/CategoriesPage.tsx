@@ -113,9 +113,9 @@ export default function ActivityCategoriesPage() {
         demo={demo}
       />
 
-      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[320px_1fr]">
         {/* 类别列表 */}
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <SectionTitle title="类别" desc="内置 8 类可改名；自建类别可删除" />
           {!data ? (
             <Skeleton className="mb-2 h-64 w-full" />
@@ -188,7 +188,7 @@ export default function ActivityCategoriesPage() {
         </Card>
 
         {/* 映射编辑 */}
-        <Card className="p-0">
+        <Card className="min-w-0 overflow-hidden p-0">
           <div className="px-4 py-3">
             <SectionTitle title="应用 → 类别" desc={data ? `共 ${apps.length} 个应用` : undefined} />
             <Input

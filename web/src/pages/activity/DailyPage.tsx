@@ -74,8 +74,9 @@ export default function ActivityDailyPage() {
               value={mode}
               onChange={setMode}
             />
-            <div className="flex items-center gap-2">
-              <DevicePicker devices={devices} value={device.id} onChange={setDeviceId} className="w-56" />
+            {/* 390px 下 DevicePicker(w-56)+DateNav 同行放不下：右组允许换行，下拉占满本行 */}
+            <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
+              <DevicePicker devices={devices} value={device.id} onChange={setDeviceId} className="w-full min-w-0 sm:w-56" />
               <DateNav
                 label={date}
                 onPrev={() => setDate((d) => addDays(d, -1))}

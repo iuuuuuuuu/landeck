@@ -43,7 +43,7 @@ export function RankList({
           >
             <span className="w-5 shrink-0 text-center text-[12px] tabular-nums text-faint">{i + 1}</span>
             <AppIcon app={it.app} cat={it.cat} target={target} token={token} />
-            <span className="min-w-0 flex-1">
+            <span className="w-0 min-w-0 flex-1">
               <span className="block truncate text-[13.5px] text-fg">{it.app}</span>
               <span className="block text-[11px] text-muted">{catLabel(it.cat, cats)}</span>
             </span>
@@ -71,7 +71,7 @@ export function CategoryRankList({ items, cats }: { items: { cat: string; sec: n
         >
           <span className="w-5 shrink-0 text-center text-[12px] tabular-nums text-faint">{i + 1}</span>
           <CategoryIcon cat={it.cat} size={18} />
-          <span className="min-w-0 flex-1 text-[13.5px] text-fg">{catLabel(it.cat, cats)}</span>
+          <span className="w-0 min-w-0 flex-1 text-[13.5px] text-fg">{catLabel(it.cat, cats)}</span>
           <InlineBar sec={it.sec} max={max} cat={it.cat} />
           <span className="w-[96px] shrink-0 text-right text-[13.5px] font-medium tabular-nums text-fg">{fmtDur(it.sec)}</span>
         </li>

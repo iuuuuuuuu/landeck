@@ -64,7 +64,7 @@ export default function ActivityAllTimePage() {
         demo={demo}
       />
 
-      <Card>
+      <Card className="min-w-0 overflow-hidden">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <SectionTitle title="年表" desc="颜色越深当天用得越久；点选某天，下方排行只统计这一天" />
           <div className="flex items-center gap-2">
@@ -92,8 +92,8 @@ export default function ActivityAllTimePage() {
         )}
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <Card>
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[320px_1fr]">
+        <Card className="min-w-0 overflow-hidden">
           <SectionTitle title={`${month} 月`} desc="月历 · 点选联动" />
           <MonthCalendar
             year={year}
@@ -102,7 +102,7 @@ export default function ActivityAllTimePage() {
             selectedDate={selectedDate}
             onSelect={(d) => setSelectedDate(d)}
           />
-          <div className="mt-3 flex justify-center gap-1.5">
+          <div className="mt-3 flex flex-wrap justify-center gap-1.5">
             {Array.from({ length: 12 }, (_, i) => i + 1).map((mm) => (
               <button
                 key={mm}
