@@ -1773,7 +1773,7 @@ dependencies = [
 
 [[package]]
 name = "landeck"
-version = "1.0.19"
+version = "1.0.20"
 dependencies = [
  "base64 0.22.1",
  "if-addrs",
