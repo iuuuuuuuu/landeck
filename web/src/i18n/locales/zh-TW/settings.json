@@ -43,7 +43,77 @@
     }
   },
   "about": {
-    "title": "關于",
-    "license": "開源许可"
-  }
+    "title": "關於",
+    "desc": "Agent 版本、API 契約入口與連接埠約定。",
+    "sessionError": "讀取裝置工作階段失敗",
+    "agentInfoError": "讀取 Agent 資訊失敗",
+    "agentVersion": "Agent 版本",
+    "device": "裝置",
+    "os": "系統",
+    "uptime": "執行時長",
+    "apiEntry": "API 契約入口",
+    "copyAddress": "複製位址",
+    "copyOk": "已複製 API 位址",
+    "copyFailed": "複製失敗",
+    "clipboardDenied": "瀏覽器拒絕了剪貼簿存取，請手動選取位址複製",
+    "fieldNote": "欄位含義以儲存庫內的 docs/API.md 為唯一事實來源；本文件隨 Agent 版本 v1 凍結。",
+    "portCol": "連接埠",
+    "protoCol": "協定",
+    "usageCol": "用途",
+    "portHttp": "HTTP API + WebSocket + 內嵌 Web UI",
+    "portDiscovery": "區域網路探索廣播（mDNS 的備援通道）",
+    "portTls": "選用 TLS 監聽，自簽憑證"
+  },
+  "identity": {
+    "title": "本機身分",
+    "desc": "這個名稱在配對時顯示在被控機上，方便區分是哪台控制端。",
+    "nameLabel": "用戶端名稱",
+    "nameHintPrefix": "本機識別：",
+    "nameHintSuffix": "（保存在此瀏覽器）",
+    "namePlaceholder": "例如 YG 的筆記型電腦",
+    "saved": "用戶端名稱已更新"
+  },
+  "update": {
+    "clientVersion": "用戶端版本",
+    "autoCheck": "自動檢查更新",
+    "manual": "手動檢查",
+    "checking": "檢查中…",
+    "checkNow": "檢查更新",
+    "downloading": "正在下載並安裝新版本，完成後自動重新啟動…",
+    "found": "發現新版本",
+    "foundToast": "可更新到最新版。",
+    "updateAndRestart": "更新並重新啟動",
+    "upToDate": "已是最新版本。",
+    "checkFailed": "檢查失敗：",
+    "autoOn": "已開啟自動檢查更新",
+    "autoOff": "已關閉自動檢查更新",
+    "autoOnDesc": "啟動 10 秒後於背景靜默檢查，發現新版本只在「關於」裡提示。",
+    "autoOffDesc": "不再自動檢查，可隨時在這裡手動檢查。",
+    "autoSetFailed": "設定自動檢查更新失敗",
+    "updateFailed": "更新失敗",
+    "retry": "重試"
+  },
+  "gate": {
+    "pairTitle": "先配對一台裝置",
+    "pairDesc": "設定項都作用在某台被控機的 Agent 上。先掃描區域網路，用隨機碼或固定金鑰完成配對。",
+    "pairAction": "掃描區域網路",
+    "authTitle": "先配對一台裝置",
+    "authDesc": "權杖已失效或沒有存取權限，重新配對後就能修改設定。",
+    "rescan": "重新配對",
+    "unreachable": "{{name}}：{{err}}。確認它已開機、Agent 在執行，並和本機在同一區域網路。",
+    "unreachableTitle": "裝置目前不可達"
+  },
+  "agentCard": {
+    "title": "被控端設定",
+    "desc": "手機端只作為控制端執行，本機沒有 Agent 可設定。",
+    "line1": "想修改「{{name}}」的裝置名、連接埠或開機行為，請在那台機器上打開 LanDeck，",
+    "line2": "或從「裝置」進入它的詳情頁操作。"
+  },
+  "startupToast": {
+    "autostartFailed": "設定開機自啟失敗",
+    "autostartOn": "已開啟開機自啟",
+    "autostartOff": "已關閉開機自啟"
+  },
+  "save": "儲存",
+  "retry": "重試"
 }

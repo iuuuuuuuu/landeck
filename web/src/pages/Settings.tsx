@@ -56,12 +56,14 @@ import {
   type UpdateInfo,
 } from '../lib/updaterApi'
 import { useApp, type PairedDevice } from '../store/app'
+import { useT } from '../i18n'
 import { THEME_LABEL, THEME_NAME_LABEL, useTheme, type ThemeMode } from '../store/theme'
 import { LANG_LABEL, LANGS, currentLang, setLang, type Lang } from '../i18n'
 import { PageHeader } from '../components/shell'
 
 /** 进入设置页前的会话检查：未配对 / 401 / 离线在这里统一拦成整页提示 */
 function useSessionGate(device?: PairedDevice) {
+  const t = useT('settings')
   const [state, setState] = useState<{ loading: boolean; error: string | null; auth: boolean }>({
     loading: !!device,
     error: null,
@@ -90,7 +92,7 @@ function useSessionGate(device?: PairedDevice) {
         setState({
           loading: false,
           auth: status === 401 || status === 403,
-          error: apiErrorMessage(e, '读取设备会话失败'),
+          error: apiErrorMessage(e, t('about.sessionError')),
         })
       })
     return () => {
@@ -104,6 +106,7 @@ function useSessionGate(device?: PairedDevice) {
 
 /** 第 1 组：本机身份 */
 function IdentityCard() {
+  const t = useT('settings')
   const myName = useApp((s) => s.myName)
   const myId = useApp((s) => s.myId)
   const setMyName = useApp((s) => s.setMyName)
@@ -135,16 +138,16 @@ function IdentityCard() {
     <Card>
       <SectionTitle
         icon={<UserRound size={16} />}
-        title="本机身份"
-        desc="这个名称在配对时显示在被控机上，方便区分是哪台控制端。"
+        title={t("identity.title")}
+        desc={t("identity.desc")}
       />
       <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-        <Field label="客户端名称" hint={`本机标识：${myId}（保存在此浏览器）`}>
+        <Field label={t("identity.nameLabel")} hint={t("identity.nameHintPrefix") + myId + t("identity.nameHintSuffix")}>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={32}
-            placeholder="例如 YG 的笔记本"
+            placeholder={t("identity.namePlaceholder")}
           />
         </Field>
         <Button
@@ -153,10 +156,10 @@ function IdentityCard() {
           disabled={!dirty}
           onClick={() => {
             setMyName(name.trim())
-            toast({ kind: 'ok', title: '客户端名称已更新', desc: name.trim() })
+            toast({ kind: 'ok', title: t('identity.saved'), desc: name.trim() })
           }}
         >
-          保存
+          {t("save")}
         </Button>
       </div>
     </Card>
@@ -164,9 +167,9 @@ function IdentityCard() {
 }
 
 const PORTS = [
-  { port: '8420', proto: 'TCP', desc: 'HTTP API + WebSocket + 内嵌 Web UI' },
-  { port: '8421', proto: 'UDP', desc: '局域网发现广播（mDNS 的兜底通道）' },
-  { port: '8443', proto: 'TCP', desc: '可选 TLS 监听，自签证书' },
+  { port: '8420', proto: 'TCP', desc: 'about.portHttp' },
+  { port: '8421', proto: 'UDP', desc: 'about.portDiscovery' },
+  { port: '8443', proto: 'TCP', desc: 'about.portTls' },
 ]
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
@@ -180,6 +183,7 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 
 /** 第 4 组：关于 */
 function AboutCard({ device }: { device: PairedDevice }) {
+  const t = useT('settings')
   const toast = useApp((s) => s.toast)
   const client = AgentClient.fromDevice(device)
   const { data, loading, error } = useAsync(() => client.system(), [device.id, device.token], {
@@ -192,12 +196,12 @@ function AboutCard({ device }: { device: PairedDevice }) {
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(base)
-      toast({ kind: 'ok', title: '已复制 API 地址', desc: base })
+      toast({ kind: 'ok', title: t('about.copyOk'), desc: base })
     } catch {
       toast({
         kind: 'error',
-        title: '复制失败',
-        desc: '浏览器拒绝了剪贴板访问，请手动选中地址复制',
+        title: t('about.copyFailed'),
+        desc: t('about.clipboardDenied'),
       })
     }
   }
@@ -249,14 +253,14 @@ function AboutCard({ device }: { device: PairedDevice }) {
     const res = await updateAutoSet(next)
     setBusyAuto(false)
     if (!res.ok) {
-      toast({ kind: 'error', title: '设置自动检查更新失败', desc: res.error })
+      toast({ kind: 'error', title: t('update.autoSetFailed'), desc: res.error })
       return
     }
     setAuto(next)
     toast({
       kind: 'ok',
-      title: next ? '已开启自动检查更新' : '已关闭自动检查更新',
-      desc: next ? '启动 10 秒后后台静默检查，发现新版本只在「关于」里提示。' : '不再自动检查，可随时在这里手动检查。',
+      title: next ? t('update.autoOn') : t('update.autoOff'),
+      desc: next ? t('update.autoOnDesc') : t('update.autoOffDesc'),
     })
   }
 
@@ -268,13 +272,13 @@ function AboutCard({ device }: { device: PairedDevice }) {
       const info = await checkForUpdate()
       if (info) {
         setUpdateInfo(info)
-        toast({ kind: 'ok', title: `发现新版本 ${info.version}`, desc: '可更新到最新版。' })
+        toast({ kind: 'ok', title: `${t('update.found')} ${info.version}`, desc: t('update.foundToast') })
       } else {
         setUpdateInfo(null)
         setUpToDate(true)
       }
     } catch (e) {
-      setCheckError((e as Error).message || '检查失败')
+      setCheckError((e as Error).message || t('update.checkFailed'))
     } finally {
       setChecking(false)
     }
@@ -288,7 +292,7 @@ function AboutCard({ device }: { device: PairedDevice }) {
       await installUpdate()
     } catch (e) {
       setInstalling(false)
-      toast({ kind: 'error', title: '更新失败', desc: (e as Error).message })
+      toast({ kind: 'error', title: t('update.updateFailed'), desc: (e as Error).message })
     }
   }
 
@@ -296,8 +300,8 @@ function AboutCard({ device }: { device: PairedDevice }) {
     <Card>
       <SectionTitle
         icon={<Info size={16} />}
-        title="关于"
-        desc="Agent 版本、API 契约入口与端口约定。"
+        title={t("about.title")}
+        desc={t("about.desc")}
       />
 
       {loading && !data ? (
@@ -307,24 +311,24 @@ function AboutCard({ device }: { device: PairedDevice }) {
           <Skeleton className="h-9 w-full" />
         </div>
       ) : error && !data ? (
-        <p className="mt-4 text-[12px] text-danger">{apiErrorMessage(error, '读取 Agent 信息失败')}</p>
+        <p className="mt-4 text-[12px] text-danger">{apiErrorMessage(error, t('about.agentInfoError'))}</p>
       ) : data ? (
         <>
           <div className="mt-3 divide-y divide-line-soft">
-            <Row label="Agent 版本" value={<span className="num">{data.agentVersion}</span>} />
-            <Row label="设备" value={`${data.hostname} · ${osLabel(data.platform)}`} />
-            <Row label="系统" value={data.os} />
+            <Row label={t("about.agentVersion")} value={<span className="num">{data.agentVersion}</span>} />
+            <Row label={t("about.device")} value={`${data.hostname} · ${osLabel(data.platform)}`} />
+            <Row label={t("about.os")} value={data.os} />
             <Row
-              label="运行时长"
+              label={t("about.uptime")}
               value={<span className="num">{duration(data.uptimeSec, 'short')}</span>}
             />
           </div>
 
           <div className="mt-3 rounded-xl border border-line-soft bg-elevated p-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11.5px] text-muted">API 契约入口</span>
+              <span className="text-[11.5px] text-muted">{t("about.apiEntry")}</span>
               <Button size="sm" variant="ghost" icon={<Copy size={13} />} onClick={() => void copy()}>
-                复制地址
+                {t("about.copyAddress")}
               </Button>
             </div>
             <div className="num mt-1.5 break-all text-[12px] text-accent-soft">{base}</div>
@@ -339,15 +343,15 @@ function AboutCard({ device }: { device: PairedDevice }) {
               ))}
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-faint">
-              字段含义以仓库内的 docs/API.md 为唯一事实来源；本文档随 Agent 版本 v1 冻结。
+              {t("about.fieldNote")}
             </p>
           </div>
 
           <div className="mt-3 overflow-hidden rounded-xl border border-line-soft">
             <div className="grid grid-cols-[64px_52px_minmax(0,1fr)] gap-2 border-b border-line-soft bg-elevated px-3 py-2 text-[10.5px] uppercase tracking-[0.08em] text-faint">
-              <span>端口</span>
-              <span>协议</span>
-              <span>用途</span>
+              <span>{t("about.portCol")}</span>
+              <span>{t("about.protoCol")}</span>
+              <span>{t("about.usageCol")}</span>
             </div>
             {PORTS.map((p) => (
               <div
@@ -367,11 +371,11 @@ function AboutCard({ device }: { device: PairedDevice }) {
       {isDesktopShell && (
         <div className="mt-3 rounded-xl border border-line-soft bg-elevated p-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11.5px] text-muted">客户端版本</span>
+            <span className="text-[11.5px] text-muted">{t("update.clientVersion")}</span>
             <span className="num text-[12px] text-fg-soft">{appVer ?? '—'}</span>
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-[11.5px] text-muted">自动检查更新</span>
+            <span className="text-[11.5px] text-muted">{t("update.autoCheck")}</span>
             {auto !== null ? (
               <Toggle checked={auto} disabled={busyAuto} onChange={(v) => void toggleAuto(v)} />
             ) : (
@@ -379,24 +383,24 @@ function AboutCard({ device }: { device: PairedDevice }) {
             )}
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-[11.5px] text-muted">手动检查</span>
+            <span className="text-[11.5px] text-muted">{t("update.manual")}</span>
             <Button size="sm" variant="ghost" disabled={checking || installing} onClick={() => void checkNow()}>
-              {checking ? '检查中…' : '检查更新'}
+              {checking ? t('update.checking') : t('update.checkNow')}
             </Button>
           </div>
           {installing && (
             <p className="mt-2 text-[11.5px] text-muted">
-              正在下载并安装新版本，完成后自动重启…
+              {t("update.downloading")}
             </p>
           )}
           {updateInfo && !installing && (
             <div className="mt-2 rounded-lg border border-ok/30 bg-ok/[0.08] px-3 py-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[12px] text-fg-soft">
-                  发现新版本 <span className="num font-semibold">{updateInfo.version}</span>
+                  {t("update.found")} <span className="num font-semibold">{updateInfo.version}</span>
                 </span>
                 <Button size="sm" variant="primary" icon={<Sparkles size={13} />} onClick={() => void doUpdate()}>
-                  更新并重启
+                  {t("update.updateAndRestart")}
                 </Button>
               </div>
               {updateInfo.notes && (
@@ -405,13 +409,13 @@ function AboutCard({ device }: { device: PairedDevice }) {
             </div>
           )}
           {upToDate && !updateInfo && (
-            <p className="mt-2 text-[11.5px] text-muted">已是最新版本。</p>
+            <p className="mt-2 text-[11.5px] text-muted">{t("update.upToDate")}</p>
           )}
           {checkError && (
             <div className="mt-2 flex items-center justify-between gap-2">
-              <p className="text-[11.5px] text-danger">检查失败：{checkError}</p>
+              <p className="text-[11.5px] text-danger">{t("update.checkFailed")}{checkError}</p>
               <Button size="sm" variant="ghost" onClick={() => void checkNow()}>
-                重试
+                {t("retry")}
               </Button>
             </div>
           )}
@@ -476,6 +480,7 @@ function LanguageCard() {
 }
 
 function AppearanceCard() {
+  const t = useT('settings')
   const { mode, theme, setMode } = useTheme()
   const toast = useApp((s) => s.toast)
   const runtime = useRuntime()
@@ -514,11 +519,11 @@ function AppearanceCard() {
     setBusy(false)
     if (!res.ok) {
       // 系统策略/安全软件拦截时把真实原因给用户，不静默失败
-      toast({ kind: 'error', title: '设置开机自启失败', desc: res.error })
+      toast({ kind: 'error', title: t('startupToast.autostartFailed'), desc: res.error })
       return
     }
     setAuto(next)
-    toast({ kind: 'ok', title: next ? '已开启开机自启' : '已关闭开机自启' })
+    toast({ kind: 'ok', title: next ? t('startupToast.autostartOn') : t('startupToast.autostartOff') })
   }
 
   const toggleSilent = async (next: boolean) => {
@@ -526,18 +531,18 @@ function AppearanceCard() {
     const res = await silentAutostartSet(next)
     setBusySilent(false)
     if (!res.ok) {
-      toast({ kind: 'error', title: '设置静默启动失败', desc: res.error })
+      toast({ kind: 'error', title: t('appearance.silent.failed'), desc: res.error })
       return
     }
     setSilent(next)
     toast({
       kind: 'ok',
-      title: next ? '已开启静默启动' : '已关闭静默启动',
+      title: next ? t('appearance.silent.on') : t('appearance.silent.off'),
       // 说清「下次开机」才生效，以及手动启动仍会显示窗口 —— 否则用户
       // 现在双击图标发现还是弹窗，会以为开关没生效
       desc: next
-        ? '下次开机只在托盘里，不弹窗口；手动打开图标仍会显示窗口。'
-        : '下次开机会正常显示窗口。',
+        ? t('appearance.silent.onDesc')
+        : t('appearance.silent.offDesc'),
     })
   }
 
@@ -546,18 +551,18 @@ function AppearanceCard() {
     const res = await lightweightSet(next)
     setBusyLight(false)
     if (!res.ok) {
-      toast({ kind: 'error', title: '设置轻量模式失败', desc: res.error })
+      toast({ kind: 'error', title: t('appearance.lightweight.failed'), desc: res.error })
       return
     }
     setLight(next)
     toast({
       kind: 'ok',
-      title: next ? '已开启轻量模式' : '已关闭轻量模式',
+      title: next ? t('appearance.lightweight.on') : t('appearance.lightweight.off'),
       // 必须说清代价：关窗后界面会被销毁，再打开是重建。
       // 数据有落盘缓存所以还是会立刻显示，但页面内的临时状态会丢。
       desc: next
-        ? '关闭窗口后界面内存会被释放，只在托盘保留后台服务；再次打开会重建界面（数据仍会立刻显示）。'
-        : '关闭窗口后界面保留在后台，再次打开是秒开。',
+        ? t('appearance.lightweight.onDesc')
+        : t('appearance.lightweight.offDesc'),
     })
   }
 
@@ -619,6 +624,7 @@ function AppearanceCard() {
 
 /** 设置页：外观 / 身份 / 被控端 / 配对安全 / 关于 */
 export default function Settings() {
+  const t = useT('settings')
   const devices = useApp((s) => s.devices)
   const activeId = useApp((s) => s.activeId)
   const device = devices.find((d) => d.id === activeId) ?? devices[0]
@@ -627,7 +633,7 @@ export default function Settings() {
 
   return (
     <div className="mx-auto w-full max-w-[900px] space-y-3">
-      <PageHeader title="设置" sub="身份、被控端参数与安全策略" />
+      <PageHeader title={t('title')} sub={t('subtitle')} />
       <AppearanceCard />
 
       <LanguageCard />
@@ -636,11 +642,11 @@ export default function Settings() {
         <Card>
           <EmptyState
             icon={<KeyRound size={26} />}
-            title="先配对一台设备"
-            desc="设置项都作用在某台被控机的 Agent 上。先扫描局域网，用随机码或固定密钥完成配对。"
+            title={t("gate.pairTitle")}
+            desc={t("gate.pairDesc")}
             action={
               <Button variant="primary" icon={<Radar size={16} />} onClick={() => navigate('/scan')}>
-                扫描局域网
+                {t("gate.pairAction")}
               </Button>
             }
           />
@@ -655,17 +661,17 @@ export default function Settings() {
         <Card>
           <EmptyState
             icon={<ShieldAlert size={26} />}
-            title={gate.auth ? '先配对一台设备' : '设备当前不可达'}
+            title={gate.auth ? t('gate.authTitle') : t('gate.unreachableTitle')}
             desc={
               gate.auth
-                ? '令牌已失效或没有访问权限，重新配对后就能修改设置。'
-                : `${device.name}：${gate.error}。确认它已开机、Agent 在运行，并和本机在同一局域网。`
+                ? t('gate.authDesc')
+                : t('gate.unreachable', { name: device.name, err: gate.error })
             }
             action={
               <div className="flex flex-wrap justify-center gap-2">
-                <Button onClick={gate.retry}>重试</Button>
+                <Button onClick={gate.retry}>{t("retry")}</Button>
                 <Button variant="primary" onClick={() => navigate('/scan')}>
-                  {gate.auth ? '重新配对' : '扫描局域网'}
+                  {gate.auth ? t('gate.rescan') : t('gate.pairAction')}
                 </Button>
               </div>
             }
@@ -678,12 +684,12 @@ export default function Settings() {
             <Card>
               <SectionTitle
                 icon={<SlidersHorizontal size={16} />}
-                title="被控端设置"
-                desc="手机端只作为控制端运行，本机没有 Agent 可配置。"
+                title={t("agentCard.title")}
+                desc={t("agentCard.desc")}
               />
               <p className="mt-3 text-[12px] leading-relaxed text-muted">
-                想修改「{device.name}」的设备名、端口或开机自启，请在那台机器上打开 LanDeck，
-                或从「设备」进入它的详情页操作。
+                {t("agentCard.line1", { name: device.name })}
+                {t("agentCard.line2")}
               </p>
             </Card>
           ) : (

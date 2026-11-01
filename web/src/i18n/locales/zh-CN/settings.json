@@ -44,6 +44,76 @@
   },
   "about": {
     "title": "关于",
-    "license": "开源许可"
-  }
+    "desc": "Agent 版本、API 契约入口与端口约定。",
+    "sessionError": "读取设备会话失败",
+    "agentInfoError": "读取 Agent 信息失败",
+    "agentVersion": "Agent 版本",
+    "device": "设备",
+    "os": "系统",
+    "uptime": "运行时长",
+    "apiEntry": "API 契约入口",
+    "copyAddress": "复制地址",
+    "copyOk": "已复制 API 地址",
+    "copyFailed": "复制失败",
+    "clipboardDenied": "浏览器拒绝了剪贴板访问，请手动选中地址复制",
+    "fieldNote": "字段含义以仓库内的 docs/API.md 为唯一事实来源；本文档随 Agent 版本 v1 冻结。",
+    "portCol": "端口",
+    "protoCol": "协议",
+    "usageCol": "用途",
+    "portHttp": "HTTP API + WebSocket + 内嵌 Web UI",
+    "portDiscovery": "局域网发现广播（mDNS 的兜底通道）",
+    "portTls": "可选 TLS 监听，自签证书"
+  },
+  "identity": {
+    "title": "本机身份",
+    "desc": "这个名称在配对时显示在被控机上，方便区分是哪台控制端。",
+    "nameLabel": "客户端名称",
+    "nameHintPrefix": "本机标识：",
+    "nameHintSuffix": "（保存在此浏览器）",
+    "namePlaceholder": "例如 YG 的笔记本",
+    "saved": "客户端名称已更新"
+  },
+  "update": {
+    "clientVersion": "客户端版本",
+    "autoCheck": "自动检查更新",
+    "manual": "手动检查",
+    "checking": "检查中…",
+    "checkNow": "检查更新",
+    "downloading": "正在下载并安装新版本，完成后自动重启…",
+    "found": "发现新版本",
+    "foundToast": "可更新到最新版。",
+    "updateAndRestart": "更新并重启",
+    "upToDate": "已是最新版本。",
+    "checkFailed": "检查失败：",
+    "autoOn": "已开启自动检查更新",
+    "autoOff": "已关闭自动检查更新",
+    "autoOnDesc": "启动 10 秒后后台静默检查，发现新版本只在「关于」里提示。",
+    "autoOffDesc": "不再自动检查，可随时在这里手动检查。",
+    "autoSetFailed": "设置自动检查更新失败",
+    "updateFailed": "更新失败",
+    "retry": "重试"
+  },
+  "gate": {
+    "pairTitle": "先配对一台设备",
+    "pairDesc": "设置项都作用在某台被控机的 Agent 上。先扫描局域网，用随机码或固定密钥完成配对。",
+    "pairAction": "扫描局域网",
+    "authTitle": "先配对一台设备",
+    "authDesc": "令牌已失效或没有访问权限，重新配对后就能修改设置。",
+    "rescan": "重新配对",
+    "unreachable": "{{name}}：{{err}}。确认它已开机、Agent 在运行，并和本机在同一局域网。",
+    "unreachableTitle": "设备当前不可达"
+  },
+  "agentCard": {
+    "title": "被控端设置",
+    "desc": "手机端只作为控制端运行，本机没有 Agent 可配置。",
+    "line1": "想修改「{{name}}」的设备名、端口或开机自启，请在那台机器上打开 LanDeck，",
+    "line2": "或从「设备」进入它的详情页操作。"
+  },
+  "startupToast": {
+    "autostartFailed": "设置开机自启失败",
+    "autostartOn": "已开启开机自启",
+    "autostartOff": "已关闭开机自启"
+  },
+  "save": "保存",
+  "retry": "重试"
 }

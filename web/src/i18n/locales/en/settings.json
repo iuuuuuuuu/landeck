@@ -44,6 +44,76 @@
   },
   "about": {
     "title": "About",
-    "license": "License"
-  }
+    "desc": "Agent version, API contract entry and port conventions.",
+    "sessionError": "Failed to read the device session",
+    "agentInfoError": "Failed to read agent info",
+    "agentVersion": "Agent version",
+    "device": "Device",
+    "os": "OS",
+    "uptime": "Uptime",
+    "apiEntry": "API contract entry",
+    "copyAddress": "Copy address",
+    "copyOk": "API address copied",
+    "copyFailed": "Copy failed",
+    "clipboardDenied": "The browser denied clipboard access — select and copy the address manually",
+    "fieldNote": "docs/API.md in the repo is the single source of truth; this document is frozen at Agent v1.",
+    "portCol": "Port",
+    "protoCol": "Proto",
+    "usageCol": "Usage",
+    "portHttp": "HTTP API + WebSocket + embedded Web UI",
+    "portDiscovery": "LAN discovery broadcast (mDNS fallback)",
+    "portTls": "Optional TLS listener, self-signed certificate"
+  },
+  "identity": {
+    "title": "This console's identity",
+    "desc": "This name is shown to the controlled machine when pairing, to tell consoles apart.",
+    "nameLabel": "Client name",
+    "nameHintPrefix": "Local identity: ",
+    "nameHintSuffix": " (stored in this browser)",
+    "namePlaceholder": "e.g. YG's laptop",
+    "saved": "Client name updated"
+  },
+  "update": {
+    "clientVersion": "Client version",
+    "autoCheck": "Auto check for updates",
+    "manual": "Manual check",
+    "checking": "Checking…",
+    "checkNow": "Check for updates",
+    "downloading": "Downloading and installing the new version; the app restarts when done…",
+    "found": "New version found",
+    "foundToast": "You can update to the latest version.",
+    "updateAndRestart": "Update and restart",
+    "upToDate": "You are on the latest version.",
+    "checkFailed": "Check failed: ",
+    "autoOn": "Auto update check enabled",
+    "autoOff": "Auto update check disabled",
+    "autoOnDesc": "Checks quietly in the background 10s after launch; new versions are only noted in \"About\".",
+    "autoOffDesc": "No automatic checks; you can check manually here anytime.",
+    "autoSetFailed": "Failed to set auto update check",
+    "updateFailed": "Update failed",
+    "retry": "Retry"
+  },
+  "gate": {
+    "pairTitle": "Pair a device first",
+    "pairDesc": "These settings act on a controlled machine's agent. Scan the LAN first and pair with the passcode or fixed key.",
+    "pairAction": "Scan LAN",
+    "authTitle": "Pair a device first",
+    "authDesc": "The token is invalid or lacks access — pair again to change settings.",
+    "rescan": "Pair again",
+    "unreachable": "{{name}}: {{err}}. Make sure it is powered on, the agent is running, and it is on the same LAN.",
+    "unreachableTitle": "Device unreachable"
+  },
+  "agentCard": {
+    "title": "Agent settings",
+    "desc": "The phone acts as a console only — there is no local agent to configure.",
+    "line1": "To change \"{{name}}\"’s device name, port or power-on behavior, open LanDeck on that machine,",
+    "line2": "or open its detail page from \"Devices\"."
+  },
+  "startupToast": {
+    "autostartFailed": "Failed to set launch at login",
+    "autostartOn": "Launch at login enabled",
+    "autostartOff": "Launch at login disabled"
+  },
+  "save": "Save",
+  "retry": "Retry"
 }
