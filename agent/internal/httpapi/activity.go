@@ -26,7 +26,7 @@ func activityBody(w http.ResponseWriter, r *http.Request, v any) bool {
 // GET /api/v1/activity/summary?scope=day|week|month&date=YYYY-MM-DD
 func (s *Server) handleActivitySummary(w http.ResponseWriter, r *http.Request, _ *config.Client) {
 	q := r.URL.Query()
-	v, err := activity.GetSummary(q.Get("scope"), q.Get("date"))
+	v, err := activity.GetSummary(q.Get("scope"), q.Get("date"), q.Get("scopeAgg"))
 	if err != nil {
 		// 参数非法（未知 scope / date 格式不符）必须 400：
 		// 静默假 200 是全部历史页渲染垃圾数据的事故根源
@@ -49,7 +49,7 @@ func (s *Server) handleActivityRank(w http.ResponseWriter, r *http.Request, _ *c
 			limit = n
 		}
 	}
-	v, err := activity.GetRank(q.Get("scope"), limit, q.Get("date"))
+	v, err := activity.GetRank(q.Get("scope"), limit, q.Get("date"), q.Get("scopeAgg"))
 	if err != nil {
 		if errors.Is(err, activity.ErrBadScope) {
 			writeErr(w, http.StatusBadRequest, "bad-params", err.Error())

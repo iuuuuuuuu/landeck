@@ -19,10 +19,10 @@ func setupAI7(t *testing.T) (srv *httptest.Server, llmReq func() []ChatMessage, 
 	t.Helper()
 	srv = newTestServer(t)
 	origSum, origRank := actSummary, actRank
-	actSummary = func(scope, date string) (any, error) {
+	actSummary = func(scope, date, scopeAgg string) (any, error) {
 		return fixtureSummary(), nil // totalSec=9h，dataPresent=true
 	}
-	actRank = func(scope string, limit int, date string) (any, error) { return fixtureRank(), nil }
+	actRank = func(scope string, limit int, date, scopeAgg string) (any, error) { return fixtureRank(), nil }
 	t.Cleanup(func() { actSummary, actRank = origSum, origRank })
 
 	var last []ChatMessage
@@ -127,8 +127,8 @@ func TestChatCitationsEndToEnd(t *testing.T) {
 	// 覆盖 baseURL 指向本测试专用的假 LLM（带标记的响应），
 	// 不复用 setupAI7 的桩——它的响应形状是给 summary 用的。
 	origSum, origRank := actSummary, actRank
-	actSummary = func(scope, date string) (any, error) { return fixtureSummary(), nil }
-	actRank = func(scope string, limit int, date string) (any, error) { return fixtureRank(), nil }
+	actSummary = func(scope, date, scopeAgg string) (any, error) { return fixtureSummary(), nil }
+	actRank = func(scope string, limit int, date, scopeAgg string) (any, error) { return fixtureRank(), nil }
 	llm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"choices": []map[string]any{{"message": map[string]any{"content": "今天编程 3 小时[cite:2026-10-31]。范围外的幻觉日期[cite:2026-10-20]。"}}},
@@ -166,8 +166,8 @@ func TestChatCitationsEndToEnd(t *testing.T) {
 func TestChatNoCitationsField(t *testing.T) {
 	srv := newTestServer(t)
 	origSum, origRank := actSummary, actRank
-	actSummary = func(scope, date string) (any, error) { return fixtureSummary(), nil }
-	actRank = func(scope string, limit int, date string) (any, error) { return fixtureRank(), nil }
+	actSummary = func(scope, date, scopeAgg string) (any, error) { return fixtureSummary(), nil }
+	actRank = func(scope string, limit int, date, scopeAgg string) (any, error) { return fixtureRank(), nil }
 	llm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"choices": []map[string]any{{"message": map[string]any{"content": "无标记回答"}}},
@@ -219,13 +219,13 @@ func TestRunBackfillRealPath(t *testing.T) {
 	today := time.Now()
 	todayStr := today.Format("2006-01-02")
 	yesterday := today.AddDate(0, 0, -1).Format("2006-01-02")
-	actSummary = func(scope, date string) (any, error) {
+	actSummary = func(scope, date, scopeAgg string) (any, error) {
 		if date == yesterday {
 			return map[string]any{"scope": scope, "from": date, "to": date, "totalSec": 0, "buckets": []any{}, "categories": []any{}}, nil
 		}
 		return fixtureSummary(), nil
 	}
-	actRank = func(scope string, limit int, date string) (any, error) { return fixtureRank(), nil }
+	actRank = func(scope string, limit int, date, scopeAgg string) (any, error) { return fixtureRank(), nil }
 
 	var calls int
 	llm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

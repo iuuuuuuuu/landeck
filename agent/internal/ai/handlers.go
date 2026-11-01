@@ -131,12 +131,12 @@ func Register(m *http.ServeMux, protect func(guarded) http.HandlerFunc, dataDir 
 			writeErr(w, http.StatusBadRequest, "ai_not_configured", "尚未配置 AI 提供方（在设置里填模型与密钥并启用）")
 			return
 		}
-		summary, err := actSummary(scope, req.Date)
+		summary, err := actSummary(scope, req.Date, "")
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, "ai", err.Error())
 			return
 		}
-		rank, err := actRank(scope, 10, req.Date)
+		rank, err := actRank(scope, 10, "", req.Date)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, "ai", err.Error())
 			return
@@ -203,12 +203,12 @@ func Register(m *http.ServeMux, protect func(guarded) http.HandlerFunc, dataDir 
 		}
 		// 最近 7 天口径 = activity 的 week scope（ISO 周一起始，带缓存）。
 		// 滚动 7 天要 7 次查询，收益不成比例；取舍理由见 BuildChatMessages 注释。
-		summary, err := actSummary("week", "")
+		summary, err := actSummary("week", "", "")
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, "ai", err.Error())
 			return
 		}
-		rank, err := actRank("week", 10, "")
+		rank, err := actRank("week", 10, "", "")
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, "ai", err.Error())
 			return

@@ -119,8 +119,8 @@ func TestSummaryHappyPath(t *testing.T) {
 	srv := newTestServer(t)
 
 	origSum, origRank := actSummary, actRank
-	actSummary = func(scope, date string) (any, error) { return fixtureSummary(), nil }
-	actRank = func(scope string, limit int, date string) (any, error) { return fixtureRank(), nil }
+	actSummary = func(scope, date, scopeAgg string) (any, error) { return fixtureSummary(), nil }
+	actRank = func(scope string, limit int, date, scopeAgg string) (any, error) { return fixtureRank(), nil }
 	llm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Messages []ChatMessage `json:"messages"`
@@ -155,8 +155,8 @@ func TestChatHappyPath(t *testing.T) {
 	srv := newTestServer(t)
 
 	origSum, origRank := actSummary, actRank
-	actSummary = func(scope, date string) (any, error) { return fixtureSummary(), nil }
-	actRank = func(scope string, limit int, date string) (any, error) { return fixtureRank(), nil }
+	actSummary = func(scope, date, scopeAgg string) (any, error) { return fixtureSummary(), nil }
+	actRank = func(scope string, limit int, date, scopeAgg string) (any, error) { return fixtureRank(), nil }
 	var gotMsgs []ChatMessage
 	llm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
@@ -199,7 +199,7 @@ func TestSummaryStatsError(t *testing.T) {
 		"provider": "openai", "model": "m", "enabled": true, "apiKey": "k",
 	})
 	origSum := actSummary
-	actSummary = func(scope, date string) (any, error) { return nil, errTestBoom }
+	actSummary = func(scope, date, scopeAgg string) (any, error) { return nil, errTestBoom }
 	t.Cleanup(func() { actSummary = origSum })
 
 	code, out := doJSON(t, srv, "POST", "/api/v1/ai/summary", map[string]any{"scope": "day"})

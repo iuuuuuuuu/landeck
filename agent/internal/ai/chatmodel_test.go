@@ -29,8 +29,8 @@ func TestChatModelRouting(t *testing.T) {
 	defer llm.Close()
 
 	origSum, origRank := actSummary, actRank
-	actSummary = func(scope, date string) (any, error) { return fixtureSummary(), nil }
-	actRank = func(scope string, limit int, date string) (any, error) { return fixtureRank(), nil }
+	actSummary = func(scope, date, scopeAgg string) (any, error) { return fixtureSummary(), nil }
+	actRank = func(scope string, limit int, date, scopeAgg string) (any, error) { return fixtureRank(), nil }
 	t.Cleanup(func() { actSummary, actRank = origSum, origRank })
 
 	cases := []struct {
@@ -124,8 +124,8 @@ func TestOldConfigWithoutChatField(t *testing.T) {
 func TestChatOnlyModelConfigured(t *testing.T) {
 	srv := newTestServer(t)
 	origSum, origRank := actSummary, actRank
-	actSummary = func(scope, date string) (any, error) { return fixtureSummary(), nil }
-	actRank = func(scope string, limit int, date string) (any, error) { return fixtureRank(), nil }
+	actSummary = func(scope, date, scopeAgg string) (any, error) { return fixtureSummary(), nil }
+	actRank = func(scope string, limit int, date, scopeAgg string) (any, error) { return fixtureRank(), nil }
 	llm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Model string `json:"model"`

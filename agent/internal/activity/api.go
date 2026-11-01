@@ -21,12 +21,17 @@ type cacheEntry struct {
 
 var (
 	cacheMu sync.Mutex
-	cache   = map[string]cacheEntry{}
+	// cacheEpoch 缓存纪元：Start/Stop 各 bump 一次。键里带上它——
+	// 测试串行复用进程时（Start→Stop→Start 换了新 DB），旧键不再是
+	// 同一份数据（perf 测试缓存被 syncagg 命中过，实测踩过）
+	cacheEpoch int
+	cache      = map[string]cacheEntry{}
 )
 
 func cachedQuery(key string, build func() (any, error)) (any, error) {
 	cacheMu.Lock()
-	e, ok := cache[key]
+	full := fmt.Sprintf("e%d|%s", cacheEpoch, key)
+	e, ok := cache[full]
 	cacheMu.Unlock()
 	if ok && time.Since(e.at) < queryTTL {
 		return e.value, nil
@@ -40,7 +45,7 @@ func cachedQuery(key string, build func() (any, error)) (any, error) {
 	if len(cache) > 256 {
 		cache = map[string]cacheEntry{}
 	}
-	cache[key] = cacheEntry{at: time.Now(), value: v}
+	cache[full] = cacheEntry{at: time.Now(), value: v}
 	cacheMu.Unlock()
 	return v, nil
 }
@@ -56,7 +61,7 @@ func withMgr(fn func(m *Manager) (any, error)) (any, error) {
 }
 
 // Summary 按 scope（day|week|month）与锚点日期返回堆叠统计。
-func GetSummary(scope, date string) (any, error) {
+func GetSummary(scope, date, scopeAgg string) (any, error) {
 	// 未知 scope 必须显式报错：静默回退「一天」= 假 200，
 	// 全部历史页据此渲染了垃圾数据（集成实测事故）
 	switch scope {
@@ -64,7 +69,12 @@ func GetSummary(scope, date string) (any, error) {
 	default:
 		return nil, fmt.Errorf("%w: 未知 scope %q", ErrBadScope, scope)
 	}
-	return cachedQuery("summary|"+scope+"|"+date, func() (any, error) {
+	switch scopeAgg {
+	case "", "all": // 默认只看本机；all=本机+同步视图合并统计（十期 A1）
+	default:
+		return nil, fmt.Errorf("%w: 未知 scopeAgg %q", ErrBadScope, scopeAgg)
+	}
+	return cachedQuery("summary|"+scopeAgg+"|"+scope+"|"+date, func() (any, error) {
 		return withMgr(func(m *Manager) (any, error) {
 			from, to, _, _, err := rangeOf(scope, date, time.Now())
 			if err != nil {
@@ -73,6 +83,9 @@ func GetSummary(scope, date string) (any, error) {
 			segs, err := m.db.rangeSegs(from.Unix(), to.Unix())
 			if err != nil {
 				return nil, err
+			}
+			if scopeAgg == "all" {
+				segs = append(segs, SyncSegsInRange(from.Unix(), to.Unix())...)
 			}
 			sum := BuildSummary(segs, m.settings.Get().Categories, scope, from, to)
 			sum.Date = date
@@ -82,13 +95,18 @@ func GetSummary(scope, date string) (any, error) {
 }
 
 // Rank 应用与分类排行。
-func GetRank(scope string, limit int, date string) (any, error) {
+func GetRank(scope string, limit int, date string, scopeAgg string) (any, error) {
 	switch scope {
 	case "day", "week", "month", "year":
 	default:
 		return nil, fmt.Errorf("%w: 未知 scope %q", ErrBadScope, scope)
 	}
-	return cachedQuery("rank|"+scope+"|"+date, func() (any, error) {
+	switch scopeAgg {
+	case "", "all":
+	default:
+		return nil, fmt.Errorf("%w: 未知 scopeAgg %q", ErrBadScope, scopeAgg)
+	}
+	return cachedQuery("rank|"+scopeAgg+"|"+scope+"|"+date, func() (any, error) {
 		return withMgr(func(m *Manager) (any, error) {
 			from, to, _, _, err := rangeOf(scope, date, time.Now())
 			if err != nil {
@@ -97,6 +115,9 @@ func GetRank(scope string, limit int, date string) (any, error) {
 			segs, err := m.db.rangeSegs(from.Unix(), to.Unix())
 			if err != nil {
 				return nil, err
+			}
+			if scopeAgg == "all" {
+				segs = append(segs, SyncSegsInRange(from.Unix(), to.Unix())...)
 			}
 			return BuildRank(segs, m.settings.Get().Categories, scope, from, to, limit), nil
 		})

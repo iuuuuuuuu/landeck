@@ -97,7 +97,7 @@ func runBackfill(ctx context.Context, now time.Time) (int, error) {
 // dataPresent 该锚点下有没有活动数据（无数据日跳过——对空日子写「0 分钟」的
 // 报告没有信息量，还烧 token）。判据 = summary 的 totalSec > 0。
 func dataPresent(scope, anchor string) bool {
-	v, err := actSummary(scope, anchor)
+	v, err := actSummary(scope, anchor, "")
 	if err != nil {
 		return false
 	}
@@ -123,11 +123,11 @@ func generateReport(ctx context.Context, scope, date string, overwrite bool) (Re
 	if !configured(cfg) {
 		return ReportMeta{}, errNotConfigured
 	}
-	summary, err := actSummary(scope, date)
+	summary, err := actSummary(scope, date, "")
 	if err != nil {
 		return ReportMeta{}, err
 	}
-	rank, err := actRank(scope, 10, date)
+	rank, err := actRank(scope, 10, "", date)
 	if err != nil {
 		return ReportMeta{}, err
 	}

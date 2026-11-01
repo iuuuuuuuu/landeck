@@ -29,6 +29,7 @@ import (
 	"landeck/internal/metrics"
 	"landeck/internal/scheduler"
 	"landeck/internal/store"
+	syncengine "landeck/internal/sync"
 	"landeck/internal/tray"
 )
 
@@ -129,6 +130,12 @@ func runServer() {
 	// 屏幕记忆（截图+OCR）：默认关闭，Start 只是让设置端点可用
 	memory.Start(o.dataDir)
 
+	// 十期 A1：云同步引擎（WebDAV pull-merge-read，默认关）
+	syncStop, err := syncengine.StartProduction(o.dataDir)
+	if err != nil {
+		log.Printf("[sync] 引擎启动失败（同步停用）: %v", err)
+	}
+
 	addr := fmt.Sprintf("%s:%d", bindAddr(cfg, o), effectivePort(cfg))
 	srv := &http.Server{
 		Addr:              addr,
@@ -207,6 +214,9 @@ func runServer() {
 	sched.Stop()
 	activity.Stop()
 	memory.Stop()
+	if syncStop != nil {
+		syncStop()
+	}
 	if ann != nil {
 		ann.Stop()
 	}

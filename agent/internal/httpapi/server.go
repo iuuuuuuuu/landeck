@@ -132,6 +132,10 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /api/v1/activity/domain", func(w http.ResponseWriter, r *http.Request) {
 		s.handleActivityDomain(w, r, nil)
 	})
+	m.HandleFunc("GET /api/v1/sync/settings", s.protect(s.handleSyncSettingsGet))
+	m.HandleFunc("PUT /api/v1/sync/settings", s.protect(s.handleSyncSettingsPut))
+	m.HandleFunc("POST /api/v1/sync/now", s.protect(s.handleSyncNow))
+	m.HandleFunc("GET /api/v1/sync/status", s.protect(s.handleSyncStatus))
 
 	m.HandleFunc("GET /api/v1/activity/appicon", s.protect(s.handleActivityAppIcon))
 	m.HandleFunc("GET /api/v1/activity/export", s.protect(s.handleActivityExport))

@@ -76,24 +76,24 @@ func TestPerfQueries10x(t *testing.T) {
 	monthStart := now.AddDate(0, 0, -days/2).Format("2006-01")
 
 	t0 := time.Now()
-	if _, err := GetSummary("day", day); err != nil {
+	if _, err := GetSummary("day", day, ""); err != nil {
 		t.Fatalf("summary day: %v", err)
 	}
 	measure("summary day (cold)", time.Since(t0))
 	t0 = time.Now()
-	if _, err := GetSummary("day", day); err != nil {
+	if _, err := GetSummary("day", day, ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("  %-28s warm=%v", "summary day (cached)", time.Since(t0))
 
 	t0 = time.Now()
-	if _, err := GetSummary("month", monthStart[:7]); err != nil {
+	if _, err := GetSummary("month", monthStart[:7], ""); err != nil {
 		t.Fatalf("summary month: %v", err)
 	}
 	measure("summary month (cold)", time.Since(t0))
 
 	t0 = time.Now()
-	if _, err := GetSummary("week", ""); err != nil {
+	if _, err := GetSummary("week", "", ""); err != nil {
 		t.Fatalf("summary week: %v", err)
 	}
 	measure("summary week (cold)", time.Since(t0))
@@ -101,7 +101,7 @@ func TestPerfQueries10x(t *testing.T) {
 	// year（七期）：按天聚合全年，key=YYYY-MM-DD——前端历史页单请求的形状
 	yearKey := now.Format("2006")
 	t0 = time.Now()
-	yearAny, err := GetSummary("year", yearKey)
+	yearAny, err := GetSummary("year", yearKey, "")
 	if err != nil {
 		t.Fatalf("summary year: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestPerfQueries10x(t *testing.T) {
 	}
 
 	t0 = time.Now()
-	if _, err := GetRank("month", 10, monthStart[:7]); err != nil {
+	if _, err := GetRank("month", 10, monthStart[:7], ""); err != nil {
 		t.Fatalf("rank month: %v", err)
 	}
 	measure("rank month (cold)", time.Since(t0))
