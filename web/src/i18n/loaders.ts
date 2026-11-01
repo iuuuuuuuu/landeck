@@ -17,6 +17,8 @@ import enAi from './locales/en/ai.json'
 import enCategories from './locales/en/categories.json'
 import enMemory from './locales/en/memory.json'
 import enRd from './locales/en/rd.json'
+import enSync from './locales/en/sync.json'
+import enPlugins from './locales/en/plugins.json'
 import zhTWCommon from './locales/zh-TW/common.json'
 import zhTWNav from './locales/zh-TW/nav.json'
 import zhTWSettings from './locales/zh-TW/settings.json'
@@ -29,6 +31,8 @@ import zhTWAi from './locales/zh-TW/ai.json'
 import zhTWCategories from './locales/zh-TW/categories.json'
 import zhTWMemory from './locales/zh-TW/memory.json'
 import zhTWRd from './locales/zh-TW/rd.json'
+import zhTWSync from './locales/zh-TW/sync.json'
+import zhTWPlugins from './locales/zh-TW/plugins.json'
 import { jaCommon, ptCommon, esCommon } from './locales/stubs'
 
 export type Lang = 'zh-CN' | 'en' | 'zh-TW' | 'ja' | 'pt' | 'es'
@@ -47,6 +51,8 @@ const enBundle: Bundle = {
   categories: enCategories,
   memory: enMemory,
   rd: enRd,
+  sync: enSync,
+  plugins: enPlugins,
 }
 
 const zhTWBundle: Bundle = {
@@ -62,6 +68,8 @@ const zhTWBundle: Bundle = {
   categories: zhTWCategories,
   memory: zhTWMemory,
   rd: zhTWRd,
+  sync: zhTWSync,
+  plugins: zhTWPlugins,
 }
 
 export const enLoader = async (): Promise<Bundle> => enBundle

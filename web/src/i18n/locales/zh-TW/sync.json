@@ -1,0 +1,23 @@
+{
+  "title": "雲端同步",
+  "desc": "把多台電腦的活動記錄經 WebDAV 合併統計。資料預設只存本機，同步是可選項。",
+  "notAvailable": "本機被控端還沒有雲端同步功能（需要十期版本），升級 Agent 後可用。",
+  "devicesTitle": "已同步的裝置",
+  "deviceSegments": "{{count}} 段",
+  "lastSeen": "最後同步 {{when}}",
+  "lastError": "上次同步出錯：{{err}}",
+  "privacyNote": "同步內容包含視窗標題（可能敏感）；擷圖永不同步；資料只寫入你填寫的 WebDAV 服務。",
+  "enabledLabel": "啟用雲端同步",
+  "urlLabel": "WebDAV 位址",
+  "usernameLabel": "帳號",
+  "passwordLabel": "密碼",
+  "passwordPlaceholder": "已儲存；留空則不修改",
+  "intervalLabel": "自動同步間隔（秒）",
+  "saveBtn": "儲存設定",
+  "syncNowBtn": "立即同步",
+  "savedToast": "雲端同步設定已儲存",
+  "saveFailed": "雲端同步設定儲存失敗",
+  "syncDone": "同步完成",
+  "syncDoneDesc": "推送 {{pushed}} 段，拉取 {{pulled}} 段，{{errors}} 個錯誤。",
+  "syncFailed": "同步失敗"
+}

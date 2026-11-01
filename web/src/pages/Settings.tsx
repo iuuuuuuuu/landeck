@@ -19,6 +19,7 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AgentSettingsCard } from '../components/pair/AgentSettingsCard'
+import { CloudSyncCard } from '../components/settings/CloudSyncCard'
 import { isPhoneOS } from '../lib/runtime'
 import { readNativeDeviceProfile } from '../lib/deviceSelf'
 import { apiErrorMessage } from '../components/pair/errors'
@@ -694,7 +695,11 @@ export default function Settings() {
               </p>
             </Card>
           ) : (
-            <AgentSettingsCard device={device} />
+            <>
+              <AgentSettingsCard device={device} />
+              {/* 十期 A1 云同步卡（WebDAV） */}
+              <CloudSyncCard device={device} />
+            </>
           )}
           <AboutCard device={device} />
         </>

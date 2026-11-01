@@ -21,13 +21,13 @@ function ident(c: C): Array<string | number | undefined> {
 }
 
 /** 统计汇总（含 demo 标记一起缓存，TTL 与服务端对齐 3 分钟） */
-export function activitySummaryKey(c: C, scope: Scope, date: string): string {
-  return cacheKey(['activity-summary', scope, date, ...ident(c)])
+export function activitySummaryKey(c: C, scope: Scope, date: string, agg?: boolean): string {
+  return cacheKey(['activity-summary', scope, date, ...(agg ? ['agg'] : []), ...ident(c)])
 }
 
 /** 应用/分类排行 */
-export function activityRankKey(c: C, scope: Scope, date: string): string {
-  return cacheKey(['activity-rank', scope, date, ...ident(c)])
+export function activityRankKey(c: C, scope: Scope, date: string, agg?: boolean): string {
+  return cacheKey(['activity-rank', scope, date, ...(agg ? ['agg'] : []), ...ident(c)])
 }
 
 /** 应用详情 */
@@ -62,6 +62,7 @@ export function activityInvalidateAll(_c?: C): void {
     'activity-categories|',
     'memory-status|',
     'memory-search|',
+    'sync-status|',
   ]) {
     invalidateCachePrefix(prefix)
   }
@@ -80,4 +81,9 @@ export function activityYearKey(c: C, year: number): string {
 /** 屏幕记忆：检索结果（TTL 30 秒由 useAsync 侧给） */
 export function memorySearchKey(c: C, q: string, from: string, to: string): string {
   return cacheKey(['memory-search', q, from, to, ...ident(c)])
+}
+
+// 十期 A1：云同步状态查询键
+export function syncStatusKey(device: { host: string; port: number }): string {
+  return `sync.status:${device.host}:${device.port}`
 }

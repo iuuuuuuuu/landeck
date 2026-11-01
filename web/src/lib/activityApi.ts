@@ -610,13 +610,14 @@ async function req<T>(
 export async function fetchSummary(
   t: Target,
   token: string | undefined,
-  p: { scope: Scope; date: string },
+  p: { scope: Scope; date: string; scopeAgg?: 'all' },
 ): Promise<WithDemo<SummaryData>> {
+  const aggQ = p.scopeAgg ? `&scopeAgg=${p.scopeAgg}` : ''
   try {
     // 日视图的工作时段色带来自 settings（agent 的 summary 不带 workband），
     // 并行拉取；settings 挂了不拦 summary，只是没有色带。
     const [raw, st] = await Promise.all([
-      req<RawSummary>(t, token, `/activity/summary?scope=${p.scope}&date=${encodeURIComponent(p.date)}`, { timeoutMs: 15000 }),
+      req<RawSummary>(t, token, `/activity/summary?scope=${p.scope}&date=${encodeURIComponent(p.date)}${aggQ}`, { timeoutMs: 15000 }),
       // 五期性能：settings 走 30s 单飞——年视图会把这里放大成 12 份请求（基线 34 的主因之一）
       fetchSettingsRawOnce(t, token),
     ])
@@ -634,10 +635,10 @@ export async function fetchSummary(
 export async function fetchRank(
   t: Target,
   token: string | undefined,
-  p: { scope: Scope; date: string },
+  p: { scope: Scope; date: string; scopeAgg?: 'all' },
 ): Promise<WithDemo<RankData>> {
   try {
-    const raw = await req<RawRank>(t, token, `/activity/rank?scope=${p.scope}&date=${encodeURIComponent(p.date)}`, {
+    const raw = await req<RawRank>(t, token, `/activity/rank?scope=${p.scope}&date=${encodeURIComponent(p.date)}${p.scopeAgg ? `&scopeAgg=${p.scopeAgg}` : ''}`, {
       timeoutMs: 15000,
     })
     return { demo: false, data: normalizeRank(raw) }
@@ -727,9 +728,11 @@ export async function fetchYearDays(
   t: Target,
   token: string | undefined,
   year: number,
+  agg?: boolean,
 ): Promise<WithDemo<{ days: { date: string; sec: number }[] }>> {
+  const scopeAgg = agg ? ('all' as const) : undefined
   try {
-    const raw = await req<RawSummary>(t, token, `/activity/summary?scope=year&date=${year}`, { timeoutMs: 20000 })
+    const raw = await req<RawSummary>(t, token, `/activity/summary?scope=year&date=${year}${scopeAgg ? `&scopeAgg=${scopeAgg}` : ''}`, { timeoutMs: 20000 })
     // 形状校验：agent 侧 scope=year 尚未上线时会 200 但按「一天」解析（scope 回显 day、
     // buckets 是小时桶 key='00'）——五期实测踩过。非法形状一律走 12×month 真数据回退。
     const looksYear =
@@ -750,7 +753,7 @@ export async function fetchYearDays(
   try {
     const months = await Promise.all(
       Array.from({ length: 12 }, (_, i) =>
-        fetchSummary(t, token, { scope: 'month', date: `${year}-${String(i + 1).padStart(2, '0')}` }),
+        fetchSummary(t, token, { scope: 'month', date: `${year}-${String(i + 1).padStart(2, '0')}`, scopeAgg }),
       ),
     )
     const days = months.flatMap((m) => m.data.slots.map((s) => ({ date: s.key, sec: s.total })))
@@ -1017,4 +1020,66 @@ function fetchSettingsRawOnce(t: Target, token: string | undefined): Promise<Raw
   const p = req<RawSettings>(t, token, '/activity/settings', { timeoutMs: 8000 }).catch(() => null)
   settingsCache = { at: now, promise: p }
   return p
+}
+
+
+// ==================== 十期 A1：云同步状态（统计页汇总项） ====================
+
+export interface SyncDevice {
+  deviceId: string
+  name: string
+  segments: number
+  lastSeenAt: number
+}
+
+export interface SyncStatus {
+  enabled: boolean
+  lastSyncAt: number
+  lastError: string
+  devices: SyncDevice[]
+}
+
+/**
+ * 云同步状态。旧 agent（无 /sync/status）404 → 确定性演示数据：
+ * 统计页的「全部设备（汇总）」项照常出现、scopeAgg=all 链路可走通
+ * （旧 agent 忽略该参数，数据回落本机），真后端上线后 demo 自动退位。
+ * 设备名带（演示）后缀避免误导。
+ */
+export async function fetchSyncStatus(t: Target, token: string | undefined): Promise<WithDemo<SyncStatus>> {
+  try {
+    const raw = await req<SyncStatus>(t, token, '/sync/status', { timeoutMs: 8000 })
+    return { demo: false, data: raw }
+  } catch (e) {
+    if (!isNotImplemented(e)) throw e
+  }
+  const now = Date.now()
+  return {
+    demo: true,
+    data: {
+      enabled: false,
+      lastSyncAt: 0,
+      lastError: '',
+      devices: [
+        { deviceId: 'demo-studio', name: '书房电脑（演示）', segments: 1204, lastSeenAt: now - 3_600_000 },
+        { deviceId: 'demo-htpc', name: '客厅 HTPC（演示）', segments: 356, lastSeenAt: now - 7_200_000 },
+      ],
+    },
+  }
+}
+
+/** 立即同步一次（push+pull）。主要给设置页云同步卡用。 */
+export async function syncNow(
+  t: Target,
+  token: string | undefined,
+): Promise<{ demo: boolean; result?: { pushed: number; pulled: number; errors: string[] } }> {
+  try {
+    const result = await req<{ pushed: number; pulled: number; errors: string[] }>(t, token, '/sync/now', {
+      method: 'POST',
+      timeoutMs: 30000,
+    })
+    return { demo: false, result }
+  } catch (e) {
+    if (isNotImplemented(e)) return { demo: true }
+    throw e
+  }
 }

@@ -1,0 +1,23 @@
+{
+  "title": "云同步",
+  "desc": "把多台电脑的活动记录经 WebDAV 合并统计。数据默认只存本机，同步是可选项。",
+  "notAvailable": "本机被控端还没有云同步功能（需要十期版本），升级 Agent 后可用。",
+  "devicesTitle": "已同步的设备",
+  "deviceSegments": "{{count}} 段",
+  "lastSeen": "最后同步 {{when}}",
+  "lastError": "上次同步出错：{{err}}",
+  "privacyNote": "同步内容包含窗口标题（可能敏感）；截图永不同步；数据只写入你填写的 WebDAV 服务。",
+  "enabledLabel": "启用云同步",
+  "urlLabel": "WebDAV 地址",
+  "usernameLabel": "账号",
+  "passwordLabel": "密码",
+  "passwordPlaceholder": "已保存；留空则不修改",
+  "intervalLabel": "自动同步间隔（秒）",
+  "saveBtn": "保存设置",
+  "syncNowBtn": "立即同步",
+  "savedToast": "云同步设置已保存",
+  "saveFailed": "云同步设置保存失败",
+  "syncDone": "同步完成",
+  "syncDoneDesc": "推送 {{pushed}} 段，拉取 {{pulled}} 段，{{errors}} 个错误。",
+  "syncFailed": "同步失败"
+}

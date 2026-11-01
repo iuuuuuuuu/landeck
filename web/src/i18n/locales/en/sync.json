@@ -1,0 +1,23 @@
+{
+  "title": "Cloud sync",
+  "desc": "Merge activity records from multiple PCs via WebDAV. Data stays local by default — syncing is opt-in.",
+  "notAvailable": "The local agent doesn't have cloud sync yet (phase-10 build); upgrade the agent to use it.",
+  "devicesTitle": "Synced devices",
+  "deviceSegments": "{{count}} segments",
+  "lastSeen": "last synced {{when}}",
+  "lastError": "Last sync failed: {{err}}",
+  "privacyNote": "Synced content includes window titles (potentially sensitive); screenshots are never synced; data is written only to the WebDAV service you configure.",
+  "enabledLabel": "Enable cloud sync",
+  "urlLabel": "WebDAV URL",
+  "usernameLabel": "Username",
+  "passwordLabel": "Password",
+  "passwordPlaceholder": "Saved; leave empty to keep",
+  "intervalLabel": "Auto-sync interval (seconds)",
+  "saveBtn": "Save settings",
+  "syncNowBtn": "Sync now",
+  "savedToast": "Cloud sync settings saved",
+  "saveFailed": "Failed to save cloud sync settings",
+  "syncDone": "Sync complete",
+  "syncDoneDesc": "Pushed {{pushed}}, pulled {{pulled}}, {{errors}} errors.",
+  "syncFailed": "Sync failed"
+}
