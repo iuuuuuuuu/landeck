@@ -20,6 +20,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AgentSettingsCard } from '../components/pair/AgentSettingsCard'
 import { CloudSyncCard } from '../components/settings/CloudSyncCard'
+import { ThemeImport } from '../components/settings/ThemeImport'
 import { isPhoneOS } from '../lib/runtime'
 import { readNativeDeviceProfile } from '../lib/deviceSelf'
 import { apiErrorMessage } from '../components/pair/errors'
@@ -58,7 +59,7 @@ import {
 } from '../lib/updaterApi'
 import { useApp, type PairedDevice } from '../store/app'
 import { useT } from '../i18n'
-import { THEME_LABEL, THEME_NAME_LABEL, useTheme, type ThemeMode } from '../store/theme'
+import { THEME_LABEL, THEME_NAME_LABEL, useTheme, loadImportedThemes, type ThemeMode } from '../store/theme'
 import { LANG_LABEL, LANGS, currentLang, setLang, type Lang } from '../i18n'
 import { PageHeader } from '../components/shell'
 
@@ -484,6 +485,8 @@ function LanguageCard() {
 function AppearanceCard() {
   const t = useT('settings')
   const { mode, theme, setMode } = useTheme()
+  // 十期 A3：导入主题（切换器追加，循环按钮不含——从选择器选）
+  const [importedThemes, setImportedThemes] = useState(() => loadImportedThemes())
   const toast = useApp((s) => s.toast)
   const runtime = useRuntime()
   // 只有桌面端 App 才谈得上「本机自启」：手机 App 没有这个概念，
@@ -576,7 +579,7 @@ function AppearanceCard() {
         desc={t("appearance.desc")}
       />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <Segmented value={mode} onChange={setMode} options={THEME_OPTIONS.map((o) => ({ ...o, label: t(o.labelKey) }))} />
+        <Segmented value={mode} onChange={setMode} options={[...THEME_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) })), ...importedThemes.map((x) => ({ value: x.id, label: x.name }))]} />
         <span className="text-[12px] text-muted">
           {t("appearance.choose")}<span className="text-fg-soft">{THEME_LABEL[mode]}</span>
           <span className="text-faint"> · 当前生效 {THEME_NAME_LABEL[theme]}</span>
@@ -620,7 +623,8 @@ function AppearanceCard() {
           />
         </div>
       )}
-    </Card>
+        <ThemeImport onChanged={() => setImportedThemes(loadImportedThemes())} />
+  </Card>
   )
 }
 

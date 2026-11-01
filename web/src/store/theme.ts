@@ -2,10 +2,13 @@ import { create } from 'zustand'
 import { themeGet, themeSet } from '../lib/discovery'
 import { persist } from 'zustand/middleware'
 
-/** 用户可选的主题；'system' 跟随 prefers-color-scheme（只解析明亮/暗色） */
-export type ThemeMode = 'system' | 'dark' | 'light' | 'minimal' | 'flat'
-/** 实际落到 <html data-theme> 上的值（七期扩为四套 token 集） */
-export type ThemeName = 'dark' | 'light' | 'minimal' | 'flat'
+/** 用户可选的主题；'system' 跟随 prefers-color-scheme（只解析明亮/暗色）；
+ *  十期 A3 起也容纳导入主题包的 id（string & {} 保住字面量提示）。 */
+export type ThemeMode = 'system' | BuiltinThemeName | (string & {})
+/** 内置主题（四套 token 集） */
+export type BuiltinThemeName = 'dark' | 'light' | 'minimal' | 'flat'
+/** 实际落到 <html data-theme> 上的值：内置 + 导入主题包的 id（十期 A3） */
+export type ThemeName = BuiltinThemeName | (string & {})
 
 /** 持久化 key：改这里要同步迁移旧数据 */
 export const THEME_STORAGE_KEY = 'landeck.theme.v1'
@@ -31,6 +34,76 @@ export const THEME_NAME_LABEL: Record<ThemeName, string> = {
   flat: '留白扁平',
 }
 
+/** 导入主题包（十期 A3）：{id, name, tokens}——tokens 是 CSS 变量键值对 */
+export interface ImportedTheme {
+  id: string
+  name: string
+  tokens: Record<string, string>
+}
+
+const IMPORTED_STORAGE_KEY = 'landeck.themes.v1'
+
+/** 读取已导入主题（同步，启动即用） */
+export function loadImportedThemes(): ImportedTheme[] {
+  try {
+    const raw = localStorage.getItem(IMPORTED_STORAGE_KEY)
+    if (!raw) return []
+    const arr = JSON.parse(raw) as ImportedTheme[]
+    return Array.isArray(arr) ? arr.filter((x) => x && typeof x.id === 'string' && typeof x.name === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function saveImportedThemes(list: ImportedTheme[]): void {
+  try {
+    localStorage.setItem(IMPORTED_STORAGE_KEY, JSON.stringify(list))
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 解析并校验主题包 JSON（导入入口的唯一校验点） */
+export function parseThemePackage(json: string): ImportedTheme {
+  const obj = JSON.parse(json) as { id?: unknown; name?: unknown; tokens?: unknown }
+  if (typeof obj.id !== 'string' || !/^[a-z0-9-]{1,32}$/.test(obj.id)) {
+    throw new Error('invalid id')
+  }
+  if (typeof obj.name !== 'string' || obj.name.trim().length === 0 || obj.name.length > 40) {
+    throw new Error('invalid name')
+  }
+  if (typeof obj.tokens !== 'object' || obj.tokens === null || Array.isArray(obj.tokens)) {
+    throw new Error('invalid tokens')
+  }
+  const tokens: Record<string, string> = {}
+  for (const [k, v] of Object.entries(obj.tokens as Record<string, unknown>)) {
+    if (!/^--[a-z0-9-]+$/i.test(k) || typeof v !== 'string') throw new Error('invalid token: ' + k)
+    tokens[k] = v
+  }
+  if (Object.keys(tokens).length === 0) throw new Error('empty tokens')
+  return { id: obj.id, name: obj.name.trim(), tokens }
+}
+
+/**
+ * 把导入主题的 tokens 注入为 CSS 规则：[data-theme='<id>'] { --var: val; }。
+ * 幂等（同 id 重建规则）；data-theme 切到该 id 时 tokens 即生效。
+ */
+function ensureCustomStyle(theme: ImportedTheme): void {
+  const styleId = 'ldk-custom-theme-' + theme.id
+  let style = document.getElementById(styleId) as HTMLStyleElement | null
+  if (!style) {
+    style = document.createElement('style')
+    style.id = styleId
+    document.head.appendChild(style)
+  }
+  const decls = Object.entries(theme.tokens)
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join('\n')
+  style.textContent = `[data-theme='${theme.id}'] {
+${decls}
+}`
+}
+
 /** 供浏览器 UI（地址栏/状态栏）取色 */
 export const THEME_CHROME: Record<ThemeName, string> = {
   dark: '#06070c',
@@ -53,6 +126,8 @@ export function resolveTheme(mode: ThemeMode, prefersLight = systemPrefersLight(
   if (mode === 'dark') return 'dark'
   if (mode === 'minimal') return 'minimal'
   if (mode === 'flat') return 'flat'
+  // 十期 A3：导入主题包 id 原样返回（data-theme 直接用）
+  if (!(['system'] as string[]).includes(mode)) return mode as ThemeName
   return prefersLight ? 'light' : 'dark'
 }
 
@@ -61,7 +136,14 @@ export function applyTheme(theme: ThemeName): void {
   if (typeof document === 'undefined') return
   const root = document.documentElement
   if (root.dataset.theme !== theme) root.dataset.theme = theme
-  root.style.colorScheme = theme
+  // 自定义主题：浅色口径（导入包基于浅色底设计）；确保 tokens 规则已注入
+  if (!(['dark', 'light', 'minimal', 'flat'] as string[]).includes(theme)) {
+    root.style.colorScheme = 'light'
+    const imported = loadImportedThemes().find((x) => x.id === theme)
+    if (imported) ensureCustomStyle(imported)
+  } else {
+    root.style.colorScheme = theme
+  }
 
   let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
   if (!meta) {
@@ -69,7 +151,7 @@ export function applyTheme(theme: ThemeName): void {
     meta.name = 'theme-color'
     document.head.appendChild(meta)
   }
-  meta.content = THEME_CHROME[theme]
+  meta.content = THEME_CHROME[theme as BuiltinThemeName] ?? '#ffffff'
 }
 
 interface ThemeState {
@@ -127,6 +209,25 @@ export const useThemeStore = create<ThemeState>()(
  * 启动时调用一次：先落 data-theme 再让 React 渲染（防闪烁），
  * 并挂上 prefers-color-scheme 监听，跟随系统时实时切换。
  */
+/** 导入主题包：校验 -> 存 localStorage -> 注入样式规则。返回导入结果供 UI toast。 */
+export function importTheme(json: string): ImportedTheme {
+  const theme = parseThemePackage(json)
+  const list = loadImportedThemes()
+  const next = [...list.filter((x) => x.id !== theme.id), theme]
+  saveImportedThemes(next)
+  ensureCustomStyle(theme)
+  return theme
+}
+
+/** 删除已导入主题；若正在使用则回到跟随系统。 */
+export function removeImportedTheme(id: string): void {
+  saveImportedThemes(loadImportedThemes().filter((x) => x.id !== id))
+  document.getElementById('ldk-custom-theme-' + id)?.remove()
+  if (useThemeStore.getState().theme === id) {
+    useThemeStore.getState().setMode('system')
+  }
+}
+
 export function initTheme(): void {
   // 先按本地存储渲染（防闪烁），随后异步用磁盘值覆盖
   applyTheme(useThemeStore.getState().theme)

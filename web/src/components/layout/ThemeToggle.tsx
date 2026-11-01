@@ -10,7 +10,7 @@ const ICONS = { system: Monitor, light: Sun, dark: Moon, minimal: Minus, flat: S
 
 export function ThemeToggle() {
   const { mode, cycle } = useTheme()
-  const Icon = ICONS[mode]
+  const Icon = ICONS[mode as keyof typeof ICONS] ?? Sun
   const label = `主题：${THEME_LABEL[mode]}（点击切换）`
 
   return (
