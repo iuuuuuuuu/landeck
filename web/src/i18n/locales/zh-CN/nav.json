@@ -1,0 +1,56 @@
+{
+  "groups": {
+    "device": "设备",
+    "activity": "活动",
+    "ai": "AI",
+    "data": "数据",
+    "system": "系统"
+  },
+  "items": {
+    "devices": "设备",
+    "local": "本机",
+    "scan": "发现",
+    "daily": "日统计",
+    "weekly": "周统计",
+    "monthly": "月统计",
+    "alltime": "全部历史",
+    "categories": "分类管理",
+    "aiChat": "AI 对话",
+    "aiSummary": "AI 总结",
+    "aiSettings": "AI 设置",
+    "files": "文件",
+    "schedules": "定时任务",
+    "memory": "屏幕记忆",
+    "settings": "设置"
+  },
+  "desc": {
+    "devices": "已配对主机的状态与快捷入口",
+    "local": "当前这台机器的硬件与运行状态",
+    "scan": "扫描局域网并配对新的 Agent",
+    "daily": "24 小时活动分布与应用排行",
+    "weekly": "一周活动概览",
+    "monthly": "月度时长与类别占比",
+    "alltime": "年热力图与长期回顾",
+    "categories": "应用与网站的活动分类",
+    "aiChat": "基于活动记录问答",
+    "aiSummary": "日报与周报生成",
+    "aiSettings": "本地模型与云端 API",
+    "files": "被控端文件浏览与传输",
+    "schedules": "定时关机、重启与提醒",
+    "memory": "截图 OCR 文字检索",
+    "settings": "身份、被控端参数与安全策略"
+  },
+  "collection": {
+    "label": "活动采集",
+    "collecting": "采集中",
+    "resting": "休息中",
+    "stopped": "已停止",
+    "unsupported": "未启用",
+    "toggleHint": "点击停止 / 恢复采集"
+  },
+  "sidebar": {
+    "paired": "已配对 {{count}} 台",
+    "noDevices": "还没有设备",
+    "goScan": "去「发现」扫描局域网"
+  }
+}

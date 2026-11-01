@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { baseUrl } from '../../lib/api'
 import { useApp } from '../../store/app'
+import { useT } from '../../i18n'
 import type { PairedDevice } from '../../store/app'
 
 /**
@@ -18,13 +19,6 @@ const DOT: Record<PillState, string> = {
   resting: 'bg-warn',
   stopped: 'bg-danger',
   unsupported: 'bg-faint',
-}
-
-const LABEL: Record<PillState, string> = {
-  collecting: '采集中',
-  resting: '休息中',
-  stopped: '已停止',
-  unsupported: '未启用',
 }
 
 async function probe(device: PairedDevice): Promise<PillState> {
@@ -72,6 +66,7 @@ async function setEnabled(device: PairedDevice, enabled: boolean): Promise<boole
 }
 
 export function ActivityStatusFab() {
+  const t = useT('nav')
   const devices = useApp((s) => s.devices)
   const activeId = useApp((s) => s.activeId)
   const active = devices.find((d) => d.id === activeId) ?? devices[0] ?? null
@@ -115,13 +110,13 @@ export function ActivityStatusFab() {
       type="button"
       onClick={() => void toggle()}
       disabled={!clickable}
-      title={clickable ? '点击停止 / 恢复采集' : `活动采集 · ${LABEL[state]}`}
-      aria-label={`活动采集 · ${LABEL[state]}`}
+      title={clickable ? t('collection.toggleHint') : t('collection.label')}
+      aria-label={t('collection.label') + ' · ' + t('collection.' + state)}
       className="pointer-events-auto fixed right-3 z-30 flex h-9 items-center gap-1.5 rounded-full border border-line bg-glass px-3 text-[11px] text-fg-soft shadow-lift backdrop-blur-xl transition-colors enabled:hover:bg-elevated-2 disabled:cursor-default min-[1024px]:hidden"
       style={{ bottom: 'calc(5.25rem + max(env(safe-area-inset-bottom), var(--ldk-safe-bottom, 0px)))' }}
     >
       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT[state]}`} />
-      <span className="truncate">{LABEL[state]}</span>
+      <span className="truncate">{t('collection.' + state)}</span>
     </button>
   )
 }

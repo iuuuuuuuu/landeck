@@ -1,0 +1,33 @@
+{
+  "title": "Devices",
+  "paired": "{{count}} paired",
+  "online": "{{count}} online",
+  "probing": "Checking online status",
+  "refreshHint": "Status refreshes every 10s · click a card for details",
+  "searchPlaceholder": "Search name or IP",
+  "empty": {
+    "title": "No paired devices yet",
+    "desc": "Scan the LAN to find an Agent, then enter the passcode or fixed key to remote power, volume and status.",
+    "action": "Scan LAN"
+  },
+  "noPairedHint": "No paired devices yet — showing this PC",
+  "card": {
+    "recentOnline": "Last seen",
+    "justNow": "just now",
+    "control": "Control",
+    "cpu": "CPU",
+    "mem": "Memory",
+    "menu": "More actions"
+  },
+  "rename": {
+    "title": "Rename device",
+    "label": "Device name",
+    "ok": "Renamed",
+    "failed": "Rename failed"
+  },
+  "remove": {
+    "title": "Remove device",
+    "desc": "The local token becomes invalid immediately; the client record on the controlled side can be revoked in its Settings.",
+    "ok": "Device removed"
+  }
+}

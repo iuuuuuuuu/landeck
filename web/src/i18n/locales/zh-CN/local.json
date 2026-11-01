@@ -1,0 +1,9 @@
+{
+  "title": "本机",
+  "subtitle": "当前这台机器的硬件、运行状态与被控端",
+  "uptime": "已运行",
+  "bootTime": "开机时间",
+  "agentDown": "本机被控端无响应",
+  "agentStart": "启动被控端",
+  "agentStarting": "启动中"
+}

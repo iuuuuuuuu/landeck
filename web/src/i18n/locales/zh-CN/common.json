@@ -1,0 +1,39 @@
+{
+  "app": {
+    "name": "LanDeck",
+    "tagline": "局域网控制台"
+  },
+  "status": {
+    "online": "在线",
+    "offline": "离线",
+    "checking": "检测中",
+    "local": "本机设备",
+    "unpaired": "未配对设备",
+    "connected": "已连接",
+    "connecting": "连接中",
+    "realtime": "实时数据",
+    "paused": "实时数据暂停"
+  },
+  "actions": {
+    "retry": "重试",
+    "refresh": "刷新",
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "close": "关闭",
+    "delete": "删除",
+    "rename": "重命名",
+    "remove": "移除",
+    "scan": "扫描",
+    "back": "返回"
+  },
+  "empty": {
+    "noActivity": "这段时间没有记录到活动。",
+    "loading": "加载中"
+  },
+  "error": {
+    "loadFailed": "读取失败",
+    "network": "连不上被控端：设备可能已离线，或 Agent 没有在运行。",
+    "timeout": "读取超时：被控端响应太慢，请重试。"
+  }
+}

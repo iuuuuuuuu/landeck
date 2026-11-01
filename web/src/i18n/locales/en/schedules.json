@@ -1,0 +1,5 @@
+{
+  "title": "Schedules",
+  "subtitle": "Scheduled power off, restart or reminders for the selected device",
+  "count": "{{count}} tasks"
+}

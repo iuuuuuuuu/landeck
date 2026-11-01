@@ -1,0 +1,39 @@
+{
+  "app": {
+    "name": "LanDeck",
+    "tagline": "區域網路控制臺"
+  },
+  "status": {
+    "online": "線上",
+    "offline": "離線",
+    "checking": "檢測中",
+    "local": "本機裝置",
+    "unpaired": "未配对裝置",
+    "connected": "已连接",
+    "connecting": "连接中",
+    "realtime": "实時資料",
+    "paused": "实時資料暫停"
+  },
+  "actions": {
+    "retry": "重试",
+    "refresh": "刷新",
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "close": "關閉",
+    "delete": "刪除",
+    "rename": "重命名",
+    "remove": "移除",
+    "scan": "掃描",
+    "back": "返回"
+  },
+  "empty": {
+    "noActivity": "这段時間没有記錄到活動。",
+    "loading": "加載中"
+  },
+  "error": {
+    "loadFailed": "讀取失败",
+    "network": "连不上被控端：裝置可能已離線，或 Agent 没有在運行。",
+    "timeout": "讀取超時：被控端響應太慢，请重试。"
+  }
+}

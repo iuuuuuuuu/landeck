@@ -26,9 +26,12 @@ const AiSettingsPage = lazy(() => import('./pages/ai').then((m) => ({ default: m
 const RdViewerPage = lazy(() => import('./pages/rd/RdViewerPage'))
 import { useLocalIdentity } from './lib/useLocalIdentity'
 import { useLastRoute } from './lib/useLastRoute'
+import { initI18n, watchSystemLang } from './i18n'
 import { useLocation } from 'react-router-dom'
 
 export default function App() {
+  // i18n 初始化（幂等）：语言资源懒加载 + 持久化语言恢复 + 系统语言跟随
+  void initI18n().then(() => watchSystemLang())
   useLocalIdentity()
   useLastRoute()
   const pathname = useLocation().pathname

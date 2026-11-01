@@ -1,0 +1,39 @@
+{
+  "app": {
+    "name": "LanDeck",
+    "tagline": "LAN console"
+  },
+  "status": {
+    "online": "Online",
+    "offline": "Offline",
+    "checking": "Checking",
+    "local": "This device",
+    "unpaired": "No paired device",
+    "connected": "Connected",
+    "connecting": "Connecting",
+    "realtime": "Live data",
+    "paused": "Live data paused"
+  },
+  "actions": {
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close",
+    "delete": "Delete",
+    "rename": "Rename",
+    "remove": "Remove",
+    "scan": "Scan",
+    "back": "Back"
+  },
+  "empty": {
+    "noActivity": "No activity recorded in this period.",
+    "loading": "Loading"
+  },
+  "error": {
+    "loadFailed": "Failed to load",
+    "network": "Can't reach the device: it may be offline, or the Agent isn't running.",
+    "timeout": "Read timed out: the device responded too slowly, please retry."
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "daily": {
+    "title": "日統計",
+    "viewHours": "時段",
+    "viewShare": "佔比",
+    "topApps": "最常用應用",
+    "topCats": "最常用分類",
+    "total": "總計 {{duration}}"
+  },
+  "weekly": {
+    "title": "周統計"
+  },
+  "monthly": {
+    "title": "月統計"
+  },
+  "alltime": {
+    "title": "全部歷史"
+  },
+  "categories": {
+    "title": "分類管理",
+    "subtitle": "應用与網站的活動分類"
+  },
+  "rank": {
+    "empty": "这段時間没有記錄到活動。"
+  },
+  "error": {
+    "loadFailed": "統計資料讀取失败",
+    "network": "连不上被控端：裝置可能已離線，或 Agent 没有在運行。",
+    "timeout": "讀取超時：被控端響應太慢，请重试。"
+  },
+  "noDevice": {
+    "title": "还没有可查看的裝置",
+    "desc": "本機被控端不可达時无法統計；配对一臺电脑後，这里会显示它的活動統計。",
+    "action": "去发现掃描"
+  },
+  "collection": {
+    "title": "活動記錄",
+    "state": "状態"
+  }
+}

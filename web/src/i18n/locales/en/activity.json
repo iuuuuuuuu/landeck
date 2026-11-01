@@ -1,0 +1,32 @@
+{
+  "daily": {
+    "title": "Daily",
+    "viewHours": "Hours",
+    "viewShare": "Share",
+    "topApps": "Top apps",
+    "topCats": "Top categories",
+    "total": "Total {{duration}}"
+  },
+  "weekly": { "title": "Weekly" },
+  "monthly": { "title": "Monthly" },
+  "alltime": { "title": "All history" },
+  "categories": {
+    "title": "Categories",
+    "subtitle": "Classify apps and websites"
+  },
+  "rank": { "empty": "No activity recorded in this period." },
+  "error": {
+    "loadFailed": "Failed to load stats",
+    "network": "Can't reach the device: it may be offline, or the Agent isn't running.",
+    "timeout": "Read timed out: the device responded too slowly, please retry."
+  },
+  "noDevice": {
+    "title": "No device to view yet",
+    "desc": "Stats need a reachable agent; pair a computer and its activity will show up here.",
+    "action": "Open Discover"
+  },
+  "collection": {
+    "title": "Activity tracking",
+    "state": "State"
+  }
+}

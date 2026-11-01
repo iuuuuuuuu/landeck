@@ -1,0 +1,9 @@
+{
+  "title": "This PC",
+  "subtitle": "Hardware, live status and agent of this machine",
+  "uptime": "Uptime",
+  "bootTime": "Boot time",
+  "agentDown": "Local agent not responding",
+  "agentStart": "Start agent",
+  "agentStarting": "Starting"
+}

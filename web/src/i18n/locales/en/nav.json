@@ -1,0 +1,56 @@
+{
+  "groups": {
+    "device": "Devices",
+    "activity": "Activity",
+    "ai": "AI",
+    "data": "Data",
+    "system": "System"
+  },
+  "items": {
+    "devices": "Devices",
+    "local": "This PC",
+    "scan": "Discover",
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "alltime": "All history",
+    "categories": "Categories",
+    "aiChat": "AI chat",
+    "aiSummary": "AI summary",
+    "aiSettings": "AI settings",
+    "files": "Files",
+    "schedules": "Schedules",
+    "memory": "Screen memory",
+    "settings": "Settings"
+  },
+  "desc": {
+    "devices": "Paired hosts, status and quick actions",
+    "local": "Hardware and live status of this machine",
+    "scan": "Scan the LAN and pair a new Agent",
+    "daily": "24-hour activity breakdown and top apps",
+    "weekly": "Your week at a glance",
+    "monthly": "Monthly duration and category share",
+    "alltime": "Year heatmap and long-term review",
+    "categories": "Classify apps and websites",
+    "aiChat": "Q&A over your activity records",
+    "aiSummary": "Daily and weekly reports",
+    "aiSettings": "Local models and cloud APIs",
+    "files": "Browse and transfer files on the device",
+    "schedules": "Scheduled power, restart and reminders",
+    "memory": "Screenshot OCR text search",
+    "settings": "Identity, agent options and security"
+  },
+  "collection": {
+    "label": "Activity tracking",
+    "collecting": "Tracking",
+    "resting": "Resting",
+    "stopped": "Stopped",
+    "unsupported": "Unavailable",
+    "toggleHint": "Click to stop / resume tracking"
+  },
+  "sidebar": {
+    "paired": "{{count}} paired",
+    "noDevices": "No devices yet",
+    "goScan": "Open Discover to scan the LAN"
+  }
+}

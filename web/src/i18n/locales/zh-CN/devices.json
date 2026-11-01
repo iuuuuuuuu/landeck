@@ -1,0 +1,33 @@
+{
+  "title": "设备",
+  "paired": "已配对 {{count}} 台",
+  "online": "在线 {{count}} 台",
+  "probing": "在线状态检测中",
+  "refreshHint": "状态每 10 秒刷新 · 点卡片进入详情",
+  "searchPlaceholder": "搜索名称或 IP",
+  "empty": {
+    "title": "还没有配对的设备",
+    "desc": "扫描局域网找到 Agent，输入随机码或固定密钥，即可远程开关机、调音量、看状态。",
+    "action": "扫描局域网"
+  },
+  "noPairedHint": "还没有已配对的设备，当前显示本机",
+  "card": {
+    "recentOnline": "最近在线",
+    "justNow": "刚刚",
+    "control": "控制设备",
+    "cpu": "CPU",
+    "mem": "内存",
+    "menu": "更多操作"
+  },
+  "rename": {
+    "title": "重命名设备",
+    "label": "设备名称",
+    "ok": "已重命名",
+    "failed": "重命名失败"
+  },
+  "remove": {
+    "title": "移除设备",
+    "desc": "移除后本机令牌立即失效；被控端的客户端记录可在它的「设置」里吊销。",
+    "ok": "已移除设备"
+  }
+}

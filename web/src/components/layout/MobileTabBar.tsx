@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { NavLink } from 'react-router-dom'
 import { MOBILE_TABS, NAV_ICON_PROPS } from './nav'
 import { ActivityStatusFab } from '../shell/ActivityStatusFab'
+import { useT } from '../../i18n'
 
 /**
  * 移动端（<1024px）底部毛玻璃 tab bar，触控目标 56px。
@@ -9,6 +10,7 @@ import { ActivityStatusFab } from '../shell/ActivityStatusFab'
  * AI 组与统计子页不进底栏；统计子页从活动页二级进入。
  */
 export function MobileTabBar() {
+  const t = useT('nav')
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 min-[1024px]:hidden">
       {/* 采集状态浮动位（B5）：与侧栏同逻辑，点击停/恢复采集 */}
@@ -48,7 +50,7 @@ export function MobileTabBar() {
                       isActive ? 'font-medium text-fg' : 'text-muted',
                     )}
                   >
-                    {item.label}
+                    {t(item.label)}
                   </span>
                 </span>
               )}

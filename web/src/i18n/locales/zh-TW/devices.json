@@ -1,0 +1,33 @@
+{
+  "title": "裝置",
+  "paired": "已配对 {{count}} 臺",
+  "online": "線上 {{count}} 臺",
+  "probing": "線上状態檢測中",
+  "refreshHint": "状態每 10 秒刷新 · 點卡片进入详情",
+  "searchPlaceholder": "搜尋名称或 IP",
+  "empty": {
+    "title": "还没有配对的裝置",
+    "desc": "掃描區域網路找到 Agent，輸入随機碼或固定密鑰，即可远程開關機、調音量、看状態。",
+    "action": "掃描區域網路"
+  },
+  "noPairedHint": "还没有已配对的裝置，当前显示本機",
+  "card": {
+    "recentOnline": "最近線上",
+    "justNow": "剛剛剛剛",
+    "control": "控制裝置",
+    "cpu": "CPU",
+    "mem": "記憶體",
+    "menu": "更多操作"
+  },
+  "rename": {
+    "title": "重命名裝置",
+    "label": "裝置名称",
+    "ok": "已重命名",
+    "failed": "重命名失败"
+  },
+  "remove": {
+    "title": "移除裝置",
+    "desc": "移除後本機權杖立即失效；被控端的客戶端記錄可在它的「設定」里吊销。",
+    "ok": "已移除裝置"
+  }
+}

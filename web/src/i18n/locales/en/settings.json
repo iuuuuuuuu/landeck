@@ -1,0 +1,49 @@
+{
+  "title": "Settings",
+  "subtitle": "Identity, agent options and security",
+  "appearance": {
+    "title": "Appearance & startup",
+    "desc": "「Follow system」 tracks your OS light/dark setting in real time; your choice is stored in this browser and survives refresh.",
+    "theme": "Theme",
+    "themes": {
+      "system": "Follow system",
+      "light": "Bright",
+      "dark": "Dark",
+      "minimal": "Minimal",
+      "flat": "Flat"
+    },
+    "current": "Active",
+    "language": {
+      "title": "Interface language",
+      "desc": "Applies immediately without reload; your choice is stored in this browser.",
+      "system": "Follow system",
+      "current": "Current language"
+    },
+    "autostart": {
+      "label": "Launch at login",
+      "desc": "Start the LanDeck console automatically when you log into this computer."
+    },
+    "silent": {
+      "label": "Silent start",
+      "desc": "On boot, run in the tray without showing a window; opening from tray or shortcut still shows the window.",
+      "on": "Silent start enabled",
+      "off": "Silent start disabled",
+      "onDesc": "Next boot stays in the tray; opening the shortcut manually still shows the window.",
+      "offDesc": "Next boot shows the window normally.",
+      "failed": "Failed to set silent start"
+    },
+    "lightweight": {
+      "label": "Lightweight mode",
+      "desc": "Releases the UI memory when the window is closed, keeping only the tray and background service; reopening rebuilds the UI (data is locally cached and shows instantly).",
+      "on": "Lightweight mode enabled",
+      "off": "Lightweight mode disabled",
+      "onDesc": "Closing the window releases UI memory, keeping only the tray and background service; reopening rebuilds the UI (data still shows instantly).",
+      "offDesc": "The UI stays in the background after closing; reopening is instant.",
+      "failed": "Failed to set lightweight mode"
+    }
+  },
+  "about": {
+    "title": "About",
+    "license": "License"
+  }
+}
