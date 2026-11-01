@@ -11,7 +11,22 @@
     "title": "周统计"
   },
   "monthly": {
-    "title": "月统计"
+    "yearMonth": "{y} 年 {m} 月",
+    "avgDaily": "日均 {duration}",
+    "thisMonth": "本月",
+    "totalThisMonth": "本月总时长",
+    "dailyAvg": "日均时长",
+    "activeDays": "活跃天数",
+    "activeDaysShort": "活跃 {count} 天",
+    "topCat": "最大类别",
+    "topApp": "最大构成应用",
+    "flat": "持平",
+    "catShare": "类别占比",
+    "catShareHint": "点内环类别查看该类别下的应用构成",
+    "emptyMonth": "本月还没有记录。",
+    "backToAll": "返回全览",
+    "noAppsInCat": "该类别下没有应用明细。",
+    "appOfCat": "{{cat}} 的应用构成"
   },
   "alltime": {
     "title": "全部历史"

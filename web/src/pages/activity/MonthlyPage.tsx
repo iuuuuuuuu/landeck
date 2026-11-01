@@ -14,12 +14,13 @@ const DonutChart = lazy(() =>
 import { AppIcon, CategoryIcon, fmtDur } from '../../components/activity/bits'
 import { AppDetailPanel } from '../../components/activity/AppDetailPanel'
 import { useTheme } from '../../store/theme'
+import { useT } from '../../i18n'
 import { ActivityPageHeader, DateNav, LoadError, NoDeviceGuide, StatCard, addMonths, currentMonth, useActivityTarget } from './shared'
 
 /** 环比差值的展示文案：正负号 + 小时分钟。 */
-function deltaLabel(cur: number, prev: number): { text: string; up: boolean } {
+function deltaLabel(cur: number, prev: number, flatText: string): { text: string; up: boolean } {
   const d = cur - prev
-  if (Math.abs(d) < 60) return { text: '持平', up: false }
+  if (Math.abs(d) < 60) return { text: flatText, up: false }
   const h = Math.floor(Math.abs(d) / 3600)
   const m = Math.round((Math.abs(d) % 3600) / 60)
   const body = h > 0 ? `${h}h ${m}m` : `${m}m`
@@ -32,6 +33,8 @@ function deltaLabel(cur: number, prev: number): { text: string; up: boolean } {
  * 环比要上月数据：同 key 结构再发一个 scope=month（走缓存，3 分钟内不重复拉）。
  */
 export default function ActivityMonthlyPage() {
+  const t = useT('activity')
+  const flatText = t('monthly.flat')
   const { device, pairedCount, localAvailable } = useActivityTarget()
   const { theme } = useTheme()
   const [month, setMonth] = useState(currentMonth())
@@ -64,7 +67,7 @@ export default function ActivityMonthlyPage() {
   if (summary.error)
     return (
       <div className="space-y-4">
-        <ActivityPageHeader title="月统计" subtitle={month} />
+        <ActivityPageHeader title={t('monthly.title')} subtitle={month} />
         <LoadError error={summary.error} onRetry={summary.reload} />
       </div>
     )
@@ -80,8 +83,8 @@ export default function ActivityMonthlyPage() {
   const prevDays = p ? p.slots.filter((x) => x.total > 0).length : 0
   const prevAvg = p && prevDays > 0 ? Math.round(p.totalSec / prevDays) : 0
 
-  const monthDelta = s && p ? deltaLabel(s.totalSec, p.totalSec) : null
-  const avgDelta = s && p ? deltaLabel(dailyAvg, prevAvg) : null
+  const monthDelta = s && p ? deltaLabel(s.totalSec, p.totalSec, flatText) : null
+  const avgDelta = s && p ? deltaLabel(dailyAvg, prevAvg, flatText) : null
   // 占比最大的类别（有选中时显示该类别下的最大应用）
   const topCat = r?.categories[0]
   const topAppInCat =
@@ -100,31 +103,31 @@ export default function ActivityMonthlyPage() {
     selectedCat && prev.data ? prev.data.data.slots.filter((x) => (x.sec[selectedCat] ?? 0) > 0).length : 0
   const catDailyCur = catDaysCur > 0 ? Math.round(catSecCur / catDaysCur) : 0
   const catDailyPrev = catDaysPrev > 0 ? Math.round(catSecPrev / catDaysPrev) : 0
-  const catDelta = selectedCat ? deltaLabel(catSecCur, catSecPrev) : null
-  const catAvgDelta = selectedCat ? deltaLabel(catDailyCur, catDailyPrev) : null
+  const catDelta = selectedCat ? deltaLabel(catSecCur, catSecPrev, flatText) : null
+  const catAvgDelta = selectedCat ? deltaLabel(catDailyCur, catDailyPrev, flatText) : null
 
   const cards = selectedCat
     ? [
         {
-          label: `${CAT_LABEL[selectedCat]} · 本月时长`,
+          label: `${CAT_LABEL[selectedCat]} · ${t('monthly.totalThisMonth')}`,
           value: fmtDur(catSecCur),
           delta: catDelta,
           sub: undefined as string | undefined,
         },
         {
-          label: `${CAT_LABEL[selectedCat]} · 日均`,
+          label: `${CAT_LABEL[selectedCat]} · ${t('monthly.dailyAvg')}`,
           value: catDaysCur > 0 ? fmtDur(catDailyCur) : '—',
           delta: catAvgDelta,
-          sub: `活跃 ${catDaysCur} 天` as string | undefined,
+          sub: t('monthly.activeDaysShort', { count: catDaysCur }) as string | undefined,
         },
         {
-          label: `${CAT_LABEL[selectedCat]} · 活跃天数`,
-          value: `${catDaysCur} 天`,
+          label: `${CAT_LABEL[selectedCat]} · ${t('monthly.activeDays')}`,
+          value: t('monthly.activeDaysShort', { count: catDaysCur }),
           delta: null,
           sub: undefined as string | undefined,
         },
         {
-          label: '最大构成应用',
+          label: t('monthly.topApp'),
           value: topAppInCat ? topAppInCat.app : '—',
           delta: null,
           sub: topAppInCat ? fmtDur(topAppInCat.sec) : (undefined as string | undefined),
@@ -132,25 +135,25 @@ export default function ActivityMonthlyPage() {
       ]
     : [
         {
-          label: '本月总时长',
+          label: t('monthly.totalThisMonth'),
           value: s ? fmtDur(s.totalSec) : '—',
           delta: monthDelta,
           sub: undefined as string | undefined,
         },
         {
-          label: '日均时长',
+          label: t('monthly.dailyAvg'),
           value: s ? fmtDur(dailyAvg) : '—',
           delta: avgDelta,
           sub: undefined as string | undefined,
         },
         {
-          label: '活跃天数',
-          value: s ? `${daysWithActivity} 天` : '—',
+          label: t('monthly.activeDays'),
+          value: s ? t('monthly.activeDaysShort', { count: daysWithActivity }) : '—',
           delta: null,
           sub: undefined as string | undefined,
         },
         {
-          label: '最大类别',
+          label: t('monthly.topCat'),
           value: topCat && !selectedCat ? CAT_LABEL[topCat.cat] : '—',
           delta: null,
           sub: topCat ? fmtDur(topCat.sec) : (undefined as string | undefined),
@@ -160,18 +163,18 @@ export default function ActivityMonthlyPage() {
   return (
     <div className="space-y-4">
       <ActivityPageHeader
-        title="月统计"
-        subtitle={s ? `${y} 年 ${m} 月 · 日均 ${fmtDur(dailyAvg)}` : month}
+        title={t('monthly.title')}
+        subtitle={s ? `${t('monthly.yearMonth', { y, m })} · ${t('monthly.avgDaily', { duration: fmtDur(dailyAvg) })}` : month}
         demo={demo}
       />
 
       <StatCard
         toolbar={
           <>
-            <span className="text-[12.5px] text-muted">{y} 年 {m} 月</span>
+            <span className="text-[12.5px] text-muted">{t('monthly.yearMonth', { y, m })}</span>
             <DateNav
               label={`${y}-${String(m).padStart(2, '0')}`}
-              todayLabel="本月"
+              todayLabel={t('monthly.thisMonth')}
               onPrev={() => setMonth((mm) => addMonths(mm, -1))}
               onNext={() => setMonth((mm) => addMonths(mm, 1))}
               onToday={() => setMonth(currentMonth())}
@@ -195,12 +198,12 @@ export default function ActivityMonthlyPage() {
             <div className="text-[11.5px] text-muted">{card.label}</div>
             <div className="mt-1.5 flex items-baseline gap-2">
               <span className="text-[18px] font-semibold text-fg">{card.value}</span>
-              {card.delta && card.delta.text !== '持平' && (
+              {card.delta && card.delta.text !== flatText && (
                 <span className={'text-[12px] ' + (card.delta.up ? 'text-ok' : 'text-danger')}>
                   {card.delta.text}
                 </span>
               )}
-              {card.delta && card.delta.text === '持平' && <span className="text-[12px] text-faint">持平</span>}
+              {card.delta && card.delta.text === flatText && <span className="text-[12px] text-faint">{flatText}</span>}
             </div>
             {card.sub && <div className="mt-1.5 text-[11.5px] text-muted">{card.sub}</div>}
           </Card>
@@ -209,11 +212,11 @@ export default function ActivityMonthlyPage() {
 
 {/* 双环占比 + 图例 */}
       <Card>
-        <SectionTitle title="类别占比" desc="点内环类别查看该类别下的应用构成" />
+        <SectionTitle title={t('monthly.catShare')} desc={t('monthly.catShareHint')} />
         {!s || !r ? (
           <Skeleton className="h-[300px] w-full" />
         ) : r.categories.length === 0 ? (
-          <p className="py-14 text-center text-[12.5px] text-muted">本月还没有记录。</p>
+          <p className="py-14 text-center text-[12.5px] text-muted">{t('monthly.emptyMonth')}</p>
         ) : (
           <div className="grid gap-2 lg:grid-cols-[1fr_240px] lg:items-center">
             <Suspense fallback={<Skeleton className="h-[300px] w-full" />}>
@@ -230,13 +233,13 @@ export default function ActivityMonthlyPage() {
               {selectedCat && r ? (
                 <>
                   <li className="flex items-center justify-between px-3 pb-1">
-                    <span className="text-[11.5px] text-muted">{CAT_LABEL[selectedCat]} 的应用构成</span>
+                    <span className="text-[11.5px] text-muted">{t('monthly.appOfCat', { cat: CAT_LABEL[selectedCat] })}</span>
                     <button
                       type="button"
                       onClick={() => setSelectedCat(null)}
                       className="text-[11px] text-faint hover:text-fg-soft"
                     >
-                      返回全览
+                      {t('monthly.backToAll')}
                     </button>
                   </li>
                   {r.apps
@@ -263,7 +266,7 @@ export default function ActivityMonthlyPage() {
                       )
                     })}
                   {r.apps.filter((a) => a.cat === selectedCat).length === 0 && (
-                    <li className="px-3 py-3 text-[12px] text-muted">该类别下没有应用明细。</li>
+                    <li className="px-3 py-3 text-[12px] text-muted">{t('monthly.noAppsInCat')}</li>
                   )}
                 </>
               ) : (

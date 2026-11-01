@@ -7,14 +7,37 @@
     "topCats": "Top categories",
     "total": "Total {{duration}}"
   },
-  "weekly": { "title": "Weekly" },
-  "monthly": { "title": "Monthly" },
-  "alltime": { "title": "All history" },
+  "weekly": {
+    "title": "Weekly"
+  },
+  "monthly": {
+    "yearMonth": "{y}-{m}",
+    "avgDaily": "{duration} daily avg",
+    "thisMonth": "This month",
+    "totalThisMonth": "Total this month",
+    "dailyAvg": "Daily avg",
+    "activeDays": "Active days",
+    "activeDaysShort": "{count} active days",
+    "topCat": "Top category",
+    "topApp": "Top app",
+    "flat": "Flat",
+    "catShare": "Category share",
+    "catShareHint": "Click an inner-ring category to see its apps",
+    "emptyMonth": "No activity recorded this month.",
+    "backToAll": "Back to overview",
+    "noAppsInCat": "No app details in this category.",
+    "appOfCat": "Apps in {{cat}}"
+  },
+  "alltime": {
+    "title": "All history"
+  },
   "categories": {
     "title": "Categories",
     "subtitle": "Classify apps and websites"
   },
-  "rank": { "empty": "No activity recorded in this period." },
+  "rank": {
+    "empty": "No activity recorded in this period."
+  },
   "error": {
     "loadFailed": "Failed to load stats",
     "network": "Can't reach the device: it may be offline, or the Agent isn't running.",
