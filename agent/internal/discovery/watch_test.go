@@ -108,7 +108,7 @@ func TestRebuildStillAnswers(t *testing.T) {
 
 // probeOnce 发一次 ProbeToken 到本机端口，等应答。
 func probeOnce() bool {
-	conn, err := net.DialUDP("udp4", nil, &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: Port})
+	conn, err := net.DialUDP("udp4", nil, &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: listenPort})
 	if err != nil {
 		return false
 	}
