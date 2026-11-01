@@ -36,11 +36,12 @@ type PrivacyRule struct {
 // Parent 是大类（如 工作/娱乐），Category 是小类（如 编程/游戏）——
 // 与 Hindsight 的双环饼图（外圈大类、内圈小类）对齐。
 type CategoryRule struct {
-	ID            string   `json:"id"`
-	Category      string   `json:"category"`      // 小类，如 编程
-	Parent        string   `json:"parent"`        // 大类，如 工作
-	AppPatterns   []string `json:"appPatterns"`   // 应用名子串（不分大小写）
-	TitlePatterns []string `json:"titlePatterns"` // 窗口标题子串（可选）
+	ID             string   `json:"id"`
+	Category       string   `json:"category"`       // 小类，如 编程
+	Parent         string   `json:"parent"`         // 大类，如 工作
+	AppPatterns    []string `json:"appPatterns"`    // 应用名子串（不分大小写）
+	TitlePatterns  []string `json:"titlePatterns"`  // 窗口标题子串（可选）
+	DomainPatterns []string `json:"domainPatterns"` // 域名规则（A2）: youtube.com 命中 www.youtube.com
 }
 
 // Settings 活动采集的全部可调参数。落盘到 data/activity.json。
@@ -58,7 +59,13 @@ type Settings struct {
 	// RetentionDays 数据保留天数，过期段在启动与每日清理时删除
 	RetentionDays int `json:"retentionDays"`
 	// PrivateRules 隐私过滤规则（写入时命中即丢弃）
-	PrivateRules []PrivacyRule `json:"privateRules"`
+	// DomainCapture 浏览器域名记录（A2）：默认关。开启后扩展上报的域名参与浏览器前台时段分类
+	DomainCapture bool `json:"domainCapture"`
+	// DomainAuth /activity/domain 鉴权模式: "token"(默认, pairing.json 令牌口径) | "origin"(扩展 Origin 白名单)
+	DomainAuth string `json:"domainAuth"`
+	// DomainOrigins Origin 白名单（domainAuth=origin 时生效），如 chrome-extension://abcdefg
+	DomainOrigins []string      `json:"domainOrigins"`
+	PrivateRules  []PrivacyRule `json:"privateRules"`
 	// Categories 分类规则（查询时匹配）
 	Categories []CategoryRule `json:"categories"`
 }
@@ -73,6 +80,9 @@ func DefaultSettings() Settings {
 		WorkStart:        "09:00",
 		WorkEnd:          "18:00",
 		RetentionDays:    90,
+		DomainCapture:    false,
+		DomainAuth:       "token",
+		DomainOrigins:    []string{},
 		PrivateRules:     []PrivacyRule{},
 		Categories:       DefaultCategories(),
 	}
@@ -112,6 +122,18 @@ func (s *Settings) sanitize() {
 	if s.Categories == nil {
 		s.Categories = DefaultCategories()
 	}
+	// 域名记录（A2）
+	if s.DomainAuth != "origin" {
+		s.DomainAuth = "token" // 只认两个值，其余回落默认
+	}
+	cleanOrigins := make([]string, 0, len(s.DomainOrigins))
+	for _, o := range s.DomainOrigins {
+		o = strings.ToLower(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(o), "/")))
+		if o != "" {
+			cleanOrigins = append(cleanOrigins, o)
+		}
+	}
+	s.DomainOrigins = cleanOrigins
 }
 
 // DefaultCategories 一套开箱即用的常见分类规则。
@@ -164,8 +186,18 @@ func containsFold(list []string, s string) bool {
 
 // Classify 按当前规则给 (app, title) 归类；都不命中返回「其他」。
 // 纯函数，无锁无 IO —— 分类规则改了，历史统计立即跟着变。
-func Classify(app, title string, rules []CategoryRule) (parent, category string) {
+func Classify(app, title, domain string, rules []CategoryRule) (parent, category string) {
 	a := normalizeApp(app)
+	d := strings.ToLower(strings.TrimSpace(domain))
+	// 域名命中优先于窗口标题规则（契约八期 5）：浏览器前台时段，
+	// youtube.com 这类域名比站点自拟标题可靠
+	if d != "" {
+		for _, r := range rules {
+			if matchDomain(r.DomainPatterns, d) {
+				return r.Parent, r.Category
+			}
+		}
+	}
 	for _, r := range rules {
 		if containsFold(r.AppPatterns, a) || containsFold(r.TitlePatterns, title) {
 			return r.Parent, r.Category

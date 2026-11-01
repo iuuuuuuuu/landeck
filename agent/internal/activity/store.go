@@ -16,8 +16,11 @@ import (
 type Segment struct {
 	App   string
 	Title string
-	Start int64
-	End   int64
+	// Domain 域名快照（A2）：tick 时从内存域名表取（浏览器前台才有值），
+	// 读取时参与分类。老段/非浏览器段为空串=回退标题分类。
+	Domain string
+	Start  int64
+	End    int64
 }
 
 // Dur 返回段时长（秒，可能是 0）。
@@ -80,7 +83,8 @@ CREATE TABLE IF NOT EXISTS segments (
 	start INTEGER NOT NULL,           -- unix 秒
 	end   INTEGER NOT NULL,
 	app   TEXT    NOT NULL,
-	title TEXT    NOT NULL DEFAULT ''
+	title TEXT    NOT NULL DEFAULT '',
+	domain TEXT   NOT NULL DEFAULT ''  -- A2: 域名快照（浏览器前台段）
 );
 CREATE INDEX IF NOT EXISTS idx_segments_start ON segments(start);
 CREATE INDEX IF NOT EXISTS idx_segments_day   ON segments(day);`
@@ -88,6 +92,8 @@ CREATE INDEX IF NOT EXISTS idx_segments_day   ON segments(day);`
 		_ = db.Close()
 		return nil, fmt.Errorf("初始化段库失败: %w", err)
 	}
+	// 老库升级：domain 列（A2）。漂移容忍 ALTER，已存在则忽略（ocrNorm 同款）
+	_, _ = db.Exec(`ALTER TABLE segments ADD COLUMN domain TEXT NOT NULL DEFAULT ''`)
 	return db, nil
 }
 
@@ -100,21 +106,21 @@ type segmentStore struct {
 
 // insert 写入新段。
 func (s *segmentStore) insert(seg Segment) error {
-	_, err := s.db.Exec(`INSERT INTO segments(day, start, "end", app, title) VALUES(?,?,?,?,?)`,
-		dayOf(seg.Start), seg.Start, seg.End, seg.App, seg.Title)
+	_, err := s.db.Exec(`INSERT INTO segments(day, start, "end", app, title, domain) VALUES(?,?,?,?,?,?)`,
+		dayOf(seg.Start), seg.Start, seg.End, seg.App, seg.Title, seg.Domain)
 	return err
 }
 
 // extend 把 segID 段的结束时间推到 end（同一应用连续采样时每 30s 调一次）。
-func (s *segmentStore) extend(id int64, end int64) error {
-	_, err := s.db.Exec(`UPDATE segments SET "end"=? WHERE id=?`, end, id)
+func (s *segmentStore) extend(id int64, end int64, domain string) error {
+	_, err := s.db.Exec(`UPDATE segments SET "end"=?, domain=? WHERE id=?`, end, domain, id)
 	return err
 }
 
 // closeOpen 把一段落库并返回其 id。end<=start 的段没有信息量，跳过。
 func (s *segmentStore) closeOpen(seg openSegment) (int64, error) {
 	if seg.ID != 0 {
-		if err := s.extend(seg.ID, seg.End); err != nil {
+		if err := s.extend(seg.ID, seg.End, seg.Domain); err != nil {
 			return seg.ID, err
 		}
 		return seg.ID, nil
@@ -122,8 +128,8 @@ func (s *segmentStore) closeOpen(seg openSegment) (int64, error) {
 	if seg.End <= seg.Start {
 		return 0, nil
 	}
-	r, err := s.db.Exec(`INSERT INTO segments(day, start, "end", app, title) VALUES(?,?,?,?,?)`,
-		dayOf(seg.Start), seg.Start, seg.End, seg.App, seg.Title)
+	r, err := s.db.Exec(`INSERT INTO segments(day, start, "end", app, title, domain) VALUES(?,?,?,?,?,?)`,
+		dayOf(seg.Start), seg.Start, seg.End, seg.App, seg.Title, seg.Domain)
 	if err != nil {
 		return 0, err
 	}
@@ -132,7 +138,7 @@ func (s *segmentStore) closeOpen(seg openSegment) (int64, error) {
 
 // rangeSegs 返回与 [from, to) 有交集的全部段（可能包含边界外的部分，聚合时裁剪）。
 func (s *segmentStore) rangeSegs(from, to int64) ([]Segment, error) {
-	rows, err := s.db.Query(`SELECT app, title, start, "end" FROM segments WHERE start < ? AND "end" > ? ORDER BY start`, to, from)
+	rows, err := s.db.Query(`SELECT app, title, domain, start, "end" FROM segments WHERE start < ? AND "end" > ? ORDER BY start`, to, from)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +146,7 @@ func (s *segmentStore) rangeSegs(from, to int64) ([]Segment, error) {
 	out := make([]Segment, 0, 64)
 	for rows.Next() {
 		var g Segment
-		if err := rows.Scan(&g.App, &g.Title, &g.Start, &g.End); err != nil {
+		if err := rows.Scan(&g.App, &g.Title, &g.Domain, &g.Start, &g.End); err != nil {
 			return nil, err
 		}
 		out = append(out, g)
@@ -164,7 +170,7 @@ func (s *segmentStore) pruneBefore(cut int64) (int64, error) {
 
 // allSegs 全量段（按 start 排序）。导出用。
 func (s *segmentStore) allSegs() ([]Segment, error) {
-	rows, err := s.db.Query(`SELECT app, title, start, "end" FROM segments ORDER BY start`)
+	rows, err := s.db.Query(`SELECT app, title, domain, start, "end" FROM segments ORDER BY start`)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +178,7 @@ func (s *segmentStore) allSegs() ([]Segment, error) {
 	out := make([]Segment, 0, 256)
 	for rows.Next() {
 		var g Segment
-		if err := rows.Scan(&g.App, &g.Title, &g.Start, &g.End); err != nil {
+		if err := rows.Scan(&g.App, &g.Title, &g.Domain, &g.Start, &g.End); err != nil {
 			return nil, err
 		}
 		out = append(out, g)

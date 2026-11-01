@@ -24,18 +24,18 @@ func TestClassify(t *testing.T) {
 	rules := DefaultCategories()
 
 	// 应用名命中（大小写/路径/扩展名归一后子串匹配）
-	if p, c := Classify(`C:\...\Code.exe`, "", rules); c != "编程" || p != "工作" {
+	if p, c := Classify(`C:\...\Code.exe`, "", "", rules); c != "编程" || p != "工作" {
 		t.Fatalf("Code 应归 工作/编程，得到 %s/%s", p, c)
 	}
-	if _, c := Classify("chrome", "淘宝网 - 检索", rules); c != "浏览" {
+	if _, c := Classify("chrome", "淘宝网 - 检索", "", rules); c != "浏览" {
 		t.Fatalf("chrome 应归 浏览，得到 %s", c)
 	}
 	// 标题兜底：应用名不在规则里，但标题含影音关键词
-	if _, c := Classify("unknownapp", "bilibili - 视频播放", rules); c != "影音" {
+	if _, c := Classify("unknownapp", "bilibili - 视频播放", "", rules); c != "影音" {
 		t.Fatalf("标题应兜底归 影音，得到 %s", c)
 	}
 	// 都不命中 → 其他
-	if p, c := Classify("foobar", "随便什么", rules); c != "其他" || p != "其他" {
+	if p, c := Classify("foobar", "随便什么", "", rules); c != "其他" || p != "其他" {
 		t.Fatalf("未命中应归 其他，得到 %s/%s", p, c)
 	}
 	// 顺序优先：更具体的规则在前（Code 同时含 code，但第一条就是它自己）
@@ -43,11 +43,11 @@ func TestClassify(t *testing.T) {
 		{ID: "1", Category: "工作沟通", Parent: "工作", AppPatterns: []string{"code"}},
 		{ID: "2", Category: "编程", Parent: "工作", AppPatterns: []string{"code"}},
 	}
-	if _, c := Classify("code", "", rules2); c != "工作沟通" {
+	if _, c := Classify("code", "", "", rules2); c != "工作沟通" {
 		t.Fatalf("第一条命中应生效，得到 %s", c)
 	}
 	// 空规则/空模式安全
-	if _, c := Classify("x", "y", []CategoryRule{{AppPatterns: []string{""}}}); c != "其他" {
+	if _, c := Classify("x", "y", "", []CategoryRule{{AppPatterns: []string{""}}}); c != "其他" {
 		t.Fatalf("空模式不应命中，得到 %s", c)
 	}
 }

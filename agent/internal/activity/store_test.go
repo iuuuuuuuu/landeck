@@ -39,7 +39,7 @@ func TestSegmentStoreRoundtrip(t *testing.T) {
 		t.Fatalf("插入段失败: id=%d err=%v", id, err)
 	}
 	// 2) EXTEND
-	if err := s.extend(id, base+1200); err != nil {
+	if err := s.extend(id, base+1200, ""); err != nil {
 		t.Fatalf("extend: %v", err)
 	}
 	// 3) 查询：范围相交裁剪

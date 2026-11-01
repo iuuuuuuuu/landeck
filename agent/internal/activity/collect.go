@@ -10,18 +10,19 @@ import (
 // openSegment 内存里「进行中」的一段。ID=0 表示还没落库
 // （首次落库发生在第一个完整采样间隔后，避免留下大量零长度行）。
 type openSegment struct {
-	ID    int64
-	Start int64
-	End   int64
-	App   string
-	Title string
+	ID     int64
+	Start  int64
+	End    int64
+	App    string
+	Title  string
+	Domain string // A2：采样 tick 时从内存域名表快照（浏览器前台才有值）
 }
 
 // upsertRange 把段的当前范围落库：新段 INSERT，已有段 UPDATE end。
 // 每 30s 一次的写放大可忽略，换来的是进程被杀最多丢一个间隔的数据。
 func (s *segmentStore) upsertRange(cur *openSegment) error {
 	if cur.ID != 0 {
-		return s.extend(cur.ID, cur.End)
+		return s.extend(cur.ID, cur.End, cur.Domain)
 	}
 	if cur.End <= cur.Start {
 		return nil
@@ -110,15 +111,19 @@ type Status struct {
 // ---------- Manager ----------
 
 type Manager struct {
-	mu        sync.Mutex
-	db        *segmentStore
-	settings  *settingsStore
-	cur       *openSegment
-	state     string
-	stateAt   time.Time
-	lastApp   string
-	lastCat   string
-	lastPar   string
+	mu       sync.Mutex
+	db       *segmentStore
+	settings *settingsStore
+	cur      *openSegment
+	state    string
+	stateAt  time.Time
+	lastApp  string
+	lastCat  string
+	lastPar  string
+	// 浏览器最近域名表（A2，内存态不落库；见 domains.go）
+	domMu    sync.Mutex
+	domTable map[string]domainEntry
+
 	stop      chan struct{}
 	done      chan struct{}
 	supported bool
@@ -154,6 +159,8 @@ func Start(dir string) *Manager {
 		supported: supported,
 		sample:    sf,
 		seen:      map[string]bool{},
+
+		domTable: map[string]domainEntry{}, // A2 浏览器最近域名（内存态）
 	}
 	db, err := openDB(joinPath(dir, "activity.db"))
 	if err != nil {
@@ -307,7 +314,8 @@ func (m *Manager) tick() {
 	m.state = res.State
 	if res.New != nil {
 		m.lastApp = res.New.App
-		p, c := Classify(res.New.App, res.New.Title, st.Categories)
+		dom, _ := m.DomainFor(res.New.App)
+		p, c := Classify(res.New.App, res.New.Title, dom, st.Categories)
 		m.lastCat, m.lastPar = c, p
 	}
 }

@@ -169,11 +169,11 @@ func BuildSummary(segs []Segment, rules []CategoryRule, scope string, from, to t
 		if dur <= 0 {
 			continue
 		}
-		_, cat := Classify(g.App, g.Title, rules)
+		_, cat := Classify(g.App, g.Title, g.Domain, rules)
 		sum.TotalSec += dur
 		catSecs[cat] += dur
 		if _, ok := catInfo[cat]; !ok {
-			p, c := Classify(g.App, g.Title, rules)
+			p, c := Classify(g.App, g.Title, g.Domain, rules)
 			catInfo[cat] = CategoryTotal{Category: c, Parent: p}
 		}
 		// 跨桶的段按桶切：对 day 是小时、week/month 是天。
@@ -236,14 +236,14 @@ func BuildRank(segs []Segment, rules []CategoryRule, scope string, from, to time
 		if dur <= 0 {
 			continue
 		}
-		p, c := Classify(g.App, g.Title, rules)
+		p, c := Classify(g.App, g.Title, g.Domain, rules)
 		r.TotalSec += dur
 		appSecs[g.App] += dur
 		catSecs[c] += dur
 		catInfo[c] = CategoryTotal{Category: c, Parent: p}
 	}
 	for app, secs := range appSecs {
-		_, cat := Classify(app, "", rules)
+		_, cat := Classify(app, "", "", rules)
 		var p string
 		for _, ct := range catInfo {
 			if ct.Category == cat {
@@ -321,7 +321,7 @@ func BuildAppDetail(segs []Segment, rules []CategoryRule, appName string, from, 
 			}
 		}
 	}
-	p, c := Classify(appName, "", rules)
+	p, c := Classify(appName, "", "", rules)
 	d.Parent, d.Category = p, c
 	for h, secs := range hours {
 		if secs == 0 {

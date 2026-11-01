@@ -128,6 +128,10 @@ func (s *Server) routes() {
 	m.HandleFunc("PUT /api/v1/activity/categories", s.protect(s.handleActivityCategoriesPut))
 	m.HandleFunc("GET /api/v1/activity/settings", s.protect(s.handleActivitySettingsGet))
 	m.HandleFunc("PUT /api/v1/activity/settings", s.protect(s.handleActivitySettingsPut))
+	// A2: 浏览器域名上报（MV3 扩展 companion）；自带 501 门/回环校验/双模式鉴权
+	m.HandleFunc("POST /api/v1/activity/domain", func(w http.ResponseWriter, r *http.Request) {
+		s.handleActivityDomain(w, r, nil)
+	})
 
 	m.HandleFunc("GET /api/v1/activity/appicon", s.protect(s.handleActivityAppIcon))
 	m.HandleFunc("GET /api/v1/activity/export", s.protect(s.handleActivityExport))
