@@ -29,6 +29,7 @@ import zhCNActivity from './locales/zh-CN/activity.json'
 import zhCNFiles from './locales/zh-CN/files.json'
 import zhCNSchedules from './locales/zh-CN/schedules.json'
 import zhCNAi from './locales/zh-CN/ai.json'
+import zhCNRd from './locales/zh-CN/rd.json'
 
 const zhCN: Bundle = {
   common: zhCNCommon,
@@ -40,6 +41,7 @@ const zhCN: Bundle = {
   files: zhCNFiles,
   schedules: zhCNSchedules,
   ai: zhCNAi,
+  rd: zhCNRd,
 }
 
 type Bundle = Record<string, Record<string, unknown>>

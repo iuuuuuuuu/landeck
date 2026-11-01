@@ -1,0 +1,7 @@
+{
+  "title": "远程桌面",
+  "back": "返回",
+  "backToList": "返回设备列表",
+  "notFound": "设备不存在或已被移除",
+  "demoBanner": "需要 Agent 1.0.19+（当前 {{ver}}）——正在显示内置演示画面"
+}

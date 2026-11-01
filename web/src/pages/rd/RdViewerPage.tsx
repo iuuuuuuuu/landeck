@@ -5,6 +5,7 @@ import { Button, Card } from '../../components/ui'
 import { RdViewer, cmpVer } from '../../components/rd/RdViewer'
 import { useApp } from '../../store/app'
 import { probeNode } from '../../lib/api'
+import { useT } from '../../i18n'
 
 /**
  * 远程桌面查看器页 /rd/:deviceId。
@@ -15,6 +16,7 @@ import { probeNode } from '../../lib/api'
  * 与 activityApi 的「演示数据」降级同一策略。
  */
 export default function RdViewerPage() {
+  const t = useT('rd')
   const deviceId = useLocation().pathname.split('/')[2] ?? ''
   const navigate = useNavigate()
   const devices = useApp((s) => s.devices)
@@ -48,9 +50,9 @@ export default function RdViewerPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black p-6">
         <Card className="max-w-sm p-5 text-center">
-          <p className="text-[14px] text-fg">设备不存在或已被移除</p>
+          <p className="text-[14px] text-fg">{t("notFound")}</p>
           <Button variant="secondary" className="mt-3" onClick={() => navigate('/devices')}>
-            返回设备列表
+            {t("back")}设备列表
           </Button>
         </Card>
       </div>

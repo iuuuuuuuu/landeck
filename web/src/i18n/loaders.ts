@@ -3,7 +3,7 @@ export type Lang = 'zh-CN' | 'en' | 'zh-TW' | 'ja' | 'pt' | 'es'
 type Bundle = Record<string, Record<string, unknown>>
 
 export const enLoader = async (): Promise<Bundle> => {
-  const [common, nav, settings, devices, local, activity, files, schedules, ai] = await Promise.all([
+  const [common, nav, settings, devices, local, activity, files, schedules, ai, rd] = await Promise.all([
     import('./locales/en/common.json'),
     import('./locales/en/nav.json'),
     import('./locales/en/settings.json'),
@@ -13,6 +13,7 @@ export const enLoader = async (): Promise<Bundle> => {
     import('./locales/en/files.json'),
     import('./locales/en/schedules.json'),
     import('./locales/en/ai.json'),
+    import('./locales/en/rd.json'),
   ])
   return {
     common: common.default,
@@ -24,11 +25,12 @@ export const enLoader = async (): Promise<Bundle> => {
     files: files.default,
     schedules: schedules.default,
     ai: ai.default,
+    rd: rd.default,
   }
 }
 
 const zhTWLoader = async (): Promise<Bundle> => {
-  const [common, nav, settings, devices, local, activity, files, schedules, ai] = await Promise.all([
+  const [common, nav, settings, devices, local, activity, files, schedules, ai, rd] = await Promise.all([
     import('./locales/zh-TW/common.json'),
     import('./locales/zh-TW/nav.json'),
     import('./locales/zh-TW/settings.json'),
@@ -38,6 +40,7 @@ const zhTWLoader = async (): Promise<Bundle> => {
     import('./locales/zh-TW/files.json'),
     import('./locales/zh-TW/schedules.json'),
     import('./locales/zh-TW/ai.json'),
+    import('./locales/zh-TW/rd.json'),
   ])
   return {
     common: common.default,
@@ -49,6 +52,7 @@ const zhTWLoader = async (): Promise<Bundle> => {
     files: files.default,
     schedules: schedules.default,
     ai: ai.default,
+    rd: rd.default,
   }
 }
 

@@ -1,0 +1,7 @@
+{
+  "title": "遠端桌面",
+  "back": "返回",
+  "backToList": "返回裝置清單",
+  "notFound": "裝置不存在或已被移除",
+  "demoBanner": "需要 Agent 1.0.19+（目前 {{ver}}）——正在顯示內建示範畫面"
+}

@@ -7,6 +7,7 @@ import { aiChatSessionKey } from '../../lib/aiKeys'
 import { isAiNotConfigured, sendChat, type ChatMsg } from '../../lib/aiApi'
 import { invalidateCache, readCache, writeCache } from '../../lib/queryCache'
 import { useActiveTarget } from '../../lib/useActiveTarget'
+import { useT } from '../../i18n'
 import { AiErrorCard, AiNoDeviceGuide, DemoBadge, MiniMarkdown } from './shared'
 
 /**
@@ -20,6 +21,7 @@ import { AiErrorCard, AiNoDeviceGuide, DemoBadge, MiniMarkdown } from './shared'
  * 404（agent 过老）：mock 回复 + 演示徽标，保住页面可自审。
  */
 export default function AiChatPage() {
+  const t = useT('ai')
   const { device, pairedCount, localAvailable } = useActiveTarget()
   const dev = device ?? null
 
@@ -83,8 +85,8 @@ export default function AiChatPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="AI 对话"
-        sub="回答基于本机的活动记录——问「这周时间花在哪」「昨天在忙什么」这类问题最合适"
+        title={t("chat.title")}
+        sub={t("chat.subtitle")}
         actions={lastDemo && messages.length > 0 ? <DemoBadge /> : undefined}
       />
 
@@ -93,9 +95,9 @@ export default function AiChatPage() {
           {messages.length === 0 && !pending && (
             <div className="flex flex-col items-center gap-3 py-10 text-center">
               <Bot size={30} className="text-faint" />
-              <p className="text-[13px] text-fg-soft">问点什么吧</p>
+              <p className="text-[13px] text-fg-soft">{t("chat.askSomething")}</p>
               <div className="flex flex-wrap justify-center gap-2">
-                {['这周我的时间花在哪了？', '今天和昨天比怎么样？', '我最常用的应用是什么？'].map((q) => (
+                {[t('chat.sug1'), t('chat.sug2'), t('chat.sug3')].map((q) => (
                   <button
                     key={q}
                     type="button"
@@ -137,7 +139,7 @@ export default function AiChatPage() {
               </div>
               <div className="flex items-center gap-2 rounded-2xl rounded-tl-md bg-elevated px-3.5 py-3 text-[12px] text-muted">
                 <Loader2 size={14} className="animate-spin" />
-                正在基于活动记录思考…
+                {t("chat.thinking")}
               </div>
             </div>
           )}
@@ -146,10 +148,10 @@ export default function AiChatPage() {
         <div className="border-t border-line-soft p-3">
           {notConfigured ? (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-cyan/30 bg-cyan/[0.08] px-3 py-2.5 text-[12px] text-cyan">
-              <span>这台设备还没有配置 AI 模型。</span>
+              <span>{t("chat.notConfigured")}</span>
               <Link to="/ai/settings">
                 <Button size="sm" variant="secondary">
-                  去配置
+                  {t("chat.goConfigure")}
                 </Button>
               </Link>
             </div>
@@ -170,12 +172,12 @@ export default function AiChatPage() {
                 }
               }}
               rows={1}
-              placeholder={notConfigured ? '先到「AI 设置」里配置模型…' : '问问你的活动记录，Enter 发送，Shift+Enter 换行'}
+              placeholder={notConfigured ? t('chat.placeholderNotConfigured') : t('chat.placeholder')}
               disabled={pending || notConfigured}
               className="max-h-32 min-h-[42px] min-w-0 flex-1 resize-y rounded-xl border border-line-soft bg-elevated px-3.5 py-2.5 text-[13px] text-fg placeholder:text-faint focus:outline-none focus:ring-1 focus:ring-accent/40 disabled:opacity-60"
             />
             <Button variant="primary" icon={<CornerDownLeft size={14} />} loading={pending} disabled={notConfigured || !input.trim()} onClick={() => void send(input)}>
-              发送
+              {t("chat.send")}
             </Button>
           </div>
         </div>
@@ -183,7 +185,7 @@ export default function AiChatPage() {
 
       {messages.length > 0 && (
         <div className="flex items-center justify-between px-1">
-          <p className="text-[11px] text-faint">会话保存在本机内存（24 小时），不会上传。</p>
+          <p className="text-[11px] text-faint">{t("chat.privacyNote")}</p>
           <Button
             size="sm"
             variant="ghost"
@@ -193,7 +195,7 @@ export default function AiChatPage() {
               if (dev) invalidateCache(aiChatSessionKey(dev))
             }}
           >
-            清空会话
+            {t("chat.clearSession")}
           </Button>
         </div>
       )}
