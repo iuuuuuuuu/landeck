@@ -4,7 +4,8 @@
     "activity": "Activity",
     "ai": "AI",
     "data": "Data",
-    "system": "System"
+    "system": "System",
+    "plugins": "Plugins"
   },
   "items": {
     "devices": "Devices",
@@ -21,7 +22,8 @@
     "files": "Files",
     "schedules": "Schedules",
     "memory": "Screen memory",
-    "settings": "Settings"
+    "settings": "Settings",
+    "plugins": "Plugins"
   },
   "desc": {
     "devices": "Paired hosts, status and quick actions",
@@ -38,7 +40,8 @@
     "files": "Browse and transfer files on the device",
     "schedules": "Scheduled power, restart and reminders",
     "memory": "Screenshot OCR text search",
-    "settings": "Identity, agent options and security"
+    "settings": "Identity, agent options and security",
+    "plugins": "Focus timer and imported plugins"
   },
   "collection": {
     "label": "Activity tracking",

@@ -1,0 +1,19 @@
+{
+  "pageSub": "內建與已匯入的外掛，外掛只能讀本機活動統計",
+  "installed": "已安裝",
+  "builtin": "內建",
+  "notDeployed": "未部署到 agent",
+  "focusPanel": "Focus 番茄鐘",
+  "market": "外掛市集",
+  "refresh": "重新整理",
+  "catalogError": "目錄載入失敗：",
+  "alreadyBuiltin": "已內建",
+  "install": "安裝",
+  "installDisabledHint": "agent /plugins/install 端點後續批次上線後開放；目前可透過下方瀏覽器匯入登記",
+  "marketEmpty": "目錄為空（v1 安全約定：只裝可信來源）",
+  "importTitle": "瀏覽器匯入（v1）",
+  "import": "匯入",
+  "importedOk": "已匯入：{{name}} v{{ver}}（瀏覽器側登記；agent 部署通道後續批次）",
+  "importHint": "貼上外掛 manifest JSON。校驗通過才入冊；entry 在 agent 部署通道上線前無法執行，僅登記。",
+  "remove": "移除"
+}

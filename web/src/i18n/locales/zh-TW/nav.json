@@ -4,7 +4,8 @@
     "activity": "活動",
     "ai": "AI",
     "data": "資料",
-    "system": "系統"
+    "system": "系統",
+    "plugins": "外掛"
   },
   "items": {
     "devices": "裝置",
@@ -21,7 +22,8 @@
     "files": "檔案",
     "schedules": "排程任務",
     "memory": "螢幕記忆",
-    "settings": "設定"
+    "settings": "設定",
+    "plugins": "外掛"
   },
   "desc": {
     "devices": "已配对主機的状態与快捷入口",
@@ -38,7 +40,8 @@
     "files": "被控端檔案浏覽与傳輸",
     "schedules": "定時關機、重新啟動与提醒",
     "memory": "截图 OCR 文字檢索",
-    "settings": "身份、被控端参数与安全策略"
+    "settings": "身份、被控端参数与安全策略",
+    "plugins": "番茄鐘與已匯入的外掛"
   },
   "collection": {
     "label": "活動記錄",

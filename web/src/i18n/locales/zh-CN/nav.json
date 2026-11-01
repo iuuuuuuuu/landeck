@@ -4,7 +4,8 @@
     "activity": "活动",
     "ai": "AI",
     "data": "数据",
-    "system": "系统"
+    "system": "系统",
+    "plugins": "插件"
   },
   "items": {
     "devices": "设备",
@@ -21,7 +22,8 @@
     "files": "文件",
     "schedules": "定时任务",
     "memory": "屏幕记忆",
-    "settings": "设置"
+    "settings": "设置",
+    "plugins": "插件"
   },
   "desc": {
     "devices": "已配对主机的状态与快捷入口",
@@ -38,7 +40,8 @@
     "files": "被控端文件浏览与传输",
     "schedules": "定时关机、重启与提醒",
     "memory": "截图 OCR 文字检索",
-    "settings": "身份、被控端参数与安全策略"
+    "settings": "身份、被控端参数与安全策略",
+    "plugins": "番茄钟与已导入的插件"
   },
   "collection": {
     "label": "活动采集",

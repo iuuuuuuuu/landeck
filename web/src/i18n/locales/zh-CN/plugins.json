@@ -1,0 +1,19 @@
+{
+  "pageSub": "内置与已导入的插件，插件只能读本机活动统计",
+  "installed": "已安装",
+  "builtin": "内置",
+  "notDeployed": "未部署到 agent",
+  "focusPanel": "Focus 番茄钟",
+  "market": "插件市场",
+  "refresh": "刷新",
+  "catalogError": "目录加载失败：",
+  "alreadyBuiltin": "已内置",
+  "install": "安装",
+  "installDisabledHint": "agent /plugins/install 端点后续批次上线后开放；当前可通过下方浏览器导入登记",
+  "marketEmpty": "目录为空（v1 安全约定：只装可信来源）",
+  "importTitle": "浏览器导入（v1）",
+  "import": "导入",
+  "importedOk": "已导入：{{name}} v{{ver}}（浏览器侧登记；agent 部署通道后续批次）",
+  "importHint": "粘贴插件 manifest JSON。校验通过才入册；entry 在 agent 部署通道上线前无法执行，仅登记。",
+  "remove": "移除"
+}

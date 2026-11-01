@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "_note": "LanDeck 插件市场占位目录（十期 A4）。运行时副本在 web/public/plugins-catalog.json——两边内容保持一致。v1 安全约定：插件 JS 同源运行、只装可信来源；正式市场上线前此目录应为空数组。",
+  "plugins": [
+    {
+      "id": "focus",
+      "name": "Focus 番茄钟",
+      "version": "1.0.0",
+      "entry": "bundled://focus",
+      "permissions": ["activity.read"],
+      "author": "LanDeck",
+      "description": "25/5 番茄钟，可显示当日活动用时。内置插件，无需安装。",
+      "bundled": true
+    },
+    {
+      "id": "sample-standup",
+      "name": "示例：站会统计",
+      "version": "0.1.0",
+      "entry": "plugins/sample-standup/entry.js",
+      "permissions": ["activity.read"],
+      "author": "example",
+      "description": "演示条目：安装通道（agent /plugins/install）后续批次上线，当前不可安装。"
+    }
+  ]
+}

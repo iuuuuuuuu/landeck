@@ -8,6 +8,7 @@ import LocalDevice from './pages/LocalDevice'
 import DeviceDetail from './pages/DeviceDetail'
 import Files from './pages/Files'
 import Schedules from './pages/Schedules'
+import PluginsPage from './plugins/PluginsPage'
 import Settings from './pages/Settings'
 // activity 页面入口：导出名即契约（activity 批维护 web/src/pages/activity/index.ts）
 import {
@@ -74,6 +75,8 @@ export default function App() {
             */}
             <Route path="/files" element={<Files />} />
             <Route path="/schedules" element={<Schedules />} />
+            {/* 插件系统（十期 A4）：内置 Focus + 市场占位 + 浏览器导入 */}
+            <Route path="/plugins" element={<PluginsPage />} />
             {/*
               活动统计（Hindsight 风格改版核心）：页面实现归 activity 批（web/src/pages/activity/），
               这里只做路由注册。

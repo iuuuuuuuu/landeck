@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Monitor,
   MonitorSmartphone,
+  Puzzle,
   Radar,
   Settings,
   Shapes,
@@ -144,6 +145,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: '/files', label: 'items.files', icon: FolderOpen, desc: 'desc.files' },
       { to: '/schedules', label: 'items.schedules', icon: CalendarClock, desc: 'desc.schedules' },
       { to: '/activity/memory', label: 'items.memory', icon: Camera, desc: '截图 OCR 文字检索，找回屏幕上出现过的内容' },
+    ],
+  },
+  {
+    key: 'plugins',
+    label: 'groups.plugins',
+    items: [
+      { to: '/plugins', label: 'items.plugins', icon: Puzzle, desc: 'desc.plugins' },
     ],
   },
   {

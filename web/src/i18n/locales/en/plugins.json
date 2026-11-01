@@ -1,0 +1,19 @@
+{
+  "pageSub": "Bundled and imported plugins; plugins can only read local activity stats",
+  "installed": "Installed",
+  "builtin": "Built-in",
+  "notDeployed": "Not deployed to agent",
+  "focusPanel": "Focus timer",
+  "market": "Plugin market",
+  "refresh": "Refresh",
+  "catalogError": "Catalog failed to load: ",
+  "alreadyBuiltin": "Built-in",
+  "install": "Install",
+  "installDisabledHint": "Opens when the agent /plugins/install endpoint ships; use browser import below for now",
+  "marketEmpty": "Catalog is empty (v1 trust policy: trusted sources only)",
+  "importTitle": "Browser import (v1)",
+  "import": "Import",
+  "importedOk": "Imported: {{name}} v{{ver}} (registered in browser; agent deploy channel ships later)",
+  "importHint": "Paste a plugin manifest JSON. Only valid manifests are registered; entry cannot execute until the agent deploy channel ships.",
+  "remove": "Remove"
+}
