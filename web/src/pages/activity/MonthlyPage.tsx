@@ -13,9 +13,10 @@ const DonutChart = lazy(() =>
 )
 import { AppIcon, CategoryIcon, fmtDur } from '../../components/activity/bits'
 import { AppDetailPanel } from '../../components/activity/AppDetailPanel'
+import { DevicePicker } from '../../components/shell'
 import { useTheme } from '../../store/theme'
 import { useT } from '../../i18n'
-import { ActivityPageHeader, DateNav, LoadError, NoDeviceGuide, StatCard, addMonths, currentMonth, useActivityTarget } from './shared'
+import { AGG_DEVICE_ID, ActivityPageHeader, DateNav, LoadError, NoDeviceGuide, makeAggDevice, StatCard, addMonths, currentMonth, useActivityTarget, useSyncAgg } from './shared'
 
 /** 环比差值的展示文案：正负号 + 小时分钟。 */
 function deltaLabel(cur: number, prev: number, flatText: string): { text: string; up: boolean } {
@@ -35,39 +36,44 @@ function deltaLabel(cur: number, prev: number, flatText: string): { text: string
 export default function ActivityMonthlyPage() {
   const t = useT('activity')
   const flatText = t('monthly.flat')
-  const { device, pairedCount, localAvailable } = useActivityTarget()
+  const { device, devices, setDeviceId, pairedCount, localAvailable } = useActivityTarget()
+  // 十期 A1：多设备汇总——/sync/status 的 devices 非空时选择器出现「全部设备（汇总）」
+  const [agg, setAgg] = useState(false)
+  const syncQ = useSyncAgg(device)
+  const aggAvailable = (syncQ.data?.data.devices?.length ?? 0) > 0
+  const isAgg = agg && aggAvailable
   const { theme } = useTheme()
   const [month, setMonth] = useState(currentMonth())
   const [selectedCat, setSelectedCat] = useState<CatKey | null>(null)
 
-  const summary = useAsync(() => fetchSummary(device, device.token, { scope: 'month', date: month }), [month, device.host, device.port, device.token], {
-    key: activitySummaryKey(device, 'month', month),
+  const summary = useAsync(() => fetchSummary(device, device.token, { scope: 'month', date: month, scopeAgg: isAgg ? 'all' : undefined }), [month, device.host, device.port, device.token, isAgg], {
+    key: activitySummaryKey(device, 'month', month, isAgg),
     ttlMs: 3 * 60_000,
   })
-  const rank = useAsync(() => fetchRank(device, device.token, { scope: 'month', date: month }), [month, device.host, device.port, device.token], {
-    key: activityRankKey(device, 'month', month),
+  const rank = useAsync(() => fetchRank(device, device.token, { scope: 'month', date: month, scopeAgg: isAgg ? 'all' : undefined }), [month, device.host, device.port, device.token, isAgg], {
+    key: activityRankKey(device, 'month', month, isAgg),
     ttlMs: 3 * 60_000,
   })
   // 上月（环比）：懒到位 —— 本月数据加载成功后再取，避免首屏双请求
   const [detail, setDetail] = useState<{ app: string; cat: string } | null>(null)
   const prevMonth = addMonths(month, -1)
   const prev = useAsync(
-    summary.data ? () => fetchSummary(device, device.token, { scope: 'month', date: prevMonth }) : null,
-    [summary.data, prevMonth, device.host, device.port, device.token],
-    { key: activitySummaryKey(device, 'month', prevMonth), ttlMs: 3 * 60_000 },
+    summary.data ? () => fetchSummary(device, device.token, { scope: 'month', date: prevMonth, scopeAgg: isAgg ? 'all' : undefined }) : null,
+    [summary.data, prevMonth, device.host, device.port, device.token, isAgg],
+    { key: activitySummaryKey(device, 'month', prevMonth, isAgg), ttlMs: 3 * 60_000 },
   )
   // B1 点选联动：上月同大类时长（四卡的「较上月变化」需要按类别对比）
   const prevRank = useAsync(
-    summary.data ? () => fetchRank(device, device.token, { scope: 'month', date: prevMonth }) : null,
-    [summary.data, prevMonth, device.host, device.port, device.token],
-    { key: activityRankKey(device, 'month', prevMonth), ttlMs: 3 * 60_000 },
+    summary.data ? () => fetchRank(device, device.token, { scope: 'month', date: prevMonth, scopeAgg: isAgg ? 'all' : undefined }) : null,
+    [summary.data, prevMonth, device.host, device.port, device.token, isAgg],
+    { key: activityRankKey(device, 'month', prevMonth, isAgg), ttlMs: 3 * 60_000 },
   )
 
   if (!localAvailable && pairedCount === 0) return <NoDeviceGuide />
   if (summary.error)
     return (
       <div className="space-y-4">
-        <ActivityPageHeader title={t('monthly.title')} subtitle={month} />
+        <ActivityPageHeader title={isAgg ? t('monthly.title') + ' · 全部设备' : t('monthly.title')} subtitle={month} />
         <LoadError error={summary.error} onRetry={summary.reload} />
       </div>
     )
@@ -163,7 +169,7 @@ export default function ActivityMonthlyPage() {
   return (
     <div className="space-y-4">
       <ActivityPageHeader
-        title={t('monthly.title')}
+        title={isAgg ? t('monthly.title') + ' · 全部设备' : t('monthly.title')}
         subtitle={s ? `${t('monthly.yearMonth', { y, m })} · ${t('monthly.avgDaily', { duration: fmtDur(dailyAvg) })}` : month}
         demo={demo}
       />
@@ -171,6 +177,18 @@ export default function ActivityMonthlyPage() {
       <StatCard
         toolbar={
           <>
+            <DevicePicker
+              devices={aggAvailable ? [makeAggDevice(device), ...devices] : devices}
+              value={isAgg ? AGG_DEVICE_ID : device.id}
+              onChange={(id) => {
+                if (id === AGG_DEVICE_ID) setAgg(true)
+                else {
+                  setAgg(false)
+                  setDeviceId(id)
+                }
+              }}
+              className="w-full min-w-0 sm:w-56"
+            />
             <span className="text-[12.5px] text-muted">{t('monthly.yearMonth', { y, m })}</span>
             <DateNav
               label={`${y}-${String(m).padStart(2, '0')}`}

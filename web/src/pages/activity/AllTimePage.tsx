@@ -8,7 +8,8 @@ import { HeatMap, MonthCalendar } from '../../components/activity/HeatMap'
 import { CategoryRankList, RankList } from '../../components/activity/RankList'
 import { AppDetailPanel } from '../../components/activity/AppDetailPanel'
 import { fmtDur } from '../../components/activity/bits'
-import { ActivityPageHeader, LoadError, NoDeviceGuide, prettyDate, todayStr, useActivityTarget } from './shared'
+import { DevicePicker } from '../../components/shell'
+import { AGG_DEVICE_ID, ActivityPageHeader, LoadError, NoDeviceGuide, makeAggDevice, prettyDate, todayStr, useActivityTarget, useSyncAgg } from './shared'
 import type { AppDetailOpen } from './DailyPage'
 
 /**
@@ -20,7 +21,12 @@ import type { AppDetailOpen } from './DailyPage'
  */
 export default function ActivityAllTimePage() {
   const t = useT('activity')
-  const { device, pairedCount, localAvailable } = useActivityTarget()
+  const { device, devices, setDeviceId, pairedCount, localAvailable } = useActivityTarget()
+  // 十期 A1：多设备汇总——/sync/status 的 devices 非空时选择器出现「全部设备（汇总）」
+  const [agg, setAgg] = useState(false)
+  const syncQ = useSyncAgg(device)
+  const aggAvailable = (syncQ.data?.data.devices?.length ?? 0) > 0
+  const isAgg = agg && aggAvailable
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -32,8 +38,8 @@ export default function ActivityAllTimePage() {
   // 全年 12 个月一次拉齐（内部各自命中/写入缓存）
   // 全年数据：优先 scope=year 单请求（agent-activity 对齐中，已提需求），
   // 未上线时 fetchYearDays 内部回退 12×month（settings 已单飞，不再翻倍）
-  const yearQ = useAsync(() => fetchYearDays(device, device.token, year), [year, device.host, device.port, device.token], {
-    key: activityYearKey(device, year),
+  const yearQ = useAsync(() => fetchYearDays(device, device.token, year, isAgg), [year, device.host, device.port, device.token, isAgg], {
+    key: activityYearKey(device, year, isAgg),
     ttlMs: 3 * 60_000,
   })
   // 排行联动：拖选区间且未点天 → 区间起点所在月（契约无区间排行端点，按月粒度并标注）；
@@ -41,9 +47,9 @@ export default function ActivityAllTimePage() {
   const rankScope: 'day' | 'month' | null = selectedDate ? 'day' : range ? 'month' : null
   const rankDate = selectedDate ?? (range ? range.from.slice(0, 7) : '')
   const rank = useAsync(
-    rankScope ? () => fetchRank(device, device.token, { scope: rankScope, date: rankDate }) : null,
-    [rankScope, rankDate, device.host, device.port, device.token],
-    { key: rankScope ? activityRankKey(device, rankScope, rankDate) : '', ttlMs: 3 * 60_000 },
+    rankScope ? () => fetchRank(device, device.token, { scope: rankScope, date: rankDate, scopeAgg: isAgg ? 'all' : undefined }) : null,
+    [rankScope, rankDate, device.host, device.port, device.token, isAgg],
+    { key: rankScope ? activityRankKey(device, rankScope, rankDate, isAgg) : '', ttlMs: 3 * 60_000 },
   )
 
   const daysAll = useMemo(() => yearQ.data?.data.days ?? [], [yearQ.data])
@@ -70,7 +76,7 @@ export default function ActivityAllTimePage() {
   if (yearQ.error)
     return (
       <div className="space-y-4">
-        <ActivityPageHeader title={t('alltime.title')} subtitle={t('alltime.subtitle')} />
+        <ActivityPageHeader title={isAgg ? t('alltime.title') + ' · 全部设备' : t('alltime.title')} subtitle={t('alltime.subtitle')} />
         <LoadError error={yearQ.error} onRetry={yearQ.reload} />
       </div>
     )
@@ -78,7 +84,7 @@ export default function ActivityAllTimePage() {
   return (
     <div className="space-y-4">
       <ActivityPageHeader
-        title={t('alltime.title')}
+        title={isAgg ? t('alltime.title') + ' · 全部设备' : t('alltime.title')}
         subtitle={`${year} ${t('alltime.year')} · ${t('activity.daily.total', { duration: fmtDur(yearTotal) })} · ${t('alltime.activeDays', { count: activeDays })}`}
         demo={demo}
       />
@@ -87,6 +93,18 @@ export default function ActivityAllTimePage() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <SectionTitle title={t('alltime.yearTable')} desc={t('alltime.yearTableHint')} />
           <div className="flex items-center gap-2">
+            <DevicePicker
+              devices={aggAvailable ? [makeAggDevice(device), ...devices] : devices}
+              value={isAgg ? AGG_DEVICE_ID : device.id}
+              onChange={(id) => {
+                if (id === AGG_DEVICE_ID) setAgg(true)
+                else {
+                  setAgg(false)
+                  setDeviceId(id)
+                }
+              }}
+              className="w-full min-w-0 sm:w-56"
+            />
             {range && (
               <button
                 type="button"

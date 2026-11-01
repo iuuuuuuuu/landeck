@@ -13,7 +13,7 @@ import { AppDetailPanel } from '../../components/activity/AppDetailPanel'
 import { CategoryIcon, fmtDur } from '../../components/activity/bits'
 import { useTheme } from '../../store/theme'
 import { useT } from '../../i18n'
-import { ActivityPageHeader, DateNav, LoadError, NoDeviceGuide, StatCard, addDays, prettyDate, todayStr, useActivityTarget } from './shared'
+import { AGG_DEVICE_ID, ActivityPageHeader, DateNav, LoadError, NoDeviceGuide, StatCard, addDays, makeAggDevice, prettyDate, todayStr, useActivityTarget, useSyncAgg } from './shared'
 import { DevicePicker, SegmentedTabs } from '../../components/shell'
 
 /** 详情浮层的打开参数（排行行 → 浮层）。cat 收 string 以兼容自建类别。 */
@@ -30,17 +30,22 @@ export interface AppDetailOpen {
 export default function ActivityDailyPage() {
   const t = useT('activity')
   const { device, devices, setDeviceId, pairedCount, localAvailable } = useActivityTarget()
+  // 十期 A1：多设备汇总——/sync/status 的 devices 非空时选择器出现「全部设备（汇总）」
+  const [agg, setAgg] = useState(false)
+  const syncQ = useSyncAgg(device)
+  const aggAvailable = (syncQ.data?.data.devices?.length ?? 0) > 0
+  const isAgg = agg && aggAvailable
   const { theme } = useTheme()
   const [date, setDate] = useState(todayStr())
   const [mode, setMode] = useState<'hours' | 'share'>('hours')
   const [detail, setDetail] = useState<AppDetailOpen | null>(null)
 
-  const summary = useAsync(() => fetchSummary(device, device.token, { scope: 'day', date }), [date, device.host, device.port, device.token], {
-    key: activitySummaryKey(device, 'day', date),
+  const summary = useAsync(() => fetchSummary(device, device.token, { scope: 'day', date, scopeAgg: isAgg ? 'all' : undefined }), [date, device.host, device.port, device.token, isAgg], {
+    key: activitySummaryKey(device, 'day', date, isAgg),
     ttlMs: 3 * 60_000,
   })
-  const rank = useAsync(() => fetchRank(device, device.token, { scope: 'day', date }), [date, device.host, device.port, device.token], {
-    key: activityRankKey(device, 'day', date),
+  const rank = useAsync(() => fetchRank(device, device.token, { scope: 'day', date, scopeAgg: isAgg ? 'all' : undefined }), [date, device.host, device.port, device.token, isAgg], {
+    key: activityRankKey(device, 'day', date, isAgg),
     ttlMs: 3 * 60_000,
   })
 
@@ -48,7 +53,7 @@ export default function ActivityDailyPage() {
   if (summary.error)
     return (
       <div className="space-y-4">
-        <ActivityPageHeader title="日统计" subtitle={date} />
+        <ActivityPageHeader title={isAgg ? '日统计 · 全部设备' : '日统计'} subtitle={date} />
         <LoadError error={summary.error} onRetry={summary.reload} />
       </div>
     )
@@ -60,7 +65,7 @@ export default function ActivityDailyPage() {
   return (
     <div className="space-y-4">
       <ActivityPageHeader
-        title={t('daily.title')}
+        title={isAgg ? t('daily.title') + ' · 全部设备' : t('daily.title')}
         subtitle={s ? `${prettyDate(s.date)} · ${t('daily.total', { duration: fmtDur(s.totalSec) })}` : date}
         demo={demo}
       />
@@ -78,7 +83,18 @@ export default function ActivityDailyPage() {
             />
             {/* 390px 下 DevicePicker(w-56)+DateNav 同行放不下：右组允许换行，下拉占满本行 */}
             <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-              <DevicePicker devices={devices} value={device.id} onChange={setDeviceId} className="w-full min-w-0 sm:w-56" />
+              <DevicePicker
+                devices={aggAvailable ? [makeAggDevice(device), ...devices] : devices}
+                value={isAgg ? AGG_DEVICE_ID : device.id}
+                onChange={(id) => {
+                  if (id === AGG_DEVICE_ID) setAgg(true)
+                  else {
+                    setAgg(false)
+                    setDeviceId(id)
+                  }
+                }}
+                className="w-full min-w-0 sm:w-56"
+              />
               <DateNav
                 label={date}
                 onPrev={() => setDate((d) => addDays(d, -1))}

@@ -5,6 +5,10 @@ import { Badge, Button, Card, EmptyState } from '../../components/ui'
 import { PageHeader } from '../../components/shell'
 import { useApp } from '../../store/app'
 import { LOCAL_DOWN_HINT, useActiveTarget } from '../../lib/useActiveTarget'
+import { useAsync } from '../../lib/hooks'
+import { fetchSyncStatus } from '../../lib/activityApi'
+import { syncStatusKey } from '../../lib/activityKeys'
+import type { PairedDevice } from '../../store/app'
 
 /**
  * 活动统计五页的共享骨架件。
@@ -88,6 +92,35 @@ export function StatCard({ toolbar, children }: { toolbar?: ReactNode; children:
 export function useActivityTarget() {
   return useActiveTarget()
 }
+
+// ---------- 十期 A1：多设备汇总（云同步） ----------
+
+/** 「全部设备（汇总）」伪设备 id（只用于选择器取值，不进设备 store） */
+export const AGG_DEVICE_ID = '__agg__'
+
+/** 以当前设备为底构造汇总选项（host/port 仅用于选择器回显，请求仍发本机 agent） */
+export function makeAggDevice(base: PairedDevice): PairedDevice {
+  return { ...base, id: AGG_DEVICE_ID, name: '全部设备（汇总）' }
+}
+
+/**
+ * 云同步状态：devices 非空 → 各统计页选择器出现「全部设备（汇总）」。
+ * 旧 agent 404 → fetchSyncStatus 内部给演示数据（mock 先行）；四页共用同一
+ * 缓存 key，实际只有首个挂载页发请求。
+ */
+export function useSyncAgg(device: PairedDevice) {
+  return useAsync(() => fetchSyncStatus(device, device.token), [device.host, device.port, device.token], {
+    key: syncStatusKey(device),
+    ttlMs: 60_000,
+  })
+}
+
+
+/**
+ * 云同步状态：devices 非空 → 各统计页选择器出现「全部设备（汇总）」。
+ * 旧 agent 404 → fetchSyncStatus 内部给演示数据（mock 先行）；四页共用同一
+ * 缓存 key，实际只有首个挂载页发请求。
+ */
 
 /** 手机上一台设备都没有时的引导态（与设备详情页口径一致）。 */
 export function NoDeviceGuide() {

@@ -11,7 +11,7 @@ import { CategoryRankList, RankList } from '../../components/activity/RankList'
 import { AppDetailPanel } from '../../components/activity/AppDetailPanel'
 import { fmtDur } from '../../components/activity/bits'
 import { useTheme } from '../../store/theme'
-import { ActivityPageHeader, DateNav, LoadError, NoDeviceGuide, StatCard, addDays, todayStr, useActivityTarget } from './shared'
+import { AGG_DEVICE_ID, ActivityPageHeader, DateNav, LoadError, NoDeviceGuide, StatCard, makeAggDevice, addDays, todayStr, useActivityTarget, useSyncAgg } from './shared'
 import { DevicePicker, SegmentedTabs } from '../../components/shell'
 import { useT } from '../../i18n'
 import type { AppDetailOpen } from './DailyPage'
@@ -23,17 +23,22 @@ import type { AppDetailOpen } from './DailyPage'
 export default function ActivityWeeklyPage() {
   const t = useT('activity')
   const { device, devices, setDeviceId, pairedCount, localAvailable } = useActivityTarget()
+  // 十期 A1：多设备汇总——/sync/status 的 devices 非空时选择器出现「全部设备（汇总）」
+  const [agg, setAgg] = useState(false)
+  const syncQ = useSyncAgg(device)
+  const aggAvailable = (syncQ.data?.data.devices?.length ?? 0) > 0
+  const isAgg = agg && aggAvailable
   const { theme } = useTheme()
   const [date, setDate] = useState(todayStr())
   const [mode, setMode] = useState<'hours' | 'share'>('hours')
   const [detail, setDetail] = useState<AppDetailOpen | null>(null)
 
-  const summary = useAsync(() => fetchSummary(device, device.token, { scope: 'week', date }), [date, device.host, device.port, device.token], {
-    key: activitySummaryKey(device, 'week', date),
+  const summary = useAsync(() => fetchSummary(device, device.token, { scope: 'week', date, scopeAgg: isAgg ? 'all' : undefined }), [date, device.host, device.port, device.token, isAgg], {
+    key: activitySummaryKey(device, 'week', date, isAgg),
     ttlMs: 3 * 60_000,
   })
-  const rank = useAsync(() => fetchRank(device, device.token, { scope: 'week', date }), [date, device.host, device.port, device.token], {
-    key: activityRankKey(device, 'week', date),
+  const rank = useAsync(() => fetchRank(device, device.token, { scope: 'week', date, scopeAgg: isAgg ? 'all' : undefined }), [date, device.host, device.port, device.token, isAgg], {
+    key: activityRankKey(device, 'week', date, isAgg),
     ttlMs: 3 * 60_000,
   })
 
@@ -41,7 +46,7 @@ export default function ActivityWeeklyPage() {
   if (summary.error)
     return (
       <div className="space-y-4">
-        <ActivityPageHeader title={t('weekly.title')} subtitle={date} />
+        <ActivityPageHeader title={isAgg ? t('weekly.title') + ' · 全部设备' : t('weekly.title')} subtitle={date} />
         <LoadError error={summary.error} onRetry={summary.reload} />
       </div>
     )
@@ -54,7 +59,7 @@ export default function ActivityWeeklyPage() {
   return (
     <div className="space-y-4">
       <ActivityPageHeader
-        title="周统计"
+        title={isAgg ? '周统计 · 全部设备' : '周统计'}
         subtitle={s ? `${range} · 总计 ${fmtDur(s.totalSec)}` : date}
         demo={demo}
       />
@@ -72,7 +77,18 @@ export default function ActivityWeeklyPage() {
             />
             {/* 390px 下 DevicePicker(w-56)+DateNav 同行放不下：右组允许换行，下拉占满本行 */}
             <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-              <DevicePicker devices={devices} value={device.id} onChange={setDeviceId} className="w-full min-w-0 sm:w-56" />
+              <DevicePicker
+                devices={aggAvailable ? [makeAggDevice(device), ...devices] : devices}
+                value={isAgg ? AGG_DEVICE_ID : device.id}
+                onChange={(id) => {
+                  if (id === AGG_DEVICE_ID) setAgg(true)
+                  else {
+                    setAgg(false)
+                    setDeviceId(id)
+                  }
+                }}
+                className="w-full min-w-0 sm:w-56"
+              />
               <DateNav
                 label={range}
                 todayLabel="本周"
