@@ -600,7 +600,7 @@ function AppearanceCard() {
                 disabled={busySilent}
                 onChange={(v) => void toggleSilent(v)}
                 label={t("appearance.silent.label")}
-                desc="开机时不显示窗口，只在托盘里运行；从托盘或双击图标打开仍会显示窗口。"
+                desc={t("appearance.silent.desc")}
               />
             </div>
           )}
@@ -615,7 +615,7 @@ function AppearanceCard() {
             disabled={busyLight}
             onChange={(v) => void toggleLight(v)}
             label={t("appearance.lightweight.label")}
-            desc="关闭窗口时释放界面占用的内存，只在托盘保留后台服务；再次打开会重建界面（数据有本地缓存，仍会立刻显示）。"
+            desc={t("appearance.lightweight.desc")}
           />
         </div>
       )}

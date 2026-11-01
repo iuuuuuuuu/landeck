@@ -25,7 +25,7 @@
     },
     "silent": {
       "label": "Silent start",
-      "desc": "On boot, run in the tray without showing a window; opening from tray or shortcut still shows the window.",
+      "desc": "On boot, runs in the tray without showing a window; opening from the tray or the shortcut still shows it.",
       "on": "Silent start enabled",
       "off": "Silent start disabled",
       "onDesc": "Next boot stays in the tray; opening the shortcut manually still shows the window.",
@@ -34,7 +34,7 @@
     },
     "lightweight": {
       "label": "Lightweight mode",
-      "desc": "Releases the UI memory when the window is closed, keeping only the tray and background service; reopening rebuilds the UI (data is locally cached and shows instantly).",
+      "desc": "Closing the window releases UI memory, keeping only background services in the tray; reopening rebuilds the UI (data is cached locally, so it shows again instantly).",
       "on": "Lightweight mode enabled",
       "off": "Lightweight mode disabled",
       "onDesc": "Closing the window releases UI memory, keeping only the tray and background service; reopening rebuilds the UI (data still shows instantly).",
