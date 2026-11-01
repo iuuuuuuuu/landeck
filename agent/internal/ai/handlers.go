@@ -3,7 +3,9 @@ package ai
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"landeck/internal/activity"
@@ -20,6 +22,9 @@ import (
 // （第三参 *config.Client 是导出类型），ai 包不 import httpapi。
 
 const llmTimeout = 60 * time.Second
+
+// errNotConfigured 采集/生成共用的「AI 未配置」哨兵错误。
+var errNotConfigured = fmt.Errorf("AI 未配置")
 
 // activity 查询入口做成包级变量：测试里可替换成桩，不必真的 Start 采集。
 var (
@@ -57,6 +62,7 @@ type guarded = func(w http.ResponseWriter, r *http.Request, client *config.Clien
 // dataDir 为 agent 数据目录（配置落 dataDir/ai.json）。
 func Register(m *http.ServeMux, protect func(guarded) http.HandlerFunc, dataDir string) {
 	SetStoreDir(dataDir)
+	startScheduler()
 	m.HandleFunc("GET /api/v1/ai/settings", protect(func(w http.ResponseWriter, r *http.Request, _ *config.Client) {
 		writeJSON(w, http.StatusOK, view(Get()))
 	}))
@@ -85,6 +91,15 @@ func Register(m *http.ServeMux, protect func(guarded) http.HandlerFunc, dataDir 
 			}
 			if v, ok := bodyMap["clearKey"].(bool); ok && v {
 				cfg.APIKey = ""
+			}
+			// autoSummary：按出现的字段覆盖（整体对象出现才处理，内部字段再细分）
+			if m, ok := bodyMap["autoSummary"].(map[string]any); ok {
+				if v, ok := m["enabled"].(bool); ok {
+					cfg.AutoSummary.Enabled = v
+				}
+				if v, ok := m["time"].(string); ok {
+					cfg.AutoSummary.Time = v
+				}
 			}
 		})
 		if err != nil {
@@ -132,7 +147,35 @@ func Register(m *http.ServeMux, protect func(guarded) http.HandlerFunc, dataDir 
 			writeErr(w, http.StatusBadGateway, "ai_provider", err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]string{"markdown": md})
+		// 手动生成 = 覆盖语义：同一天/同一周再生成就替换旧报告。
+		// month 契约未定义报告文件名，暂不落盘（saveReport 会拒绝）。
+		day, dayErr := anchorDate(scope, req.Date, time.Now())
+		resp := map[string]any{"markdown": md}
+		if dayErr == nil {
+			if meta, err := saveReport(scope, day, md, true); err == nil {
+				resp["saved"] = meta
+			}
+			_ = day
+		}
+		writeJSON(w, http.StatusOK, resp)
+	}))
+	m.HandleFunc("GET /api/v1/ai/reports", protect(func(w http.ResponseWriter, r *http.Request, _ *config.Client) {
+		limit := 30
+		if v := r.URL.Query().Get("limit"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 200 {
+				limit = n
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"items": listReports(limit)})
+	}))
+	m.HandleFunc("GET /api/v1/ai/reports/content", protect(func(w http.ResponseWriter, r *http.Request, _ *config.Client) {
+		md, err := readReport(r.URL.Query().Get("id"))
+		if err != nil {
+			writeErr(w, http.StatusNotFound, "not_found", "报告不存在")
+			return
+		}
+		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+		_, _ = w.Write([]byte(md))
 	}))
 	m.HandleFunc("POST /api/v1/ai/chat", protect(func(w http.ResponseWriter, r *http.Request, _ *config.Client) {
 		var req struct {
@@ -163,6 +206,7 @@ func Register(m *http.ServeMux, protect func(guarded) http.HandlerFunc, dataDir 
 			writeErr(w, http.StatusBadRequest, "bad_request", err.Error())
 			return
 		}
+		from, to := ContextRange(summary)
 		ctx, cancel := context.WithTimeout(r.Context(), llmTimeout)
 		defer cancel()
 		content, err := chat(ctx, cfg, msgs)
@@ -170,6 +214,12 @@ func Register(m *http.ServeMux, protect func(guarded) http.HandlerFunc, dataDir 
 			writeErr(w, http.StatusBadGateway, "ai_provider", err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]string{"content": content})
+		// citations：剥 [cite:...] 标记 → 结构化依据链接（越界日期不进 citations）。
+		clean, citations := ParseCitations(content, fromDate(from), toDate(to))
+		resp := map[string]any{"content": clean}
+		if len(citations) > 0 {
+			resp["citations"] = citations // 省略字段=向后兼容（老前端只读 content）
+		}
+		writeJSON(w, http.StatusOK, resp)
 	}))
 }

@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Provider 取值："openai"（OpenAI 兼容 /chat/completions）| "ollama"（本地 /api/chat）。
@@ -22,6 +23,13 @@ const (
 	ProviderOpenAI = "openai"
 	ProviderOllama = "ollama"
 )
+
+// AutoSummaryCfg 自动总结：到点生成当天日报并补缺失日报/上周周报。
+// Time 形如 "23:00"；非法值按未配置处理（调度器直接跳过）。
+type AutoSummaryCfg struct {
+	Enabled bool   `json:"enabled"`
+	Time    string `json:"time"`
+}
 
 // Config 持久化到 dataDir/ai.json。
 //
@@ -33,6 +41,9 @@ type Config struct {
 	APIKey   string `json:"apiKey"`
 	Model    string `json:"model"`
 	Enabled  bool   `json:"enabled"`
+	// AutoSummary 自动总结调度。指针？不——值类型 + serde 默认零值
+	// （enabled=false, time=""）即「未配置」，与老配置文件兼容。
+	AutoSummary AutoSummaryCfg `json:"autoSummary"`
 }
 
 // View 是 GET /ai/settings 的响应形状：apiKey 打码。
@@ -41,7 +52,9 @@ type View struct {
 	BaseURL  string `json:"baseURL"`
 	Model    string `json:"model"`
 	Enabled  bool   `json:"enabled"`
-	HasKey   bool   `json:"hasKey"`
+	// AutoSummary 自动总结配置（GET 返回完整形状，PUT 按出现的字段覆盖）。
+	AutoSummary AutoSummaryCfg `json:"autoSummary"`
+	HasKey      bool           `json:"hasKey"`
 	// KeyTail 明文 key 的末 4 位，帮用户辨认是哪把 key；无 key 时为空。
 	KeyTail string `json:"keyTail"`
 }
@@ -56,6 +69,7 @@ func defaultBaseURL(provider string) string {
 }
 
 func sanitize(cfg Config) Config {
+	cfg.AutoSummary = sanitizeAutoSummary(cfg.AutoSummary)
 	cfg.Provider = strings.TrimSpace(cfg.Provider)
 	cfg.BaseURL = strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
 	cfg.Model = strings.TrimSpace(cfg.Model)
@@ -68,6 +82,18 @@ func sanitize(cfg Config) Config {
 	return cfg
 }
 
+// sanitizeAutoSummary 规整自动总结配置；非法时间回退 "23:00"（Hindsight 同款默认）。
+func sanitizeAutoSummary(a AutoSummaryCfg) AutoSummaryCfg {
+	a.Time = strings.TrimSpace(a.Time)
+	if a.Time == "" {
+		a.Time = "23:00"
+	}
+	if _, err := time.ParseInLocation("15:04", a.Time, time.Local); err != nil {
+		a.Time = "23:00"
+	}
+	return a
+}
+
 // view 打码视图。
 func view(cfg Config) View {
 	tail := ""
@@ -75,12 +101,13 @@ func view(cfg Config) View {
 		tail = cfg.APIKey[len(cfg.APIKey)-4:]
 	}
 	return View{
-		Provider: cfg.Provider,
-		BaseURL:  cfg.BaseURL,
-		Model:    cfg.Model,
-		Enabled:  cfg.Enabled,
-		HasKey:   cfg.APIKey != "",
-		KeyTail:  tail,
+		Provider:    cfg.Provider,
+		BaseURL:     cfg.BaseURL,
+		Model:       cfg.Model,
+		Enabled:     cfg.Enabled,
+		HasKey:      cfg.APIKey != "",
+		KeyTail:     tail,
+		AutoSummary: sanitizeAutoSummary(cfg.AutoSummary),
 	}
 }
 

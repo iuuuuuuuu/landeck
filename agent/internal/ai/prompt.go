@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 )
 
 // prompt.go：prompt 组装与上下文裁剪，全部纯函数（输入→输出无 IO），单测重点。
@@ -81,6 +82,29 @@ func fmtDur(sec int64) string {
 	default:
 		return fmt.Sprintf("%d 分钟", m)
 	}
+}
+
+// ContextRange 提取注入上下文覆盖的日期范围（[from,to] 闭区间）。
+// 这是 citations 的来源边界：模型引用范围外的日期属于幻觉，agent 侧会过滤。
+func ContextRange(summary any) (from, to string) {
+	sum, err := decode[rawSummary](summary)
+	if err != nil {
+		return "", ""
+	}
+	return sum.From, sum.To
+}
+
+func fromDate(s string) time.Time {
+	t, _ := time.ParseInLocation("2006-01-02", s, time.Local)
+	return t
+}
+
+func toDate(s string) time.Time {
+	t, _ := time.ParseInLocation("2006-01-02", s, time.Local)
+	if t.IsZero() {
+		return time.Now()
+	}
+	return t.AddDate(0, 0, 1).Add(-time.Second) // 闭区间：当天 23:59:59
 }
 
 // maxContextChars 系统提示的上下文预算（字符）。
@@ -235,7 +259,10 @@ func BuildChatMessages(summary, rank any, userMsgs []ChatMessage) ([]ChatMessage
 
 	sys := "你是 LanDeck 的内置助手，回答关于用户电脑使用情况的问题。\n" +
 		"回答依据下面给出的真实统计；数据里没有的就说统计里查不到，不要编造。\n" +
-		"数字引用保持与统计一致，时长用「X 小时 Y 分钟」格式。\n\n" +
+		"数字引用保持与统计一致，时长用「X 小时 Y 分钟」格式。\n" +
+		"引用具体日期的活动数据时，在该句末尾追加标记 [cite:YYYY-MM-DD]（日期必须是" +
+		"统计范围内真实存在的日期；同一句引用多天用逗号分隔，如 [cite:2026-10-28,2026-10-29]）。" +
+		"标记只用于生成依据链接，除此之外不要输出。\n\n" +
 		truncateRunes(sb.String(), maxContextChars)
 
 	out := make([]ChatMessage, 0, len(userMsgs)+1)
