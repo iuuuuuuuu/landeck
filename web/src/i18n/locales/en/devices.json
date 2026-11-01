@@ -20,14 +20,17 @@
     "menu": "More actions"
   },
   "rename": {
-    "title": "Rename device",
-    "label": "Device name",
-    "ok": "Renamed",
-    "failed": "Rename failed"
+    "desc": "Only affects the name shown here, not the hostname of the controlled machine.",
+    "label": "Display name"
   },
   "remove": {
     "title": "Remove device",
     "desc": "The local token becomes invalid immediately; the client record on the controlled side can be revoked in its Settings.",
     "ok": "Device removed"
+  },
+  "noMatch": {
+    "title": "No matching devices",
+    "desc": "No device has name or address containing \"{{q}}\".",
+    "clear": "Clear search"
   }
 }

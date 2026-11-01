@@ -14,9 +14,12 @@ import {
   Modal,
 } from '../components/ui'
 import { useApp, type PairedDevice } from '../store/app'
+import { useT } from '../i18n'
 
 /** 设备页：网格卡片 + 搜索 + 手动刷新；在线状态 10s 轮询，不开 WS */
 export default function Devices() {
+  const t = useT('devices')
+  const tc = useT('common')
   const devices = useApp((s) => s.devices)
   const patchDevice = useApp((s) => s.patchDevice)
   const removeDevice = useApp((s) => s.removeDevice)
@@ -77,25 +80,25 @@ export default function Devices() {
     <div className="mx-auto w-full max-w-[1120px] space-y-3">
       {/* 扫描入口只有卡内一处（与搜索/刷新同组）；PageHeader 不再放第二个「扫描」 */}
       <PageHeader
-        title="设备"
+        title={t('title')}
         sub={
           <>
-            已配对 <span className="num text-fg-soft">{devices.length}</span> 台
+            {t('paired', { count: devices.length })}
             {devices.length > 0 && (
               <>
                 <span className="text-faint"> · </span>
                 {resolved === devices.length ? (
                   <span className={onlineCount > 0 ? 'text-ok' : 'text-faint'}>
-                    在线 <span className="num">{onlineCount}</span> 台
+                    {t('online', { count: onlineCount })}
                   </span>
                 ) : (
-                  <span>在线状态检测中</span>
+                  <span>{tc('status.checking')}</span>
                 )}
               </>
             )}
             <span className="hidden text-faint min-[1024px]:inline">
               {' '}
-              · 状态每 10 秒刷新 · 点卡片进入详情
+              · {t('refreshHint')}
             </span>
           </>
         }
@@ -111,16 +114,16 @@ export default function Devices() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="搜索名称或 IP"
+              placeholder={t('searchPlaceholder')}
               aria-label="搜索设备"
               className="h-10 w-full rounded-xl border border-line bg-elevated pl-9 pr-3 text-[13px] text-fg outline-none transition-colors placeholder:text-faint focus:border-accent/55 focus:bg-elevated-2"
             />
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <Button variant="secondary" icon={<Radar size={15} />} onClick={() => navigate('/scan')}>
-              扫描
+              {tc('actions.scan')}
             </Button>
-            <IconButton label="刷新状态" onClick={() => setNonce((n) => n + 1)}>
+            <IconButton label={tc('status.checking')} onClick={() => setNonce((n) => n + 1)}>
               <RefreshCw size={16} />
             </IconButton>
           </div>
@@ -131,15 +134,15 @@ export default function Devices() {
         <Card>
           <EmptyState
             icon={<Monitor size={26} />}
-            title="还没有配对的设备"
-            desc="扫描局域网找到 Agent，输入随机码或固定密钥，即可远程开关机、调音量、看状态。"
+            title={t('empty.title')}
+            desc={t('empty.desc')}
             action={
               <Button
                 variant="primary"
                 icon={<Radar size={16} />}
                 onClick={() => navigate('/scan')}
               >
-                扫描局域网
+                {t('empty.action')}
               </Button>
             }
           />
@@ -148,9 +151,9 @@ export default function Devices() {
         <Card>
           <EmptyState
             icon={<Search size={24} />}
-            title="没有匹配的设备"
-            desc={`没有名称或地址包含「${q.trim()}」的设备。`}
-            action={<Button onClick={() => setQ('')}>清除搜索</Button>}
+            title={t('noMatch.title')}
+            desc={t('noMatch.desc', { q: q.trim() })}
+            action={<Button onClick={() => setQ('')}>{t('noMatch.clear')}</Button>}
           />
         </Card>
       ) : (
@@ -175,24 +178,24 @@ export default function Devices() {
       <Modal
         open={!!renameTarget}
         onClose={() => setRenameTarget(null)}
-        title="重命名设备"
-        desc="只影响本机显示，不会改被控机的主机名。"
+        title={t('rename.title')}
+        desc={t('rename.desc')}
         footer={
           <>
             <Button variant="ghost" onClick={() => setRenameTarget(null)}>
-              取消
+              {tc('actions.cancel')}
             </Button>
             <Button
               variant="primary"
               disabled={!renameValue.trim()}
               onClick={confirmRename}
             >
-              保存
+              {tc('actions.save')}
             </Button>
           </>
         }
       >
-        <Field label="显示名称">
+        <Field label={t('rename.label')}>
           <Input
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
