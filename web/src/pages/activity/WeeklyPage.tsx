@@ -13,6 +13,7 @@ import { fmtDur } from '../../components/activity/bits'
 import { useTheme } from '../../store/theme'
 import { ActivityPageHeader, DateNav, LoadError, NoDeviceGuide, StatCard, addDays, todayStr, useActivityTarget } from './shared'
 import { DevicePicker, SegmentedTabs } from '../../components/shell'
+import { useT } from '../../i18n'
 import type { AppDetailOpen } from './DailyPage'
 
 /**
@@ -20,6 +21,7 @@ import type { AppDetailOpen } from './DailyPage'
  * 一周 7 天 × 类别堆叠。date 取周内任一天，agent 侧以它所在周为界（mock 同口径）。
  */
 export default function ActivityWeeklyPage() {
+  const t = useT('activity')
   const { device, devices, setDeviceId, pairedCount, localAvailable } = useActivityTarget()
   const { theme } = useTheme()
   const [date, setDate] = useState(todayStr())
@@ -39,7 +41,7 @@ export default function ActivityWeeklyPage() {
   if (summary.error)
     return (
       <div className="space-y-4">
-        <ActivityPageHeader title="周统计" subtitle={date} />
+        <ActivityPageHeader title={t('weekly.title')} subtitle={date} />
         <LoadError error={summary.error} onRetry={summary.reload} />
       </div>
     )
@@ -62,8 +64,8 @@ export default function ActivityWeeklyPage() {
           <>
             <SegmentedTabs
               items={[
-                { key: 'hours', label: '时段' },
-                { key: 'share', label: '占比' },
+                { key: 'hours', label: t('daily.viewHours') },
+                { key: 'share', label: t('daily.viewShare') },
               ]}
               value={mode}
               onChange={setMode}

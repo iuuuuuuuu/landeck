@@ -12,6 +12,7 @@ import { CategoryRankList, RankList } from '../../components/activity/RankList'
 import { AppDetailPanel } from '../../components/activity/AppDetailPanel'
 import { CategoryIcon, fmtDur } from '../../components/activity/bits'
 import { useTheme } from '../../store/theme'
+import { useT } from '../../i18n'
 import { ActivityPageHeader, DateNav, LoadError, NoDeviceGuide, StatCard, addDays, prettyDate, todayStr, useActivityTarget } from './shared'
 import { DevicePicker, SegmentedTabs } from '../../components/shell'
 
@@ -27,6 +28,7 @@ export interface AppDetailOpen {
  * 点应用行打开详情浮层（窗口标题/域名分组）。
  */
 export default function ActivityDailyPage() {
+  const t = useT('activity')
   const { device, devices, setDeviceId, pairedCount, localAvailable } = useActivityTarget()
   const { theme } = useTheme()
   const [date, setDate] = useState(todayStr())
@@ -58,8 +60,8 @@ export default function ActivityDailyPage() {
   return (
     <div className="space-y-4">
       <ActivityPageHeader
-        title="日统计"
-        subtitle={s ? `${prettyDate(s.date)} · 总计 ${fmtDur(s.totalSec)}` : date}
+        title={t('daily.title')}
+        subtitle={s ? `${prettyDate(s.date)} · ${t('daily.total', { duration: fmtDur(s.totalSec) })}` : date}
         demo={demo}
       />
 
@@ -68,8 +70,8 @@ export default function ActivityDailyPage() {
           <>
             <SegmentedTabs
               items={[
-                { key: 'hours', label: '时段' },
-                { key: 'share', label: '占比' },
+                { key: 'hours', label: t('daily.viewHours') },
+                { key: 'share', label: t('daily.viewShare') },
               ]}
               value={mode}
               onChange={setMode}
@@ -110,13 +112,13 @@ export default function ActivityDailyPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-0">
           <div className="px-4 py-3">
-            <SectionTitle title="最常用应用" desc={r ? `合计 ${fmtDur(r.apps.reduce((a, x) => a + x.sec, 0))}` : undefined} />
+            <SectionTitle title={t('daily.topApps')} desc={r ? `合计 ${fmtDur(r.apps.reduce((a, x) => a + x.sec, 0))}` : undefined} />
           </div>
           {!r ? <Skeleton className="mx-4 mb-4 h-56" /> : <RankList items={r.apps} target={device} token={device.token} onSelectApp={(app, cat) => setDetail({ app, cat })} />}
         </Card>
         <Card className="p-0">
           <div className="px-4 py-3">
-            <SectionTitle title="最常用分类" desc={r ? `合计 ${fmtDur(r.categories.reduce((a, x) => a + x.sec, 0))}` : undefined} />
+            <SectionTitle title={t('daily.topCats')} desc={r ? `合计 ${fmtDur(r.categories.reduce((a, x) => a + x.sec, 0))}` : undefined} />
           </div>
           {!r ? <Skeleton className="mx-4 mb-4 h-56" /> : <CategoryRankList items={r.categories} />}
         </Card>
