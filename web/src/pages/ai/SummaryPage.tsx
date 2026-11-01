@@ -205,7 +205,7 @@ export default function AiSummaryPage() {
           <div className="flex flex-col items-center gap-3 py-16">
             <Loader2 size={26} className="animate-spin text-accent" />
             <p className="text-[12.5px] text-muted">
-              正在生成，本地模型可能需要几十秒
+              {t("summary.generating")}
               <span className="text-faint">{t("summary.cached")}</span>
             </p>
           </div>
@@ -237,7 +237,7 @@ export default function AiSummaryPage() {
               {t('summary.emptyCta', { scope: scope === 'day' ? t('summary.scopeDay') : scope === 'week' ? t('summary.scopeWeek') : t('summary.scopeMonth') })}
             </p>
             <Button variant="primary" icon={<Sparkles size={14} />} onClick={() => void generate()}>
-              生成总结
+              {t("summary.generate")}
             </Button>
           </div>
         )}

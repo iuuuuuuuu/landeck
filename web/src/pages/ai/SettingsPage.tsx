@@ -170,7 +170,7 @@ export default function AiSettingsPage() {
             <TriangleAlert size={15} className="mt-0.5 shrink-0" />
             <span className="min-w-0 flex-1">{t("settings.readFailed")}{String(q.error instanceof Error ? q.error.message : q.error)}</span>
             <Button size="sm" variant="ghost" onClick={q.reload}>
-              重试
+              {t("settings.retry")}
             </Button>
           </div>
         </Card>
@@ -200,7 +200,7 @@ export default function AiSettingsPage() {
               </Field>
               <Field
                 label={t("settings.endpoint")}
-                hint={form.provider === 'ollama' ? '例如 http://127.0.0.1:11434' : '例如 https://api.openai.com/v1（兼容各家 OpenAI 形状的端点）'}
+                hint={form.provider === 'ollama' ? t('settings.endpointOllamaHint') : t('settings.endpointOpenaiHint2')}
               >
                 <Input
                   value={form.baseURL}
@@ -234,7 +234,7 @@ export default function AiSettingsPage() {
                 </Field>
               )}
               <Field label={t("settings.summaryModel")} hint={form.provider === 'ollama' ? t('settings.modelOllamaHint') : t('settings.modelCloudHint')}>
-                <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="模型名称" spellCheck={false} />
+                <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder={t("settings.summaryModel")} spellCheck={false} />
               </Field>
               <Field label={t("settings.chatModel")} hint={t("settings.chatModelHint")}>
                 <Input
@@ -331,12 +331,12 @@ export default function AiSettingsPage() {
           <Card>
             <div className="flex items-start gap-2 rounded-xl px-1 py-1 text-[11.5px] leading-relaxed text-muted">
               <p className="min-w-0 flex-1">
-                密钥保存在被控端本机（settings 文件），控制端只回传是否存在与尾号。对话与总结请求由被控端代理调用——
-                控制端不直接连模型服务。配置问题见{' '}
+                {t("settings.privacy1")}
+                {t("settings.privacy2")}{' '}
                 <Link to="/ai/chat" className="text-accent hover:underline">
-                  AI 对话
+                  {t("settings.chatLink")}
                 </Link>{' '}
-                页的错误提示。
+                {t("settings.privacy3")}
               </p>
             </div>
           </Card>
