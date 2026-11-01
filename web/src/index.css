@@ -376,15 +376,30 @@
   /* 沉浸式安全区：内容铺到状态栏/导航栏下，靠这两个类让内容自己避让。
      竖屏手机状态栏约 24–48px，iOS 刘海更高；用 env() 取系统真实值，
      拿不到时（桌面浏览器/旧 WebView）退回 0，不影响布局。 */
+  /* ---- 安全区避让（回退链）----
+     Android WebView 的 env(safe-area-inset-*) 恒为 0（WebView 不消费
+     WindowInsets），页面会直接顶进状态栏 —— Owner 实报的重叠根因。
+     MainActivity 把真实 inset 写进 --ldk-safe-*，这里按
+     max(env, 注入值, 基础间距) 取值：iOS/正常设备 env() 优先，
+     Android 由注入变量兜底，桌面三者皆 0 只剩基础间距。 */
   .pb-safe {
-    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+    padding-bottom: max(env(safe-area-inset-bottom), var(--ldk-safe-bottom, 0px), 0.5rem);
   }
   .pt-safe {
-    padding-top: max(env(safe-area-inset-top), 0.25rem);
+    padding-top: max(env(safe-area-inset-top), var(--ldk-safe-top, 0px), 0.25rem);
   }
   .px-safe {
-    padding-left: max(env(safe-area-inset-left), 0rem);
-    padding-right: max(env(safe-area-inset-right), 0rem);
+    padding-left: max(env(safe-area-inset-left), var(--ldk-safe-left, 0px), 0rem);
+    padding-right: max(env(safe-area-inset-right), var(--ldk-safe-right, 0px), 0rem);
+  }
+
+  /* 页面主容器的底部留白：内容高度 + 底部 tab bar 自身的安全区避让。
+     旧写法 pb-[calc(7.5rem+env(...))] 在 Android 上 env() 为 0，
+     tab bar 被 Kotlin 注入抬高后（pb-safe）会遮住页面末尾几行。 */
+  .pb-page {
+    padding-bottom: calc(
+      7.5rem + max(env(safe-area-inset-bottom), var(--ldk-safe-bottom, 0px))
+    );
   }
 }
 

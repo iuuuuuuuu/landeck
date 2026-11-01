@@ -75,6 +75,7 @@ export default function Devices() {
 
   return (
     <div className="mx-auto w-full max-w-[1120px] space-y-3">
+      {/* 扫描入口只有卡内一处（与搜索/刷新同组）；PageHeader 不再放第二个「扫描」 */}
       <PageHeader
         title="设备"
         sub={
@@ -97,16 +98,6 @@ export default function Devices() {
               · 状态每 10 秒刷新 · 点卡片进入详情
             </span>
           </>
-        }
-        actions={
-          <Button
-            variant="secondary"
-            size="md"
-            icon={<Radar size={14} strokeWidth={1.75} aria-hidden />}
-            onClick={() => navigate('/scan')}
-          >
-            扫描
-          </Button>
         }
       />
 

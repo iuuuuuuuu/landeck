@@ -29,7 +29,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       {customTitlebar && <TitleBar />}
       <AppSidebar />
       <div className="flex min-h-full flex-col min-[1024px]:pl-[304px]">
-        <main className="px-safe mx-auto w-full max-w-[1240px] flex-1 px-3 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 min-[1024px]:pb-8 min-[1024px]:pt-6">
+        {/*
+          pt-safe：移动端内容避让系统状态栏（Android 由 MainActivity 注入
+          --ldk-safe-top 兜底；桌面 env()/注入值皆 0，由 min-[1024px]:pt-6 定顶距）。
+          pb-page：内容尾部避开底部 tab bar 及其安全区（六期新增组件类）。
+        */}
+        <main className="px-safe pb-page mx-auto w-full max-w-[1240px] flex-1 px-3 pt-safe sm:px-4 min-[1024px]:pb-8 min-[1024px]:pt-6">
           {/*
             切页动画：刻意【不用】framer-motion。
 
