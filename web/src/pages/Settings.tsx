@@ -425,12 +425,12 @@ function AboutCard({ device }: { device: PairedDevice }) {
   )
 }
 
-const THEME_OPTIONS: { value: ThemeMode; label: string; icon: ReactNode }[] = [
-  { value: 'system', label: '跟随系统', icon: <Monitor size={14} /> },
-  { value: 'light', label: '明亮', icon: <Sun size={14} /> },
-  { value: 'dark', label: '暗色', icon: <Moon size={14} /> },
-  { value: 'minimal', label: '简约', icon: <Minus size={14} /> },
-  { value: 'flat', label: '留白扁平', icon: <Square size={14} /> },
+const THEME_OPTIONS: { value: ThemeMode; labelKey: string; icon: ReactNode }[] = [
+  { value: 'system', labelKey: 'themeSystem', icon: <Monitor size={14} /> },
+  { value: 'light', labelKey: 'themeLight', icon: <Sun size={14} /> },
+  { value: 'dark', labelKey: 'themeDark', icon: <Moon size={14} /> },
+  { value: 'minimal', labelKey: 'themeMinimal', icon: <Minus size={14} /> },
+  { value: 'flat', labelKey: 'themeFlat', icon: <Square size={14} /> },
 ]
 
 /** 第 0 组：外观 + 桌面端自启。不依赖设备，未配对 / 离线时也照样能用 */
@@ -574,7 +574,7 @@ function AppearanceCard() {
         desc="「跟随系统」会随操作系统的深浅色设置实时变化；选择记在这个浏览器里，刷新不丢。"
       />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <Segmented value={mode} onChange={setMode} options={THEME_OPTIONS} />
+        <Segmented value={mode} onChange={setMode} options={THEME_OPTIONS.map((o) => ({ ...o, label: t(o.labelKey) }))} />
         <span className="text-[12px] text-muted">
           选择：<span className="text-fg-soft">{THEME_LABEL[mode]}</span>
           <span className="text-faint"> · 当前生效 {THEME_NAME_LABEL[theme]}</span>

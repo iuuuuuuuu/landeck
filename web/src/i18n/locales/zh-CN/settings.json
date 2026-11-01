@@ -40,7 +40,14 @@
       "onDesc": "关闭窗口后界面内存会被释放，只在托盘保留后台服务；再次打开会重建界面（数据仍会立刻显示）。",
       "offDesc": "关闭窗口后界面保留在后台，再次打开是秒开。",
       "failed": "设置轻量模式失败"
-    }
+    },
+    "auto": "开机自启",
+    "autoDesc": "登录这台电脑后自动启动 LanDeck 控制端。",
+    "themeSystem": "跟随系统",
+    "themeLight": "明亮",
+    "themeDark": "暗色",
+    "themeMinimal": "简约",
+    "themeFlat": "留白扁平"
   },
   "about": {
     "title": "关于",
@@ -115,5 +122,9 @@
     "autostartOff": "已关闭开机自启"
   },
   "save": "保存",
-  "retry": "重试"
+  "retry": "重试",
+  "lang": {
+    "title": "界面语言",
+    "desc": "切换立即生效；跟随系统时由系统语言决定，AI 总结的语言也会跟随。"
+  }
 }

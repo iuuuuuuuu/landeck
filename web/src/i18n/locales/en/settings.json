@@ -3,7 +3,7 @@
   "subtitle": "Identity, agent options and security",
   "appearance": {
     "title": "Appearance & startup",
-    "desc": "「Follow system」 tracks your OS light/dark setting in real time; your choice is stored in this browser and survives refresh.",
+    "desc": "\"Follow system\" tracks your OS light/dark setting live; your choice is kept in this browser and survives reloads.",
     "theme": "Theme",
     "themes": {
       "system": "Follow system",
@@ -40,7 +40,14 @@
       "onDesc": "Closing the window releases UI memory, keeping only the tray and background service; reopening rebuilds the UI (data still shows instantly).",
       "offDesc": "The UI stays in the background after closing; reopening is instant.",
       "failed": "Failed to set lightweight mode"
-    }
+    },
+    "auto": "Start with Windows",
+    "autoDesc": "Launch the LanDeck console automatically when you sign in to this PC.",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeMinimal": "Minimal",
+    "themeFlat": "Flat white"
   },
   "about": {
     "title": "About",
@@ -115,5 +122,9 @@
     "autostartOff": "Launch at login disabled"
   },
   "save": "Save",
-  "retry": "Retry"
+  "retry": "Retry",
+  "lang": {
+    "title": "Interface language",
+    "desc": "Applies instantly. When following the system, the OS language decides — AI summaries follow it too."
+  }
 }
