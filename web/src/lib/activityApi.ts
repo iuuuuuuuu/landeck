@@ -730,13 +730,21 @@ export async function fetchYearDays(
 ): Promise<WithDemo<{ days: { date: string; sec: number }[] }>> {
   try {
     const raw = await req<RawSummary>(t, token, `/activity/summary?scope=year&date=${year}`, { timeoutMs: 20000 })
-    const days = (raw.buckets ?? []).map((b) => ({
-      date: b.key,
-      sec: Object.values(b.secs ?? {}).reduce((a, v) => a + v, 0),
-    }))
-    return { demo: false, data: { days } }
-  } catch (e) {
-    if (!isNotImplemented(e)) throw e
+    // 形状校验：agent 侧 scope=year 尚未上线时会 200 但按「一天」解析（scope 回显 day、
+    // buckets 是小时桶 key='00'）——五期实测踩过。非法形状一律走 12×month 真数据回退。
+    const looksYear =
+      raw.scope === 'year' &&
+      (raw.buckets ?? []).length > 0 &&
+      (raw.buckets ?? []).every((b) => /^\d{4}-\d{2}-\d{2}$/.test(b.key))
+    if (looksYear) {
+      const days = (raw.buckets ?? []).map((b) => ({
+        date: b.key,
+        sec: Object.values(b.secs ?? {}).reduce((a, v) => a + v, 0),
+      }))
+      return { demo: false, data: { days } }
+    }
+  } catch {
+    /* 404/501 或网络错误都落回退 */
   }
   // 回退：12 × month（真接口）
   try {

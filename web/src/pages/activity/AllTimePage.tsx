@@ -23,6 +23,8 @@ export default function ActivityAllTimePage() {
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [selectedDate, setSelectedDate] = useState<string | null>(todayStr())
+  // B2 拖选放大区间：设置后热力图/月历只显示该区间，排行按区间起点所在月联动
+  const [range, setRange] = useState<{ from: string; to: string } | null>(null)
   const [detail, setDetail] = useState<AppDetailOpen | null>(null)
 
   // 全年 12 个月一次拉齐（内部各自命中/写入缓存）
@@ -32,13 +34,28 @@ export default function ActivityAllTimePage() {
     key: activityYearKey(device, year),
     ttlMs: 3 * 60_000,
   })
+  // 排行联动：拖选区间且未点天 → 区间起点所在月（契约无区间排行端点，按月粒度并标注）；
+  // 点选某天 → scope=day 联动该天
+  const rankScope: 'day' | 'month' | null = selectedDate ? 'day' : range ? 'month' : null
+  const rankDate = selectedDate ?? (range ? range.from.slice(0, 7) : '')
   const rank = useAsync(
-    selectedDate ? () => fetchRank(device, device.token, { scope: 'day', date: selectedDate }) : null,
-    [selectedDate, device.host, device.port, device.token],
-    { key: selectedDate ? activityRankKey(device, 'day', selectedDate) : '', ttlMs: 3 * 60_000 },
+    rankScope ? () => fetchRank(device, device.token, { scope: rankScope, date: rankDate }) : null,
+    [rankScope, rankDate, device.host, device.port, device.token],
+    { key: rankScope ? activityRankKey(device, rankScope, rankDate) : '', ttlMs: 3 * 60_000 },
   )
 
-  const days = useMemo(() => yearQ.data?.data.days ?? [], [yearQ.data])
+  const daysAll = useMemo(() => yearQ.data?.data.days ?? [], [yearQ.data])
+  const days = useMemo(
+    () => (range ? daysAll.filter((d) => d.date >= range.from && d.date <= range.to) : daysAll),
+    [daysAll, range],
+  )
+  const rangeDays = useMemo(
+    () => (range ? daysAll.filter((d) => d.date >= range.from && d.date <= range.to) : []),
+    [daysAll, range],
+  )
+  const rangeTotal = rangeDays.reduce((a, d) => a + d.sec, 0)
+  const rangeActive = rangeDays.filter((d) => d.sec > 0).length
+  const rangeAvg = rangeActive > 0 ? Math.round(rangeTotal / rangeActive) : 0
   const demo = !!yearQ.data?.demo
   const monthDays = useMemo(
     () => days.filter((d) => d.date.startsWith(`${year}-${String(month).padStart(2, '0')}`)),
@@ -68,6 +85,18 @@ export default function ActivityAllTimePage() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <SectionTitle title="年表" desc="颜色越深当天用得越久；点选某天，下方排行只统计这一天" />
           <div className="flex items-center gap-2">
+            {range && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRange(null)
+                  setSelectedDate(null)
+                }}
+                className="h-9 rounded-xl bg-accent px-3.5 text-[12.5px] font-medium text-white hover:opacity-90"
+              >
+                清除选择 {range.from.slice(5)}~{range.to.slice(5)}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setYear((y) => y - 1)}
@@ -88,7 +117,20 @@ export default function ActivityAllTimePage() {
         {!yearQ.data ? (
           <Skeleton className="h-40 w-full" />
         ) : (
-          <HeatMap days={days} selectedDate={selectedDate} onSelect={(d) => { setSelectedDate(d); setMonth(Number(d.slice(5, 7))) }} />
+          <HeatMap
+              days={days}
+              selectedDate={selectedDate}
+              range={range}
+              onRangeSelect={(f, t) => {
+                setRange({ from: f, to: t })
+                setSelectedDate(null)
+                setMonth(Number(f.slice(5, 7)))
+              }}
+              onSelect={(d) => {
+                setSelectedDate(d)
+                setMonth(Number(d.slice(5, 7)))
+              }}
+            />
         )}
       </Card>
 
@@ -123,8 +165,20 @@ export default function ActivityAllTimePage() {
           <Card className="p-0">
             <div className="px-4 py-3">
               <SectionTitle
-                title={selectedDate ? `${prettyDate(selectedDate)} · 最常用应用` : '选择一个日期'}
-                desc={rank.data?.data ? `合计 ${fmtDur(rank.data.data.apps.reduce((a, x) => a + x.sec, 0))}` : undefined}
+                title={
+                  selectedDate
+                    ? `${prettyDate(selectedDate)} · 最常用应用`
+                    : range
+                      ? `${range.from.slice(5)} ~ ${range.to.slice(5)} · ${Number(range.from.slice(5, 7))}月排行`
+                      : '选择一个日期'
+                }
+                desc={
+                  rank.data?.data
+                    ? rankScope === 'day'
+                      ? `合计 ${fmtDur(rank.data.data.apps.reduce((a, x) => a + x.sec, 0))}`
+                      : `区间合计 ${fmtDur(rangeTotal)} · 日均 ${fmtDur(rangeAvg)} · 活跃 ${rangeActive} 天（排行按月粒度）`
+                    : undefined
+                }
               />
             </div>
             {!selectedDate || !rank.data ? (

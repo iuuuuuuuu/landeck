@@ -2,7 +2,7 @@ import { lazy, Suspense, useState } from 'react'
 import { Card, SectionTitle, Skeleton } from '../../components/ui'
 import { useAsync } from '../../lib/hooks'
 import { activityRankKey, activitySummaryKey } from '../../lib/activityKeys'
-import { CAT_LABEL, catColor, fetchRank, fetchSummary } from '../../lib/activityApi'
+import { CAT_LABEL, fetchRank, fetchSummary } from '../../lib/activityApi'
 import type { CatKey } from '../../lib/activityApi'
 // lazy 模式说明同 DailyPage：echarts 不进主包
 const StackedBarChart = lazy(() =>
@@ -11,7 +11,8 @@ const StackedBarChart = lazy(() =>
 const DonutChart = lazy(() =>
   import('../../components/activity/DonutChart').then((m) => ({ default: m.DonutChart })),
 )
-import { CategoryIcon, fmtDur } from '../../components/activity/bits'
+import { AppIcon, CategoryIcon, fmtDur } from '../../components/activity/bits'
+import { AppDetailPanel } from '../../components/activity/AppDetailPanel'
 import { useTheme } from '../../store/theme'
 import { ActivityPageHeader, DateNav, LoadError, NoDeviceGuide, StatCard, addMonths, currentMonth, useActivityTarget } from './shared'
 
@@ -45,11 +46,18 @@ export default function ActivityMonthlyPage() {
     ttlMs: 3 * 60_000,
   })
   // 上月（环比）：懒到位 —— 本月数据加载成功后再取，避免首屏双请求
+  const [detail, setDetail] = useState<{ app: string; cat: string } | null>(null)
   const prevMonth = addMonths(month, -1)
   const prev = useAsync(
     summary.data ? () => fetchSummary(device, device.token, { scope: 'month', date: prevMonth }) : null,
     [summary.data, prevMonth, device.host, device.port, device.token],
     { key: activitySummaryKey(device, 'month', prevMonth), ttlMs: 3 * 60_000 },
+  )
+  // B1 点选联动：上月同大类时长（四卡的「较上月变化」需要按类别对比）
+  const prevRank = useAsync(
+    summary.data ? () => fetchRank(device, device.token, { scope: 'month', date: prevMonth }) : null,
+    [summary.data, prevMonth, device.host, device.port, device.token],
+    { key: activityRankKey(device, 'month', prevMonth), ttlMs: 3 * 60_000 },
   )
 
   if (!localAvailable && pairedCount === 0) return <NoDeviceGuide />
@@ -80,6 +88,74 @@ export default function ActivityMonthlyPage() {
     selectedCat && r
       ? [...r.apps].filter((a) => a.cat === selectedCat).sort((a, b) => b.sec - a.sec)[0]
       : undefined
+
+  // ---- B1 点选大类联动 ----
+  // 选中时四卡切换为「该大类的构成与环比」；数值全部来自已拉取的月/排行数据，
+  // 不新增契约。该类日均 = 该类时长 / 该类有记录的天数（与全览卡口径一致）。
+  const catSecCur = selectedCat && r ? r.categories.find((c) => c.cat === selectedCat)?.sec ?? 0 : 0
+  const catSecPrev =
+    selectedCat && prevRank.data ? prevRank.data.data.categories.find((c) => c.cat === selectedCat)?.sec ?? 0 : 0
+  const catDaysCur = selectedCat && s ? s.slots.filter((x) => (x.sec[selectedCat] ?? 0) > 0).length : 0
+  const catDaysPrev =
+    selectedCat && prev.data ? prev.data.data.slots.filter((x) => (x.sec[selectedCat] ?? 0) > 0).length : 0
+  const catDailyCur = catDaysCur > 0 ? Math.round(catSecCur / catDaysCur) : 0
+  const catDailyPrev = catDaysPrev > 0 ? Math.round(catSecPrev / catDaysPrev) : 0
+  const catDelta = selectedCat ? deltaLabel(catSecCur, catSecPrev) : null
+  const catAvgDelta = selectedCat ? deltaLabel(catDailyCur, catDailyPrev) : null
+
+  const cards = selectedCat
+    ? [
+        {
+          label: `${CAT_LABEL[selectedCat]} · 本月时长`,
+          value: fmtDur(catSecCur),
+          delta: catDelta,
+          sub: undefined as string | undefined,
+        },
+        {
+          label: `${CAT_LABEL[selectedCat]} · 日均`,
+          value: catDaysCur > 0 ? fmtDur(catDailyCur) : '—',
+          delta: catAvgDelta,
+          sub: `活跃 ${catDaysCur} 天` as string | undefined,
+        },
+        {
+          label: `${CAT_LABEL[selectedCat]} · 活跃天数`,
+          value: `${catDaysCur} 天`,
+          delta: null,
+          sub: undefined as string | undefined,
+        },
+        {
+          label: '最大构成应用',
+          value: topAppInCat ? topAppInCat.app : '—',
+          delta: null,
+          sub: topAppInCat ? fmtDur(topAppInCat.sec) : (undefined as string | undefined),
+        },
+      ]
+    : [
+        {
+          label: '本月总时长',
+          value: s ? fmtDur(s.totalSec) : '—',
+          delta: monthDelta,
+          sub: undefined as string | undefined,
+        },
+        {
+          label: '日均时长',
+          value: s ? fmtDur(dailyAvg) : '—',
+          delta: avgDelta,
+          sub: undefined as string | undefined,
+        },
+        {
+          label: '活跃天数',
+          value: s ? `${daysWithActivity} 天` : '—',
+          delta: null,
+          sub: undefined as string | undefined,
+        },
+        {
+          label: '最大类别',
+          value: topCat && !selectedCat ? CAT_LABEL[topCat.cat] : '—',
+          delta: null,
+          sub: topCat ? fmtDur(topCat.sec) : (undefined as string | undefined),
+        },
+      ]
 
   return (
     <div className="space-y-4">
@@ -112,31 +188,9 @@ export default function ActivityMonthlyPage() {
         )}
       </StatCard>
 
-      {/* 环比卡片：较上月 / 日均 / 日均变化 / 最大构成 */}
+      {/* 四卡：未选=全览；选中大类=该类构成与环比（B1 联动） */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[
-          {
-            label: '本月总时长',
-            value: s ? fmtDur(s.totalSec) : '—',
-            delta: monthDelta,
-          },
-          {
-            label: '日均时长',
-            value: s ? fmtDur(dailyAvg) : '—',
-            delta: avgDelta,
-          },
-          {
-            label: '活跃天数',
-            value: s ? `${daysWithActivity} 天` : '—',
-            delta: null,
-          },
-          {
-            label: selectedCat ? `${CAT_LABEL[selectedCat]} 构成` : '最大类别',
-            value: topCat && !selectedCat ? CAT_LABEL[topCat.cat] : topAppInCat ? topAppInCat.app : '—',
-            delta: null,
-            cat: selectedCat ?? topCat?.cat,
-          },
-        ].map((card) => (
+        {cards.map((card) => (
           <Card key={card.label} className="p-4">
             <div className="text-[11.5px] text-muted">{card.label}</div>
             <div className="mt-1.5 flex items-baseline gap-2">
@@ -148,17 +202,12 @@ export default function ActivityMonthlyPage() {
               )}
               {card.delta && card.delta.text === '持平' && <span className="text-[12px] text-faint">持平</span>}
             </div>
-            {card.cat !== undefined && card.cat !== null && (
-              <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11.5px] text-muted">
-                <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: catColor(card.cat) }} />
-                {topAppInCat && selectedCat ? `${CAT_LABEL[selectedCat]} · ${fmtDur(topAppInCat.sec)}` : topCat ? fmtDur(topCat.sec) : ''}
-              </div>
-            )}
+            {card.sub && <div className="mt-1.5 text-[11.5px] text-muted">{card.sub}</div>}
           </Card>
         ))}
       </div>
 
-      {/* 双环占比 + 图例 */}
+{/* 双环占比 + 图例 */}
       <Card>
         <SectionTitle title="类别占比" desc="点内环类别查看该类别下的应用构成" />
         {!s || !r ? (
@@ -176,33 +225,78 @@ export default function ActivityMonthlyPage() {
               theme={theme}
             />
             </Suspense>
-            {/* 图例：点选与图表联动 */}
+            {/* 图例：未选=类别列表（点选联动）；选中=该类下应用构成（点行开详情） */}
             <ul className="space-y-1.5 lg:pl-2">
-              {r.categories.map((c) => {
-                const pct = Math.round((c.sec / (s.totalSec || 1)) * 100)
-                const isSel = selectedCat === c.cat
-                return (
-                  <li key={c.cat}>
+              {selectedCat && r ? (
+                <>
+                  <li className="flex items-center justify-between px-3 pb-1">
+                    <span className="text-[11.5px] text-muted">{CAT_LABEL[selectedCat]} 的应用构成</span>
                     <button
                       type="button"
-                      onClick={() => setSelectedCat(isSel ? null : c.cat)}
-                      className={
-                        'flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors ' +
-                        (isSel ? 'bg-elevated ring-1 ring-line-soft' : 'hover:bg-elevated/60')
-                      }
+                      onClick={() => setSelectedCat(null)}
+                      className="text-[11px] text-faint hover:text-fg-soft"
                     >
-                      <CategoryIcon cat={c.cat} size={13} />
-                      <span className="flex-1 text-[13px] text-fg-soft">{CAT_LABEL[c.cat]}</span>
-                      <span className="num text-[12.5px] tabular-nums text-muted">{pct}%</span>
-                      <span className="num w-[74px] text-right text-[12.5px] tabular-nums text-fg-soft">{fmtDur(c.sec)}</span>
+                      返回全览
                     </button>
                   </li>
-                )
-              })}
+                  {r.apps
+                    .filter((a) => a.cat === selectedCat)
+                    .sort((a, b) => b.sec - a.sec)
+                    .slice(0, 8)
+                    .map((a) => {
+                      const pct = Math.round((a.sec / (catSecCur || 1)) * 100)
+                      return (
+                        <li key={a.app}>
+                          <button
+                            type="button"
+                            onClick={() => setDetail({ app: a.app, cat: a.cat })}
+                            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors hover:bg-elevated/60"
+                          >
+                            <AppIcon app={a.app} cat={a.cat} target={device} token={device.token} size={22} />
+                            <span className="min-w-0 flex-1 truncate text-[13px] text-fg-soft">{a.app}</span>
+                            <span className="num text-[12.5px] tabular-nums text-muted">{pct}%</span>
+                            <span className="num w-[74px] text-right text-[12.5px] tabular-nums text-fg-soft">
+                              {fmtDur(a.sec)}
+                            </span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  {r.apps.filter((a) => a.cat === selectedCat).length === 0 && (
+                    <li className="px-3 py-3 text-[12px] text-muted">该类别下没有应用明细。</li>
+                  )}
+                </>
+              ) : (
+                r.categories.map((c) => {
+                  const pct = Math.round((c.sec / (s.totalSec || 1)) * 100)
+                  const isSel = selectedCat === c.cat
+                  return (
+                    <li key={c.cat}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCat(isSel ? null : c.cat)}
+                        className={
+                          'flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors ' +
+                          (isSel ? 'bg-elevated ring-1 ring-line-soft' : 'hover:bg-elevated/60')
+                        }
+                      >
+                        <CategoryIcon cat={c.cat} size={13} />
+                        <span className="flex-1 text-[13px] text-fg-soft">{CAT_LABEL[c.cat]}</span>
+                        <span className="num text-[12.5px] tabular-nums text-muted">{pct}%</span>
+                        <span className="num w-[74px] text-right text-[12.5px] tabular-nums text-fg-soft">{fmtDur(c.sec)}</span>
+                      </button>
+                    </li>
+                  )
+                })
+              )}
             </ul>
           </div>
         )}
       </Card>
+
+      {detail && (
+        <AppDetailPanel device={device} app={detail.app} date={month} onClose={() => setDetail(null)} />
+      )}
     </div>
   )
 }

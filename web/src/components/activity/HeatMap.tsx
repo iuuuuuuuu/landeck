@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { fmtDur } from './bits'
 
 /**
@@ -14,15 +14,51 @@ export function HeatMap({
   days,
   selectedDate,
   onSelect,
+  range,
+  onRangeSelect,
   accent = '139,107,255',
 }: {
   /** 一整年的天：{ date: 'YYYY-MM-DD', sec }，允许缺天（缺 = 无数据） */
   days: { date: string; sec: number }[]
   selectedDate: string | null
   onSelect: (date: string) => void
+  /** 当前放大区间（B2 拖选结果）；设置时区间内格子带描边 */
+  range?: { from: string; to: string } | null
+  /** 拖选一段日期 → 父级放大到该区间；传了才启用拖选 */
+  onRangeSelect?: (from: string, to: string) => void
   /** 用于色阶的 accent RGB（与主题主色一致），默认品牌紫 */
   accent?: string
 }) {
+  // 拖选：按下记起点，滑过更新终点，抬起提交区间。单击（起点=终点）不提交，
+  // 走原 onClick 选天；真拖选后的那次 click 用 ref 吞掉。
+  const [dragFrom, setDragFrom] = useState<string | null>(null)
+  const [dragTo, setDragTo] = useState<string | null>(null)
+  const dragFromRef = useRef<string | null>(null)
+  // 拖选提交后短时间内吞掉尾随 click（mouseup 先于 click 触发）；
+  // 用时间窗而不是常驻布尔——否则之后所有合法点选都被误吞（实测踩过）
+  const draggedUntilRef = useRef(0)
+
+  function dragSpan(): [string, string] | null {
+    if (!dragFrom || !dragTo) return null
+    return dragFrom <= dragTo ? [dragFrom, dragTo] : [dragTo, dragFrom]
+  }
+
+  function endDrag() {
+    const span = dragSpan()
+    if (span && span[0] !== span[1]) {
+      draggedUntilRef.current = Date.now() + 300
+      onRangeSelect?.(span[0], span[1])
+    }
+    dragFromRef.current = null
+    setDragFrom(null)
+    setDragTo(null)
+  }
+
+  function inSpan(date: string): boolean {
+    const span = dragSpan()
+    return !!span && date >= span[0] && date <= span[1]
+  }
+
   const { cols, max, monthMarks } = useMemo(() => {
     if (days.length === 0) return { cols: [] as { date: string; sec: number }[][], max: 0, monthMarks: [] as { col: number; label: string }[] }
     // 以第一天的周一为起点对齐网格（周一在最上行）
@@ -67,7 +103,15 @@ export function HeatMap({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div
+      className="overflow-x-auto"
+      onMouseUp={() => {
+        if (dragFromRef.current) endDrag()
+      }}
+      onMouseLeave={() => {
+        if (dragFromRef.current) endDrag()
+      }}
+    >
       <div className="inline-block min-w-full">
         {/* 月份标记行 */}
         <div className="mb-1 flex gap-[3px] pl-7 text-[10px] text-faint">
@@ -95,10 +139,28 @@ export function HeatMap({
                     key={ri}
                     type="button"
                     title={`${cell.date} · ${cell.sec > 0 ? fmtDur(cell.sec) : '无记录'}`}
-                    onClick={() => onSelect(cell.date)}
+                    onClick={() => {
+                      if (Date.now() < draggedUntilRef.current) return
+                      onSelect(cell.date)
+                    }}
+                    onMouseDown={() => {
+                      if (!onRangeSelect) return
+                      dragFromRef.current = cell.date
+                      draggedUntilRef.current = 0
+                      setDragFrom(cell.date)
+                      setDragTo(cell.date)
+                    }}
+                    onMouseEnter={() => {
+                      if (!dragFromRef.current) return
+                      setDragTo(cell.date)
+                    }}
+                    onMouseUp={() => endDrag()}
                     className={
                       'h-3 w-3 rounded-[3px] transition-transform hover:scale-125 ' +
-                      (selectedDate === cell.date ? 'ring-2 ring-accent ring-offset-1 ring-offset-bg' : '')
+                      (selectedDate === cell.date ? 'ring-2 ring-accent ring-offset-1 ring-offset-bg ' : '') +
+                      ((dragFrom && inSpan(cell.date)) || (range && cell.date >= range.from && cell.date <= range.to)
+                        ? 'outline outline-1 outline-accent'
+                        : '')
                     }
                     style={cellStyle(cell.sec)}
                   />
