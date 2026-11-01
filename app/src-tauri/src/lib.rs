@@ -601,14 +601,13 @@ async fn app_updater_check(
 
 /// 读「自动检查更新」开关。
 #[tauri::command]
-#[cfg(desktop)]
 fn update_auto_get(app: tauri::AppHandle) -> bool {
     prefs::load(&app).auto_check_updates
 }
 
 /// 写「自动检查更新」开关（部分更新语义，只动这一个字段）。
+/// 不设 cfg(desktop)：注册列表未门控，android 目标也须编译（CI 实测踩过）。
 #[tauri::command]
-#[cfg(desktop)]
 fn update_auto_set(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
     let mut p = prefs::load(&app);
     p.auto_check_updates = enabled;
