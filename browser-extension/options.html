@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>LanDeck 域名记录 · 设置</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font: 14px/1.6 system-ui, sans-serif;
+      max-width: 520px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    h1 { font-size: 17px; margin: 0 0 4px; }
+    .sub { color: #888; font-size: 12.5px; margin-bottom: 20px; }
+    label { display: block; margin: 14px 0 4px; font-weight: 600; font-size: 13px; }
+    input[type="text"], input[type="password"] {
+      width: 100%; box-sizing: border-box; padding: 7px 10px;
+      border: 1px solid #8886; border-radius: 8px; font: inherit;
+    }
+    .row { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+    .row input[type="checkbox"] { width: 16px; height: 16px; }
+    button {
+      margin-top: 18px; padding: 7px 16px; border: 0; border-radius: 8px;
+      background: #6c5cff; color: #fff; font: inherit; cursor: pointer;
+    }
+    button.secondary { background: #8886; color: inherit; }
+    #msg { margin-top: 12px; font-size: 12.5px; min-height: 18px; }
+    #msg.ok { color: #2a9d5c; }
+    #msg.err { color: #d24a43; }
+    code { background: #8882; padding: 1px 5px; border-radius: 5px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>LanDeck 域名记录</h1>
+  <p class="sub">把激活标签的域名推送给本机 LanDeck Agent（仅本机 localhost 通信，不经过任何外部服务）。</p>
+
+  <label for="agentUrl">Agent 地址</label>
+  <input type="text" id="agentUrl" placeholder="http://127.0.0.1:8420" />
+
+  <label for="token">Token</label>
+  <input type="password" id="token" placeholder="从桌面端 设置 → 隐私 → 域名记录 复制" />
+
+  <div class="row">
+    <input type="checkbox" id="enabled" />
+    <label for="enabled" style="margin:0">启用域名上报</label>
+  </div>
+  <div class="row">
+    <input type="checkbox" id="stripWww" checked />
+    <label for="stripWww" style="margin:0">剥掉 www. 前缀（www.example.com 记为 example.com）</label>
+  </div>
+
+  <button id="save">保存</button>
+  <button id="test" class="secondary">测试连接</button>
+  <div id="msg"></div>
+
+  <script src="options.js"></script>
+</body>
+</html>
