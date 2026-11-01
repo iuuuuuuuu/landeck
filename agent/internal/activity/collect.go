@@ -85,8 +85,10 @@ func decide(t tickCtx, cur *openSegment) tickResult {
 	app := normalizeApp(t.Sample.App)
 	title := clipTitle(t.Sample.Title)
 	if cur != nil && cur.App == app && cur.Title == title {
+		// Domain 延续旧快照：域名表过期时若不带旧值，extend 会把库里
+		// 已存的 domain 冲成空串（崩溃恢复核对时抓的缺口）
 		return tickResult{State: "collecting", Keep: true,
-			New: &openSegment{ID: cur.ID, Start: cur.Start, End: t.Now.Unix(), App: app, Title: title}}
+			New: &openSegment{ID: cur.ID, Start: cur.Start, End: t.Now.Unix(), App: app, Title: title, Domain: cur.Domain}}
 	}
 	return tickResult{State: "collecting", Flush: cur != nil,
 		New: &openSegment{Start: t.Now.Unix(), End: t.Now.Unix(), App: app, Title: title}}
