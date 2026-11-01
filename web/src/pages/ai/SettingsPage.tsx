@@ -5,7 +5,7 @@ import { Badge, Button, Card, Field, Input, SectionTitle, Skeleton, Toggle } fro
 import { PageHeader } from '../../components/shell'
 import { useFetch } from '../../components/device/useFetch'
 import { aiSettingsKey } from '../../lib/aiKeys'
-import { fetchAiSettings, putAiSettings, sendChat, type AiProvider, type AiSettings } from '../../lib/aiApi'
+import { AI_CLOUD_PRESETS, fetchAiSettings, putAiSettings, sendChat, type AiProvider, type AiSettings } from '../../lib/aiApi'
 import { invalidateCache } from '../../lib/queryCache'
 import { useApp } from '../../store/app'
 import { useActiveTarget } from '../../lib/useActiveTarget'
@@ -56,7 +56,7 @@ export default function AiSettingsPage() {
       // 404 = agent 版本过老：按 brief 进「可填表单」（默认值），错误卡只给其它错误——
       // 用户可以在升级前把配置填好，升级后保存即可生效。
       if (legacy) {
-        setForm((f) => f ?? { provider: 'openai', baseURL: '', model: '', hasKey: false, keyTail: '', enabled: true })
+        setForm((f) => f ?? { provider: 'openai', baseURL: '', model: '', hasKey: false, keyTail: '', enabled: true, chat: { model: '' } })
       }
     } else {
       setNotFound(false)
@@ -73,6 +73,7 @@ export default function AiSettingsPage() {
           baseURL: form.baseURL.trim(),
           model: form.model.trim(),
           enabled: form.enabled,
+          chat: { model: form.chat?.model ?? '' },
         }
         if (apiKeyInput.trim()) patch.apiKey = apiKeyInput.trim()
         if (patchExtra?.clearKey) patch.clearKey = true
@@ -206,8 +207,40 @@ export default function AiSettingsPage() {
                   spellCheck={false}
                 />
               </Field>
-              <Field label="模型" hint={form.provider === 'ollama' ? '例如 qwen2.5:7b、llama3.1:8b' : '例如 gpt-4o-mini、deepseek-chat'}>
+              {form.provider === 'openai' && (
+                <Field label="云端预设" hint="点一下自动填服务地址；模型名各家不同，需要自己填">
+                  <div className="flex flex-wrap gap-1.5">
+                    {AI_CLOUD_PRESETS.map((p) => {
+                      const active = form.baseURL.trim().replace(/\/+$/, '') === p.baseURL
+                      return (
+                        <button
+                          key={p.key}
+                          type="button"
+                          onClick={() => setForm({ ...form, baseURL: p.baseURL })}
+                          className={
+                            'h-8 rounded-full border px-3 text-[12px] transition-colors ' +
+                            (active
+                              ? 'border-accent/40 bg-accent/[0.12] text-fg'
+                              : 'border-line-soft bg-elevated text-muted hover:text-fg-soft')
+                          }
+                        >
+                          {p.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </Field>
+              )}
+              <Field label="总结模型" hint={form.provider === 'ollama' ? '例如 qwen2.5:7b、llama3.1:8b' : '例如 gpt-4o-mini、deepseek-chat'}>
                 <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="模型名称" spellCheck={false} />
+              </Field>
+              <Field label="对话模型" hint="留空则使用总结模型；想让日常对话用更便宜/更快的模型时单独填">
+                <Input
+                  value={form.chat?.model ?? ''}
+                  onChange={(e) => setForm({ ...form, chat: { model: e.target.value } })}
+                  placeholder="留空则使用总结模型"
+                  spellCheck={false}
+                />
               </Field>
               <Field
                 label="API 密钥"

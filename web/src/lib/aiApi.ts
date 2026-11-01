@@ -11,6 +11,7 @@
  *   GET  /ai/reports?limit=30 → [{id, type:'day'|'week', date, generatedAt}]（报告历史，七期）
  *   GET  /ai/reports/content?id= → markdown（响应可能是裸文本或 {content|markdown} JSON，两者都容）
  *   settings 扩展：autoSummary: {enabled, time:'23:00'}（每日自动日报，PUT 部分更新，七期）
+ *   settings 扩展：chat: {model: ''}（对话专用模型；空=回退总结的 model，八期）
  *
  * 错误语义（两层，页面必须分流）：
  *   - 404/501：agent 版本过老，没有这组路由（< 1.0.19）。设置页显示「需要 1.0.19+」
@@ -41,6 +42,8 @@ export interface AiSettings {
   enabled: boolean
   /** 七期：每日自动生成日报（缺失视为关闭，老版本 agent 兼容） */
   autoSummary?: AutoSummaryConfig
+  /** 八期：对话专用模型（缺失/空 = 回退总结的 model；老版本 agent 兼容） */
+  chat?: { model: string }
 }
 
 /** 保存用的部分更新体；apiKey 只在用户本轮输入了新值时带，clearKey 单独发 */
@@ -52,6 +55,7 @@ export interface AiSettingsPatch {
   clearKey?: boolean
   enabled?: boolean
   autoSummary?: AutoSummaryConfig
+  chat?: { model: string }
 }
 
 export interface Citation {
@@ -251,6 +255,19 @@ function mockSummary(p: { scope: SummaryScope; date: string }): string {
   const scopeLabel = p.scope === 'day' ? '日报' : p.scope === 'week' ? '周报' : '月报'
   return `# ${scopeLabel}（${p.date}）\n\n## 概览\n\n今天总计 **5 小时 12 分**，比前一天多 23 分钟。\n\n## 分时段\n\n- **上午**：编程为主（Code 2h 10m），期间穿插了 3 次文档检索\n- **午后**：浏览与沟通穿插，微信和 Telegram 合计 41 分钟\n- **晚间**：影音 1 小时（PotPlayer + 网易云音乐）\n\n## 值得注意\n\n- 连续专注最长的一段是 10:00–11:47，没有切出开发工具\n- 「其他」类占比偏高（explorer 18 分钟），多为文件整理\n\n---\n\n*演示数据：在「AI 设置」里配置模型后，将基于你的真实活动记录生成。*`
 }
+
+// ---------- 云端预设（八期，前端持有）----------
+//
+// 为什么放前端：这些只是「快捷填表」的常量，agent 不需要知道；
+// model 名称各家差异大且更新频繁，留给用户填，预设只固定 baseURL。
+export const AI_CLOUD_PRESETS: { key: string; label: string; baseURL: string }[] = [
+  { key: 'openai', label: 'OpenAI', baseURL: 'https://api.openai.com/v1' },
+  { key: 'deepseek', label: 'DeepSeek', baseURL: 'https://api.deepseek.com/v1' },
+  { key: 'moonshot', label: 'Kimi / Moonshot', baseURL: 'https://api.moonshot.cn/v1' },
+  { key: 'openrouter', label: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1' },
+  { key: 'together', label: 'Together', baseURL: 'https://api.together.xyz/v1' },
+  { key: 'groq', label: 'Groq', baseURL: 'https://api.groq.com/openai/v1' },
+]
 
 // ---------- 真实请求 ----------
 
