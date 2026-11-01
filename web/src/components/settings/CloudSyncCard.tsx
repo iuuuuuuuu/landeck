@@ -66,11 +66,11 @@ export function CloudSyncCard({ device }: { device: PairedDevice }) {
         <p className="mt-4 text-[12.5px] text-danger">{settingsQ.error}</p>
       )}
 
-      {statusQ.data && statusQ.data.devices.length > 0 && (
+      {statusQ.data && (statusQ.data.devices?.length ?? 0) > 0 && (
         <div className="mt-4 border-t border-line-soft pt-3">
           <div className="text-[12.5px] font-medium text-fg-soft">{t('devicesTitle')}</div>
           <ul className="mt-2 space-y-1.5">
-            {statusQ.data.devices.map((d) => (
+            {(statusQ.data.devices ?? []).map((d) => (
               <li key={d.deviceId} className="flex items-center justify-between gap-3 text-[12.5px]">
                 <span className="min-w-0 truncate text-fg">{d.name}</span>
                 <span className="num shrink-0 text-[11.5px] text-muted">

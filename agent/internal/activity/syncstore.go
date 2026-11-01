@@ -139,17 +139,17 @@ func SyncDevices() []SyncDevice {
 	m := mgr
 	startMu.Unlock()
 	if m == nil || m.db == nil {
-		return nil
+		return []SyncDevice{}
 	}
 	ensureSyncTable()
 	rows, err := m.db.db.Query(`SELECT deviceId, name, savedAt,
 		(SELECT COUNT(*) FROM sync_segments s2 WHERE s2.deviceId = s1.deviceId) AS segs
 		FROM sync_devices s1 ORDER BY name`)
 	if err != nil {
-		return nil
+		return []SyncDevice{}
 	}
 	defer rows.Close()
-	var out []SyncDevice
+	out := []SyncDevice{}
 	for rows.Next() {
 		var d SyncDevice
 		if err := rows.Scan(&d.DeviceID, &d.Name, &d.LastSeenAt, &d.Segments); err != nil {

@@ -33,7 +33,7 @@ export default function ActivityDailyPage() {
   // 十期 A1：多设备汇总——/sync/status 的 devices 非空时选择器出现「全部设备（汇总）」
   const [agg, setAgg] = useState(false)
   const syncQ = useSyncAgg(device)
-  const aggAvailable = (syncQ.data?.data.devices?.length ?? 0) > 0
+  const aggAvailable = (syncQ.data?.data?.devices?.length ?? 0) > 0
   const isAgg = agg && aggAvailable
   const { theme } = useTheme()
   const [date, setDate] = useState(todayStr())
