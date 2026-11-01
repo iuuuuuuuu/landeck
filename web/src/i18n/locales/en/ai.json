@@ -88,6 +88,12 @@
     "privacy1": "Keys are stored on the controlled machine (settings file); the console only receives existence and the last digits. Chat and summary requests are proxied by the controlled machine —",
     "privacy2": "the console never connects to model services directly. For config issues see the ",
     "privacy3": "page's error hints.",
-    "chatLink": "AI chat"
+    "chatLink": "AI chat",
+    "agentTooOld": "This Agent version has no AI features (requires 1.0.19+)",
+    "needAgent": "AI features need LanDeck Agent 1.0.19+. This agent doesn't expose them yet — you can fill the form now and save after upgrading.",
+    "endpointOpenaiHint2": "e.g. https://api.openai.com/v1 (works with OpenAI-compatible endpoints)",
+    "modelOllamaHint": "e.g. qwen2.5:7b, llama3.1:8b",
+    "modelCloudHint": "e.g. gpt-4o-mini, deepseek-chat",
+    "enabledShort": "Enabled"
   }
 }

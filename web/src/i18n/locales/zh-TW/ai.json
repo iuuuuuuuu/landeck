@@ -88,6 +88,12 @@
     "privacy1": "金鑰儲存在被控端本機（settings 檔案），控制端只回傳是否存在與尾號。對話與總結請求由被控端代理呼叫——",
     "privacy2": "控制端不直接連模型服務。設定問題見",
     "privacy3": "頁的錯誤提示。",
-    "chatLink": "AI 對話"
+    "chatLink": "AI 對話",
+    "agentTooOld": "目前 Agent 版本沒有 AI 功能（需要 1.0.19+）",
+    "needAgent": "AI 功能需要 LanDeck Agent 1.0.19+。目前被控端還沒有這組介面，可以先填寫，升級後儲存即可生效。",
+    "endpointOpenaiHint2": "例如 https://api.openai.com/v1（相容各家相容端點）",
+    "modelOllamaHint": "例如 qwen2.5:7b、llama3.1:8b",
+    "modelCloudHint": "例如 gpt-4o-mini、deepseek-chat",
+    "enabledShort": "啟用"
   }
 }

@@ -9,6 +9,7 @@ import { AI_CLOUD_PRESETS, fetchAiSettings, putAiSettings, sendChat, type AiProv
 import { invalidateCache } from '../../lib/queryCache'
 import { useApp } from '../../store/app'
 import { useActiveTarget } from '../../lib/useActiveTarget'
+import { useT } from '../../i18n'
 import { AiNoDeviceGuide } from './shared'
 import { apiErrorMessage } from '../../components/pair/errors'
 
@@ -23,6 +24,7 @@ import { apiErrorMessage } from '../../components/pair/errors'
  * 了新值时随 PUT 带；「清除密钥」单独发 {clearKey:true}。
  */
 export default function AiSettingsPage() {
+  const t = useT('ai')
   const toast = useApp((s) => s.toast)
   const { device, pairedCount, localAvailable } = useActiveTarget()
   const dev = device ?? null
@@ -82,12 +84,12 @@ export default function AiSettingsPage() {
         setApiKeyInput('')
         invalidateCache(aiSettingsKey(dev))
         void q.reload()
-        toast({ kind: 'ok', title: 'AI 设置已保存' })
+        toast({ kind: 'ok', title: t('settings.saved') })
       } catch (e) {
         toast({
           kind: 'error',
-          title: '保存失败',
-          desc: apiErrorMessage(e, notFound ? '当前 Agent 版本没有 AI 功能（需要 1.0.19+）' : undefined),
+          title: t('settings.saveFailed'),
+          desc: apiErrorMessage(e, notFound ? t('settings.agentTooOld') : undefined),
         })
       } finally {
         setSaving(false)
@@ -108,11 +110,11 @@ export default function AiSettingsPage() {
       void q.reload()
       toast({
         kind: 'ok',
-        title: next.autoSummary?.enabled ? '自动总结已开启' : '自动总结已关闭',
-        desc: next.autoSummary?.enabled ? `每天 ${next.autoSummary.time} 生成当天日报` : undefined,
+        title: next.autoSummary?.enabled ? t('settings.autoSummarySaved') : t('settings.autoSummaryOff'),
+        desc: next.autoSummary?.enabled ? t('settings.autoSummaryDaily', { time: next.autoSummary.time }) : undefined,
       })
     } catch (e) {
-      toast({ kind: 'error', title: '保存自动总结失败', desc: apiErrorMessage(e, notFound ? '当前 Agent 版本没有 AI 功能（需要 1.0.19+）' : undefined) })
+      toast({ kind: 'error', title: t('settings.autoSummarySaveFailed'), desc: apiErrorMessage(e, notFound ? t('settings.agentTooOld') : undefined) })
     } finally {
       setSavingAuto(false)
     }
@@ -129,7 +131,7 @@ export default function AiSettingsPage() {
       const r = await sendChat(dev, dev.token, [{ role: 'user', content: 'ping' }])
       setTestResult({ ok: true, text: r.data.content.slice(0, 200) })
     } catch (e) {
-      setTestResult({ ok: false, text: apiErrorMessage(e, '连接失败') })
+      setTestResult({ ok: false, text: apiErrorMessage(e, t('settings.testFailed')) })
     } finally {
       setTesting(false)
     }
@@ -139,18 +141,18 @@ export default function AiSettingsPage() {
   if (!localAvailable && pairedCount === 0) return <AiNoDeviceGuide />
 
   const providerOptions: { value: AiProvider; label: string }[] = [
-    { value: 'openai', label: 'OpenAI 兼容' },
-    { value: 'ollama', label: 'Ollama 本地' },
+    { value: 'openai', label: t('settings.providerOpenai') },
+    { value: 'ollama', label: t('settings.providerOllama') },
   ]
 
   return (
     <div className="space-y-4">
-      <PageHeader title="AI 设置" sub="配置被控端调用的大模型——总结与对话都由它生成" />
+      <PageHeader title={t("settings.title")} sub={t("settings.subtitle")} />
 
       {notFound && (
         <div className="flex items-start gap-2 rounded-xl border border-cyan/30 bg-cyan/[0.08] px-3 py-2.5 text-[12px] leading-relaxed text-cyan">
           <TriangleAlert size={15} className="mt-0.5 shrink-0" />
-          <span className="min-w-0 flex-1">AI 功能需要 LanDeck Agent 1.0.19+。当前被控端还没有这组接口，可以先填写，升级后保存即可生效。</span>
+          <span className="min-w-0 flex-1">{t("settings.needAgent")}</span>
         </div>
       )}
 
@@ -166,7 +168,7 @@ export default function AiSettingsPage() {
         <Card>
           <div className="flex items-start gap-2 rounded-xl border border-danger/30 bg-danger/[0.08] px-3 py-2.5 text-[12px] text-danger">
             <TriangleAlert size={15} className="mt-0.5 shrink-0" />
-            <span className="min-w-0 flex-1">读取 AI 设置失败：{String(q.error instanceof Error ? q.error.message : q.error)}</span>
+            <span className="min-w-0 flex-1">{t("settings.readFailed")}{String(q.error instanceof Error ? q.error.message : q.error)}</span>
             <Button size="sm" variant="ghost" onClick={q.reload}>
               重试
             </Button>
@@ -175,9 +177,9 @@ export default function AiSettingsPage() {
       ) : form ? (
         <>
           <Card>
-            <SectionTitle icon={<Bot size={16} />} title="模型来源" desc="本地模型数据不出机器；云端 API 延迟低、模型选择多。" />
+            <SectionTitle icon={<Bot size={16} />} title={t("settings.sourceTitle")} desc={t("settings.sourceDesc")} />
             <div className="mt-3 space-y-3">
-              <Field label="提供方">
+              <Field label={t("settings.provider")}>
                 <div className="flex gap-2">
                   {providerOptions.map((o) => (
                     <button
@@ -197,7 +199,7 @@ export default function AiSettingsPage() {
                 </div>
               </Field>
               <Field
-                label="服务地址"
+                label={t("settings.endpoint")}
                 hint={form.provider === 'ollama' ? '例如 http://127.0.0.1:11434' : '例如 https://api.openai.com/v1（兼容各家 OpenAI 形状的端点）'}
               >
                 <Input
@@ -208,7 +210,7 @@ export default function AiSettingsPage() {
                 />
               </Field>
               {form.provider === 'openai' && (
-                <Field label="云端预设" hint="点一下自动填服务地址；模型名各家不同，需要自己填">
+                <Field label={t("settings.cloudPresets")} hint={t("settings.cloudPresetsHint")}>
                   <div className="flex flex-wrap gap-1.5">
                     {AI_CLOUD_PRESETS.map((p) => {
                       const active = form.baseURL.trim().replace(/\/+$/, '') === p.baseURL
@@ -231,23 +233,23 @@ export default function AiSettingsPage() {
                   </div>
                 </Field>
               )}
-              <Field label="总结模型" hint={form.provider === 'ollama' ? '例如 qwen2.5:7b、llama3.1:8b' : '例如 gpt-4o-mini、deepseek-chat'}>
+              <Field label={t("settings.summaryModel")} hint={form.provider === 'ollama' ? t('settings.modelOllamaHint') : t('settings.modelCloudHint')}>
                 <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="模型名称" spellCheck={false} />
               </Field>
-              <Field label="对话模型" hint="留空则使用总结模型；想让日常对话用更便宜/更快的模型时单独填">
+              <Field label={t("settings.chatModel")} hint={t("settings.chatModelHint")}>
                 <Input
                   value={form.chat?.model ?? ''}
                   onChange={(e) => setForm({ ...form, chat: { model: e.target.value } })}
-                  placeholder="留空则使用总结模型"
+                  placeholder={t("settings.chatModelPlaceholder")}
                   spellCheck={false}
                 />
               </Field>
               <Field
-                label="API 密钥"
+                label={t("settings.apiKey")}
                 hint={
                   form.hasKey
-                    ? `已保存（尾号 ${form.keyTail || '••••'}）${apiKeyInput ? '，本次输入将覆盖' : '，留空则不修改'}`
-                    : 'Ollama 本地模型通常不需要'
+                    ? t('settings.keySaved', { tail: form.keyTail || '••••' }) + (apiKeyInput ? t('settings.keyWillOverwrite') : t('settings.keyUnchanged'))
+                    : t('settings.keyOllamaHint')
                 }
               >
                 <div className="flex gap-2">
@@ -261,21 +263,21 @@ export default function AiSettingsPage() {
                   />
                   {form.hasKey && (
                     <Button size="md" variant="ghost" disabled={saving} onClick={() => void save({ clearKey: true })}>
-                      清除
+                      {t("settings.clear")}
                     </Button>
                   )}
                 </div>
               </Field>
-              <Field label="启用 AI 功能" hint="关闭后对话与总结页会显示未启用提示，设置保留。">
-                <Toggle checked={form.enabled} onChange={(v) => setForm({ ...form, enabled: v })} label="启用" />
+              <Field label={t("settings.enabled")} hint={t("settings.enabledHint")}>
+                <Toggle checked={form.enabled} onChange={(v) => setForm({ ...form, enabled: v })} label={t("settings.enabledShort")} />
               </Field>
             </div>
             <div className="mt-4 flex items-center justify-end gap-2 border-t border-line-soft pt-3">
               <Button variant="secondary" loading={testing} disabled={saving} onClick={() => void testConnection()}>
-                测试连接
+                {t("settings.testConnection")}
               </Button>
               <Button variant="primary" loading={saving} disabled={testing} onClick={() => void save()}>
-                保存
+                {t("settings.save")}
               </Button>
             </div>
           </Card>
@@ -283,7 +285,7 @@ export default function AiSettingsPage() {
           {testResult && (
             <Card>
               <div className="flex items-start gap-2">
-                <Badge tone={testResult.ok ? 'ok' : 'danger'}>{testResult.ok ? '连通' : '失败'}</Badge>
+                <Badge tone={testResult.ok ? 'ok' : 'danger'}>{testResult.ok ? t('settings.testOk') : t('settings.testFail')}</Badge>
                 <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[12.5px] leading-relaxed text-fg-soft">{testResult.text}</p>
               </div>
             </Card>
@@ -291,17 +293,17 @@ export default function AiSettingsPage() {
 
           {/* 自动总结（七期）：每天定时生成当天日报，agent 侧还会补齐缺失日报与上周周报 */}
           <Card>
-            <SectionTitle icon={<Clock size={16} />} title="自动总结" desc="开启后每天定时生成当天日报，并自动补齐缺失日报与上周周报；需已配置模型。" />
+            <SectionTitle icon={<Clock size={16} />} title={t("settings.autoSummary")} desc={t("settings.autoSummaryDesc")} />
             {form && (
               <div className="mt-3 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <Toggle
                     checked={form.autoSummary?.enabled ?? false}
                     onChange={(v) => setForm({ ...form, autoSummary: { enabled: v, time: form.autoSummary?.time ?? '23:00' } })}
-                    label="每日自动日报"
+                    label={t("settings.autoDaily")}
                   />
                   <label className="flex items-center gap-2 text-[12.5px] text-muted">
-                    生成时间
+                    {t("settings.genTime")}
                     <input
                       type="time"
                       value={form.autoSummary?.time ?? '23:00'}
@@ -316,10 +318,10 @@ export default function AiSettingsPage() {
                     variant="primary"
                     loading={savingAuto}
                     disabled={testing || !form.model.trim()}
-                    title={!form.model.trim() ? '先在上面配置模型' : undefined}
+                    title={!form.model.trim() ? t('settings.needModelFirst') : undefined}
                     onClick={() => void saveAuto()}
                   >
-                    保存自动总结
+                    {t("settings.saveAutoSummary")}
                   </Button>
                 </div>
               </div>
