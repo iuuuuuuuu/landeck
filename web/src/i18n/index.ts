@@ -106,6 +106,9 @@ let started = false
 export async function initI18n(): Promise<void> {
   if (started) return
   started = true
+  if (typeof window !== 'undefined') {
+    ;(window as unknown as Record<string, unknown>).__LD_I18N__ = i18next
+  }
 
   await i18next.use(initReactI18next).init({
     lng: FALLBACK,
@@ -156,6 +159,7 @@ export function watchSystemLang(): void {
 }
 
 export function getI18n(): I18n {
+  if (typeof window !== 'undefined') (window as unknown as Record<string, unknown>).__LD_I18N__ = i18next
   return i18next
 }
 

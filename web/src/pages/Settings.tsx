@@ -437,6 +437,7 @@ const THEME_OPTIONS: { value: ThemeMode; labelKey: string; icon: ReactNode }[] =
 
 /** 界面语言卡：跟随系统 + 六语言，切换立即生效（i18next reactive，无需刷新）。 */
 function LanguageCard() {
+  const t = useT('settings')
   const [current, setCurrent] = useState<Lang>(() => currentLang())
   const [busy, setBusy] = useState(false)
 
@@ -455,9 +456,9 @@ function LanguageCard() {
     <Card>
       <div className="flex items-center gap-2 text-[15px] font-medium">
         <Languages size={16} />
-        界面语言
+        {t("lang.title")}
       </div>
-      <p className="mt-1 text-[12px] text-fg-muted">切换立即生效；跟随系统时由系统语言决定，AI 总结的语言也会跟随。</p>
+      <p className="mt-1 text-[12px] text-fg-muted">{t("lang.desc")}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         {LANGS.map((lang) => (
           <button
@@ -570,13 +571,13 @@ function AppearanceCard() {
     <Card>
       <SectionTitle
         icon={<Palette size={16} />}
-        title="外观与启动"
-        desc="「跟随系统」会随操作系统的深浅色设置实时变化；选择记在这个浏览器里，刷新不丢。"
+        title={t("appearance.title")}
+        desc={t("appearance.desc")}
       />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <Segmented value={mode} onChange={setMode} options={THEME_OPTIONS.map((o) => ({ ...o, label: t(o.labelKey) }))} />
         <span className="text-[12px] text-muted">
-          选择：<span className="text-fg-soft">{THEME_LABEL[mode]}</span>
+          {t("appearance.choose")}<span className="text-fg-soft">{THEME_LABEL[mode]}</span>
           <span className="text-faint"> · 当前生效 {THEME_NAME_LABEL[theme]}</span>
         </span>
       </div>
@@ -588,8 +589,8 @@ function AppearanceCard() {
             checked={auto}
             disabled={busy}
             onChange={(v) => void toggleAuto(v)}
-            label="开机自启"
-            desc="登录这台电脑后自动启动 LanDeck 控制端。"
+            label={t("appearance.auto")}
+            desc={t("appearance.autoDesc")}
           />
           {/* 只在自启开启时才有意义：没开自启时「开机静默」无从谈起 */}
           {auto && silent !== null && (
@@ -598,7 +599,7 @@ function AppearanceCard() {
                 checked={silent}
                 disabled={busySilent}
                 onChange={(v) => void toggleSilent(v)}
-                label="静默启动"
+                label={t("appearance.silent.label")}
                 desc="开机时不显示窗口，只在托盘里运行；从托盘或双击图标打开仍会显示窗口。"
               />
             </div>
@@ -613,7 +614,7 @@ function AppearanceCard() {
             checked={light}
             disabled={busyLight}
             onChange={(v) => void toggleLight(v)}
-            label="轻量模式"
+            label={t("appearance.lightweight.label")}
             desc="关闭窗口时释放界面占用的内存，只在托盘保留后台服务；再次打开会重建界面（数据有本地缓存，仍会立刻显示）。"
           />
         </div>

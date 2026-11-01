@@ -47,7 +47,10 @@
     "themeLight": "明亮",
     "themeDark": "暗色",
     "themeMinimal": "簡約",
-    "themeFlat": "留白扁平"
+    "themeFlat": "留白扁平",
+    "choose": "選擇：",
+    "silent.label": "靜默啟動",
+    "lightweight.label": "輕量模式"
   },
   "about": {
     "title": "關於",

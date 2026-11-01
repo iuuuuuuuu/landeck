@@ -47,7 +47,10 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "themeMinimal": "Minimal",
-    "themeFlat": "Flat white"
+    "themeFlat": "Flat white",
+    "choose": "Theme: ",
+    "silent.label": "Silent start",
+    "lightweight.label": "Lightweight mode"
   },
   "about": {
     "title": "About",
