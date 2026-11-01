@@ -59,6 +59,18 @@
     "resources": [
       "resources/"
     ],
-    "windows": {}
+    "windows": {},
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/iuuuuuuuu/landeck/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNCNEI4MDUzNURBQTZEMzYKUldRMmJhcGRVNEJMTzNLWHlGRG9pejZZRXgyckhyVE5oQXZSQnhZT3RjZjlYR3h5eUdVRkpnU3AK",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

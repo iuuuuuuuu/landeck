@@ -81,6 +81,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
+      # A7 自动更新：updater 产物签名密钥（tauri signer generate 生成，
+      # Lead 已存 GitHub Secrets）。没有它 createUpdaterArtifacts 会让构建直接失败。
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -172,6 +176,7 @@ jobs:
             app/src-tauri/target/**/release/bundle/msi/*.msi
             app/src-tauri/target/**/release/bundle/deb/*.deb
             app/src-tauri/target/**/release/bundle/appimage/*.AppImage
+            app/src-tauri/target/**/release/bundle/**/*.sig
           if-no-files-found: warn
 
   android:
@@ -283,6 +288,28 @@ jobs:
           # 先删掉各 job 带来的旧校验和：`sha256sum *` 会把刚重定向出的空文件也算进去
           rm -f out/SHA256SUMS.txt
           cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      # A7 自动更新清单：updater 端点固定拉 releases/latest/download/latest.json。
+      # Windows 用 NSIS 安装包 + 同名 .sig（tauri createUpdaterArtifacts 产物）。
+      # 拿不到签名（secret 未配置）时发一个 version=0.0.0 的空清单——
+      # 所有客户端 check() 后判定「已是最新」，优雅降级而不是报网络错误。
+      - name: 生成 latest.json（A7 更新清单）
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          SIG_FILE="artifacts/desktop-windows-latest/LanDeck_${VERSION}_x64-setup.exe.sig"
+          ls artifacts/desktop-windows-latest/ || true
+          if [ -f "$SIG_FILE" ]; then
+            SIG=$(cat "$SIG_FILE")
+            URL="https://github.com/iuuuuuuuu/landeck/releases/download/${GITHUB_REF_NAME}/LanDeck_${VERSION}_x64-setup.exe"
+            jq -n --arg v "$VERSION" --arg d "$PUB_DATE" --arg sig "$SIG" --arg url "$URL" '
+              {version: $v, notes: ("LanDeck " + $v), pub_date: $d,
+               platforms: {"windows-x86_64": {signature: $sig, url: $url}}}' > out/latest.json
+          else
+            echo "::warning::未找到 Windows 更新签名，latest.json 以 0.0.0 降级（所有客户端视为已最新）"
+            jq -n --arg d "$PUB_DATE" '{version: "0.0.0", pub_date: $d, platforms: {}}' > out/latest.json
+          fi
+          cat out/latest.json
 
       # draft: false —— 之前用 draft，结果是「发版了但用户看不到」，还得手动去后台点发布。
       # 按项目规矩（未经批准只发预测试版），这里固定 prerelease，但**直接可见**。

@@ -15,6 +15,8 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 if-addrs = "0.13"
@@ -28,6 +30,11 @@ windows-sys = { version = "0.61", features = [
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+[dev-dependencies]
+# 与 tauri-plugin-updater 相同的验签实现：测试直接验证「公钥+安装包+签名」全链
+minisign-verify = "=0.3.0"
+base64 = "=0.22.1"
 
 [profile.release]
 opt-level = "z"    # 体积优先

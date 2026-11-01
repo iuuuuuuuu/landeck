@@ -32,6 +32,11 @@ pub struct Prefs {
     /// 数据本身有落盘缓存（web/src/lib/queryCache.ts），重建后仍然立刻有内容。
     #[serde(default)]
     pub lightweight_mode: bool,
+    /// 自动检查更新：启动时后台静默查一次（检查失败完全静默，不打扰）。
+    /// 默认 true——保持客户端能收到新版通知；检查动作本身不安装，
+    /// 安装永远由用户在「关于」卡里手动确认。
+    #[serde(default = "default_true")]
+    pub auto_check_updates: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -66,6 +71,7 @@ impl Default for Prefs {
             window: WindowPrefs::default(),
             silent_autostart: true,
             lightweight_mode: false,
+            auto_check_updates: true,
         }
     }
 }

@@ -585,6 +585,37 @@ fn agent_start_impl(app: &tauri::AppHandle, port: u16) -> Result<bool, String> {
     Ok(agent_status(port))
 }
 
+/// A7：检查更新（Rust 侧供启动静默检查复用）。Ok(None)=已是最新。
+#[cfg(desktop)]
+async fn app_updater_check(
+    app: &tauri::AppHandle,
+) -> Result<Option<tauri_plugin_updater::Update>, String> {
+    use tauri_plugin_updater::UpdaterExt;
+
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    match updater.check().await {
+        Ok(u) => Ok(u),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// 读「自动检查更新」开关。
+#[tauri::command]
+#[cfg(desktop)]
+fn update_auto_get(app: tauri::AppHandle) -> bool {
+    prefs::load(&app).auto_check_updates
+}
+
+/// 写「自动检查更新」开关（部分更新语义，只动这一个字段）。
+#[tauri::command]
+#[cfg(desktop)]
+fn update_auto_set(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
+    let mut p = prefs::load(&app);
+    p.auto_check_updates = enabled;
+    prefs::save(&app, &p)?;
+    Ok(prefs::load(&app).auto_check_updates)
+}
+
 #[tauri::command]
 fn platform() -> String {
     std::env::consts::OS.to_string()
@@ -1163,6 +1194,31 @@ pub fn run() {
             sync_autostart_entry(app.handle());
             // 随客户端自动启动本机被控端：用户装完就能在本机页看到数据，
             // 不必再去点一次「启动」。失败不影响客户端本身。
+            // A7 自动检查更新：启动 10s 后后台静默查一次（可关）。失败完全静默，
+            // 有更新则发事件，由设置页「关于」卡展示——绝不自动安装。
+            #[cfg(desktop)]
+            {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(10));
+                    if !prefs::load(&handle).auto_check_updates {
+                        return;
+                    }
+                    let result = tauri::async_runtime::block_on(async {
+                        use tauri::Emitter;
+                        match app_updater_check(&handle).await {
+                            Ok(Some(u)) => {
+                                let _ = handle.emit(
+                                    "update-available",
+                                    serde_json::json!({ "version": u.version, "notes": u.body }),
+                                );
+                            }
+                            _ => {}
+                        }
+                    });
+                    let _ = result;
+                });
+            }
             #[cfg(desktop)]
             {
             let handle = app.handle().clone();
@@ -1176,6 +1232,8 @@ pub fn run() {
             }
             Ok(())
         })
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             device_profile,
             scan_lan,
@@ -1188,6 +1246,8 @@ pub fn run() {
             silent_autostart_set,
             lightweight_get,
             lightweight_set,
+            update_auto_get,
+            update_auto_set,
             theme_get,
             theme_set,
             agent_status,
