@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Card, Input, SectionTitle, Select, Skeleton } from '../../components/ui'
 import { useAsync } from '../../lib/hooks'
+import { useT } from '../../i18n'
 import { activityCategoriesKey, activityRankKey } from '../../lib/activityKeys'
 import { fetchCategories, fetchRank, putCategories } from '../../lib/activityApi'
 import type { CategoriesData } from '../../lib/activityApi'
@@ -15,6 +16,7 @@ import { ActivityPageHeader, LoadError, NoDeviceGuide, useActivityTarget, useToa
  * 保存走 PUT /activity/categories；demo 模式只落本地状态并提示（agent 未上线）。
  */
 export default function ActivityCategoriesPage() {
+  const t = useT('categories')
   const { device, pairedCount, localAvailable } = useActivityTarget()
   const toast = useToast()
 
@@ -49,7 +51,7 @@ export default function ActivityCategoriesPage() {
   if (q.error)
     return (
       <div className="space-y-4">
-        <ActivityPageHeader title="分类管理" subtitle="应用与网站的活动分类" />
+        <ActivityPageHeader title={t('title')} subtitle="应用与网站的活动分类" />
         <LoadError error={q.error} onRetry={q.reload} />
       </div>
     )
@@ -62,9 +64,9 @@ export default function ActivityCategoriesPage() {
     setSaving(true)
     try {
       const res = await putCategories(device, device.token, next)
-      toast({ kind: 'ok', title: okTitle, desc: res.demo ? '演示模式：仅本地生效，agent 上线后需重设' : undefined })
+      toast({ kind: 'ok', title: okTitle, desc: res.demo ? t('toast.demoDesc') : undefined })
     } catch (e) {
-      toast({ kind: 'error', title: '保存失败', desc: String(e) })
+      toast({ kind: 'error', title: t('toast.saveFailed'), desc: String(e) })
     } finally {
       setSaving(false)
     }
@@ -72,13 +74,13 @@ export default function ActivityCategoriesPage() {
 
   function renameCat(key: string, label: string) {
     if (!data || !label.trim()) return
-    save({ ...data, cats: data.cats.map((c) => (c.key === key ? { ...c, label: label.trim() } : c)) }, '类别已改名')
+    save({ ...data, cats: data.cats.map((c) => (c.key === key ? { ...c, label: label.trim() } : c)) }, t('toast.renamed'))
   }
 
   function addCat() {
     if (!data || !newLabel.trim()) return
     const key = `custom-${Date.now().toString(36)}`
-    save({ ...data, cats: [...data.cats, { key, label: newLabel.trim(), builtin: false }] }, '类别已添加')
+    save({ ...data, cats: [...data.cats, { key, label: newLabel.trim(), builtin: false }] }, t('toast.added'))
     setNewLabel('')
   }
 
@@ -88,7 +90,7 @@ export default function ActivityCategoriesPage() {
     for (const [app, cat] of Object.entries(rules)) {
       if (cat === key) delete rules[app]
     }
-    save({ ...data, cats: data.cats.filter((c) => c.key !== key), rules }, '类别已删除')
+    save({ ...data, cats: data.cats.filter((c) => c.key !== key), rules }, t('toast.deleted'))
   }
 
   function setRule(app: string, cat: string) {
@@ -96,7 +98,7 @@ export default function ActivityCategoriesPage() {
     const rules = { ...data.rules }
     if (cat) rules[app] = cat
     else delete rules[app]
-    save({ ...data, rules }, '映射已更新')
+    save({ ...data, rules }, t('toast.mappingUpdated'))
   }
 
   function countOf(key: string): number {
@@ -116,7 +118,7 @@ export default function ActivityCategoriesPage() {
       <div className="grid min-w-0 gap-4 lg:grid-cols-[320px_1fr]">
         {/* 类别列表 */}
         <Card className="min-w-0 overflow-hidden">
-          <SectionTitle title="类别" desc="内置 8 类可改名；自建类别可删除" />
+          <SectionTitle title={t('cats.title')} desc={t('cats.desc')} />
           {!data ? (
             <Skeleton className="mb-2 h-64 w-full" />
           ) : (
@@ -151,7 +153,7 @@ export default function ActivityCategoriesPage() {
                           setRenaming(c.key)
                           setRenameDraft(c.label)
                         }}
-                        title="点击改名"
+                        title={t("cats.renameTitle")}
                       >
                         {c.label}
                       </button>
@@ -163,9 +165,9 @@ export default function ActivityCategoriesPage() {
                         onClick={() => removeCat(c.key)}
                         disabled={saving}
                         className="shrink-0 rounded-md px-1.5 text-[11px] text-danger hover:bg-danger/10"
-                        title="删除类别（其下应用回到未分类）"
+                        title={t("cats.deleteTitle")}
                       >
-                        删
+                        {t("cats.del")}
                       </button>
                     )}
                   </li>
@@ -176,11 +178,11 @@ export default function ActivityCategoriesPage() {
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addCat()}
-                  placeholder="新类别名，如「设计」"
+                  placeholder={t("cats.newPlaceholder")}
                   className="h-9 flex-1"
                 />
                 <Button size="sm" variant="secondary" className="shrink-0" onClick={addCat} disabled={saving || !newLabel.trim()}>
-                  添加
+                  {t("cats.add")}
                 </Button>
               </div>
             </>
@@ -190,11 +192,11 @@ export default function ActivityCategoriesPage() {
         {/* 映射编辑 */}
         <Card className="min-w-0 overflow-hidden p-0">
           <div className="px-4 py-3">
-            <SectionTitle title="应用 → 类别" desc={data ? `共 ${apps.length} 个应用` : undefined} />
+            <SectionTitle title={t('mapping.title')} desc={data ? t('mapping.count', { count: apps.length }) : undefined} />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="搜索应用…"
+              placeholder={t("mapping.searchPlaceholder")}
               className="mt-2 h-9"
             />
           </div>
@@ -216,12 +218,12 @@ export default function ActivityCategoriesPage() {
                         用定宽容器约束，避免把行撑出横向滚动 */}
                     <span className="w-36 shrink-0">
                     <Select
-                      aria-label={`为 ${app} 选择类别`}
+                      aria-label={t("mapping.ariaFor", { app })}
                       value={current}
                       onChange={(e) => setRule(app, e.target.value)}
                       className="h-9"
                     >
-                      <option value="">（不归类）</option>
+                      <option value="">{t("mapping.unclassified")}</option>
                       {data.cats.map((c) => (
                         <option key={c.key} value={c.key}>
                           {c.label}
@@ -233,7 +235,7 @@ export default function ActivityCategoriesPage() {
                 )
               })}
               {filteredApps.length === 0 && (
-                <li className="px-4 py-10 text-center text-[12.5px] text-muted">没有匹配的应用。</li>
+                <li className="px-4 py-10 text-center text-[12.5px] text-muted">{t("mapping.noMatch")}</li>
               )}
             </ul>
           )}

@@ -1,0 +1,30 @@
+{
+  "title": "分類管理",
+  "subtitleDemo": "示範資料：agent 活動介面上線後自動切真資料",
+  "subtitle": "給應用歸類，統計頁的圖表和排行都按這裡來",
+  "cats": {
+    "title": "類別",
+    "desc": "內建 8 類可改名；自建類別可刪除",
+    "renameTitle": "點擊改名",
+    "deleteTitle": "刪除類別（其下應用回到未分類）",
+    "del": "刪",
+    "newPlaceholder": "新類別名，如「設計」",
+    "add": "新增"
+  },
+  "mapping": {
+    "title": "應用 → 類別",
+    "count": "共 {{count}} 個應用",
+    "searchPlaceholder": "搜尋應用…",
+    "ariaFor": "為 {{app}} 選擇類別",
+    "unclassified": "（不歸類）",
+    "noMatch": "沒有符合的應用。"
+  },
+  "toast": {
+    "renamed": "類別已改名",
+    "added": "類別已新增",
+    "deleted": "類別已刪除",
+    "mappingUpdated": "映射已更新",
+    "saveFailed": "儲存失敗",
+    "demoDesc": "示範模式：僅本地生效，agent 上線後需重設"
+  }
+}

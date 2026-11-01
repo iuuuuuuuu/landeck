@@ -1,0 +1,30 @@
+{
+  "title": "Categories",
+  "subtitleDemo": "Demo data: will switch to real data once the agent activity API is live",
+  "subtitle": "Classify apps — the stats charts and rankings follow this mapping",
+  "cats": {
+    "title": "Categories",
+    "desc": "The 8 built-ins can be renamed; custom ones can be deleted",
+    "renameTitle": "Click to rename",
+    "deleteTitle": "Delete category (its apps fall back to uncategorized)",
+    "del": "Del",
+    "newPlaceholder": "New category, e.g. \"Design\"",
+    "add": "Add"
+  },
+  "mapping": {
+    "title": "App → category",
+    "count": "{{count}} apps",
+    "searchPlaceholder": "Search apps…",
+    "ariaFor": "Pick a category for {{app}}",
+    "unclassified": "(uncategorized)",
+    "noMatch": "No matching apps."
+  },
+  "toast": {
+    "renamed": "Category renamed",
+    "added": "Category added",
+    "deleted": "Category deleted",
+    "mappingUpdated": "Mapping updated",
+    "saveFailed": "Save failed",
+    "demoDesc": "Demo mode: local only; re-set after the agent goes live"
+  }
+}
