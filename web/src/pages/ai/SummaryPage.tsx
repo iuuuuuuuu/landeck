@@ -9,6 +9,7 @@ import { invalidateCache, readCache, writeCache } from '../../lib/queryCache'
 import { relative } from '../../lib/format'
 import { useApp } from '../../store/app'
 import { useActiveTarget } from '../../lib/useActiveTarget'
+import { useT } from '../../i18n'
 import { AiErrorCard, AiNoDeviceGuide, DemoBadge, MiniMarkdown } from './shared'
 
 /**
@@ -20,10 +21,10 @@ import { AiErrorCard, AiNoDeviceGuide, DemoBadge, MiniMarkdown } from './shared'
  * ai_not_configured → 引导卡（唯一修复入口在 AI 设置页）。
  */
 
-const SCOPES: { value: SummaryScope; label: string }[] = [
-  { value: 'day', label: '日报' },
-  { value: 'week', label: '周报' },
-  { value: 'month', label: '月报' },
+const SCOPES: { value: SummaryScope; labelKey: string }[] = [
+  { value: 'day', labelKey: 'summary.day' },
+  { value: 'week', labelKey: 'summary.week' },
+  { value: 'month', labelKey: 'summary.month' },
 ]
 
 function todayStr(): string {
@@ -76,6 +77,7 @@ interface SummaryResult {
 }
 
 export default function AiSummaryPage() {
+  const t = useT('ai')
   const toast = useApp((s) => s.toast)
   const { device, pairedCount, localAvailable } = useActiveTarget()
   const dev = device ?? null
@@ -160,7 +162,7 @@ export default function AiSummaryPage() {
       setCopied(true)
       setTimeout(() => setCopied(false), 1600)
     } catch {
-      toast({ kind: 'error', title: '复制失败', desc: '浏览器拒绝了剪贴板权限' })
+      toast({ kind: 'error', title: t('summary.copyFailed'), desc: t('summary.clipboardDenied') })
     }
   }, [content, toast])
 
@@ -179,14 +181,18 @@ export default function AiSummaryPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="AI 总结"
-        sub="由被控端的模型基于本机活动记录生成"
+        title={t("summary.title")}
+        sub={t("summary.subtitle")}
         actions={content?.demo ? <DemoBadge /> : undefined}
       />
 
       <Card className="p-4 sm:p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <Segmented value={scope} onChange={(v) => setScope(v as SummaryScope)} options={SCOPES} />
+          <Segmented
+              value={scope}
+              onChange={(v) => setScope(v as SummaryScope)}
+              options={SCOPES.map((o) => ({ value: o.value, label: t(o.labelKey) }))}
+            />
           <DateNav
             label={labelFor(scope, date)}
             onPrev={() => setDate((d) => shiftDate(scope, d, -1))}
@@ -200,7 +206,7 @@ export default function AiSummaryPage() {
             <Loader2 size={26} className="animate-spin text-accent" />
             <p className="text-[12.5px] text-muted">
               正在生成，本地模型可能需要几十秒
-              <span className="text-faint">（结果会留在缓存里，切页再回来不用重新生成）</span>
+              <span className="text-faint">{t("summary.cached")}</span>
             </p>
           </div>
         ) : error ? (
@@ -213,14 +219,14 @@ export default function AiSummaryPage() {
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex gap-2">
                 <Button size="sm" variant="secondary" icon={copied ? <Check size={14} /> : <Copy size={14} />} onClick={() => void copy()}>
-                  {copied ? '已复制' : '复制全文'}
+                  {copied ? t('summary.copied') : t('summary.copyAll')}
                 </Button>
                 <Button size="sm" variant="ghost" icon={<Download size={14} />} onClick={download}>
-                  下载 .md
+                  {t("summary.downloadMd")}
                 </Button>
               </div>
               <Button size="sm" variant="primary" icon={<Sparkles size={14} />} onClick={() => void generate()}>
-                重新生成
+                {t("summary.regenerate")}
               </Button>
             </div>
           </>
@@ -228,7 +234,7 @@ export default function AiSummaryPage() {
           <div className="flex flex-col items-center gap-3 py-16">
             <FileText size={26} className="text-faint" />
             <p className="text-[12.5px] text-muted">
-              点击下方按钮，让模型把{scope === 'day' ? '今天' : scope === 'week' ? '本周' : '本月'}的活动整理成一份总结
+              {t('summary.emptyCta', { scope: scope === 'day' ? t('summary.scopeDay') : scope === 'week' ? t('summary.scopeWeek') : t('summary.scopeMonth') })}
             </p>
             <Button variant="primary" icon={<Sparkles size={14} />} onClick={() => void generate()}>
               生成总结
@@ -240,8 +246,8 @@ export default function AiSummaryPage() {
       {/* 报告历史（七期）：点击加载进上方查看器，复制/导出复用同一工具条 */}
       <Card className="p-4 sm:p-5">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <SectionTitle icon={<History size={16} />} title="报告历史" desc="自动与手动生成的日报/周报" />
-          {reports.data?.demo ? <Badge tone="cyan">演示数据</Badge> : undefined}
+          <SectionTitle icon={<History size={16} />} title={t("summary.history")} desc={t("summary.historyDesc")} />
+          {reports.data?.demo ? <Badge tone="cyan">{t("summary.demoBadge")}</Badge> : undefined}
         </div>
         {reports.loading && !reports.data ? (
           <div className="space-y-2">
@@ -250,10 +256,10 @@ export default function AiSummaryPage() {
             <Skeleton className="h-11 w-2/3" />
           </div>
         ) : reports.error && !reports.data ? (
-          <p className="text-[12px] text-danger">读取报告历史失败：{String(reports.error)}</p>
+          <p className="text-[12px] text-danger">{t("summary.historyError")}{String(reports.error)}</p>
         ) : (reports.data?.list ?? []).length === 0 ? (
           <p className="rounded-xl border border-line-soft bg-elevated px-3 py-3 text-[12px] text-muted">
-            还没有生成的报告。生成总结后（或在被控端开启自动总结），这里会列出最近 30 份。
+            {t("summary.historyEmpty")}
           </p>
         ) : (
           <ul className="divide-y divide-line-soft">
@@ -266,11 +272,11 @@ export default function AiSummaryPage() {
                   className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-elevated disabled:opacity-60"
                 >
                   <Badge tone={m.type === 'day' ? 'accent' : 'cyan'} className="shrink-0">
-                    {m.type === 'day' ? '日报' : '周报'}
+                    {m.type === 'day' ? t('summary.day') : t('summary.week')}
                   </Badge>
                   <span className="min-w-0 flex-1">
                     <span className="num block truncate text-[13px] text-fg">{m.date}</span>
-                    <span className="num block text-[11px] text-faint">{relative(m.generatedAt)}生成</span>
+                    <span className="num block text-[11px] text-faint">{t("summary.generatedAt", { when: relative(m.generatedAt) })}</span>
                   </span>
                   {openingId === m.id ? (
                     <Loader2 size={14} className="shrink-0 animate-spin text-muted" />
