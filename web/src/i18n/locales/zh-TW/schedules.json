@@ -1,5 +1,36 @@
 {
   "title": "排程任務",
-  "subtitle": "对已選裝置定時關機、重新啟動或提醒",
-  "count": "共 {{count}} 个任務"
+  "subtitle": "對已選裝置排程關機、重新啟動或提醒",
+  "count": "共 {{count}} 個任務",
+  "noPairedHint": "還沒有已配對的裝置，目前顯示本機",
+  "toast": {
+    "enabled": "任務已啟用",
+    "paused": "任務已暫停",
+    "updateFailed": "更新失敗",
+    "saved": "任務已儲存",
+    "created": "任務已建立",
+    "saveFailed": "儲存失敗",
+    "deleted": "任務已刪除",
+    "deleteFailed": "刪除失敗"
+  },
+  "actions": {
+    "refresh": "重新整理",
+    "create": "新增",
+    "createFirst": "新增排程任務",
+    "retry": "重試",
+    "cancel": "取消",
+    "delete": "刪除"
+  },
+  "error": {
+    "local": "本機排程任務讀取失敗",
+    "load": "任務清單載入失敗"
+  },
+  "empty": {
+    "title": "還沒有排程任務",
+    "desc": "例如：每天 23:30 關機、工作日 08:00 喚醒、下班後自動靜音。"
+  },
+  "delete": {
+    "title": "刪除排程任務",
+    "desc": "「{{name}}」將被永久刪除，已執行過的記錄不受影響。"
+  }
 }

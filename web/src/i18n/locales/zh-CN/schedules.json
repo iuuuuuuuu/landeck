@@ -1,5 +1,36 @@
 {
   "title": "定时任务",
   "subtitle": "对已选设备定时关机、重启或提醒",
-  "count": "共 {{count}} 个任务"
+  "count": "共 {{count}} 个任务",
+  "noPairedHint": "还没有已配对的设备，当前显示本机",
+  "toast": {
+    "enabled": "任务已启用",
+    "paused": "任务已暂停",
+    "updateFailed": "更新失败",
+    "saved": "任务已保存",
+    "created": "任务已创建",
+    "saveFailed": "保存失败",
+    "deleted": "任务已删除",
+    "deleteFailed": "删除失败"
+  },
+  "actions": {
+    "refresh": "刷新",
+    "create": "新建",
+    "createFirst": "新建定时任务",
+    "retry": "重试",
+    "cancel": "取消",
+    "delete": "删除"
+  },
+  "error": {
+    "local": "本机定时任务读取失败",
+    "load": "任务列表加载失败"
+  },
+  "empty": {
+    "title": "还没有定时任务",
+    "desc": "例如：每天 23:30 关机、工作日 08:00 唤醒、下班后自动静音。"
+  },
+  "delete": {
+    "title": "删除定时任务",
+    "desc": "「{{name}}」将被永久删除，已执行过的记录不受影响。"
+  }
 }

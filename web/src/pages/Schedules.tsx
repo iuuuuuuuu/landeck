@@ -14,6 +14,7 @@ import { ScheduleModal } from '../components/device/ScheduleModal'
 import { AuthLost } from '../components/device/AuthLost'
 import { errText, isAuthError } from '../components/device/apiHelpers'
 import { PageHeader } from '../components/shell'
+import { useT } from '../i18n'
 
 /**
  * 定时任务面板：任务列表 + 新建 / 编辑 / 启停 / 删除。
@@ -33,6 +34,7 @@ export function SchedulesPanel({
   onAuthError?: () => void
   headerExtra?: ReactNode
 }) {
+  const t = useT('schedules')
   const toast = useApp((s) => s.toast)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -56,11 +58,11 @@ export function SchedulesPanel({
       setBusyId(next.id)
       try {
         await client.updateSchedule(next)
-        toast({ kind: 'ok', title: next.enabled ? '任务已启用' : '任务已暂停' })
+        toast({ kind: 'ok', title: next.enabled ? t('toast.enabled') : t('toast.paused') })
         list.reload()
       } catch (e) {
         if (isAuthError(e)) onAuthError?.()
-        toast({ kind: 'error', title: '更新失败', desc: errText(e) })
+        toast({ kind: 'error', title: t('toast.updateFailed'), desc: errText(e) })
       } finally {
         setBusyId(null)
       }
@@ -74,12 +76,12 @@ export function SchedulesPanel({
     try {
       if (editor.target) await client.updateSchedule({ ...draft, id: editor.target.id })
       else await client.createSchedule(draft)
-      toast({ kind: 'ok', title: editor.target ? '任务已保存' : '任务已创建' })
+      toast({ kind: 'ok', title: editor.target ? t('toast.saved') : t('toast.created') })
       setEditor({ open: false, target: null })
       list.reload()
     } catch (e) {
       if (isAuthError(e)) onAuthError?.()
-      toast({ kind: 'error', title: '保存失败', desc: errText(e) })
+      toast({ kind: 'error', title: t('toast.saveFailed'), desc: errText(e) })
     } finally {
       setSaving(false)
     }
@@ -90,11 +92,11 @@ export function SchedulesPanel({
     setBusyId(target.id)
     try {
       await client.deleteSchedule(target.id)
-      toast({ kind: 'ok', title: '任务已删除' })
+      toast({ kind: 'ok', title: t('toast.deleted') })
       list.reload()
     } catch (e) {
       if (isAuthError(e)) onAuthError?.()
-      toast({ kind: 'error', title: '删除失败', desc: errText(e) })
+      toast({ kind: 'error', title: t('toast.deleteFailed'), desc: errText(e) })
     } finally {
       setBusyId(null)
     }
@@ -103,12 +105,12 @@ export function SchedulesPanel({
   return (
     <div className="space-y-3">
       <PageHeader
-        title="定时任务"
+        title={t('title')}
         sub={
           <>
-            对已选设备定时关机、重启或提醒
+            {t('subtitle')}
             <span className="text-faint"> · </span>
-            共 <span className="num text-fg-soft">{items.length}</span> 个任务
+            {t('count', { count: items.length })}
           </>
         }
         actions={
@@ -117,12 +119,12 @@ export function SchedulesPanel({
             <Button
               variant="secondary"
               size="md"
-              aria-label="刷新任务列表"
+              aria-label={t("actions.refresh")}
               icon={<RotateCw size={14} className={list.loading ? 'animate-spin' : undefined} />}
               onClick={list.reload}
               disabled={list.loading}
             >
-              刷新
+              {t("actions.refresh")}
             </Button>
             <Button
               variant="primary"
@@ -130,7 +132,7 @@ export function SchedulesPanel({
               icon={<Plus size={15} />}
               onClick={() => setEditor({ open: true, target: null })}
             >
-              新建
+              {t("actions.create")}
             </Button>
           </>
         }
@@ -149,11 +151,11 @@ export function SchedulesPanel({
           <Card>
             <EmptyState
               icon={<RotateCw size={24} />}
-              title={isLocal ? '本机定时任务读取失败' : '任务列表加载失败'}
+              title={isLocal ? t('error.local') : t('error.load')}
               desc={isLocal ? `${errText(list.error)} · ${LOCAL_DOWN_HINT}` : errText(list.error)}
               action={
                 <Button variant="secondary" onClick={list.reload}>
-                  重试
+                  {t("actions.retry")}
                 </Button>
               }
             />
@@ -162,15 +164,15 @@ export function SchedulesPanel({
           <Card>
             <EmptyState
               icon={<CalendarClock size={26} />}
-              title="还没有定时任务"
-              desc="例如：每天 23:30 关机、工作日 08:00 唤醒、下班后自动静音。"
+              title={t("empty.title")}
+              desc={t("empty.desc")}
               action={
                 <Button
                   variant="primary"
                   icon={<Plus size={15} />}
                   onClick={() => setEditor({ open: true, target: null })}
                 >
-                  新建定时任务
+                  {t("actions.createFirst")}
                 </Button>
               }
             />
@@ -202,15 +204,15 @@ export function SchedulesPanel({
       <Modal
         open={deleting !== null}
         onClose={() => setDeleting(null)}
-        title="删除定时任务"
-        desc={`「${deleting?.name ?? ''}」将被永久删除，已执行过的记录不受影响。`}
+        title={t("delete.title")}
+        desc={t("delete.desc", { name: deleting?.name ?? '' })}
         footer={
           <>
             <Button variant="secondary" onClick={() => setDeleting(null)}>
-              取消
+              {t("actions.cancel")}
             </Button>
             <Button variant="danger" onClick={() => deleting && void remove(deleting)}>
-              删除
+              {t("actions.delete")}
             </Button>
           </>
         }
@@ -224,6 +226,7 @@ export function SchedulesPanel({
  * 方便以后再次挂载，也保证本文件自洽。
  */
 export default function Schedules() {
+  const t = useT('schedules')
   const { devices, device, deviceId, setDeviceId, isLocal, pairedCount, client } = useActiveTarget()
   const [authLostFor, setAuthLostFor] = useState<string | null>(null)
   const authLost = authLostFor === deviceId
@@ -247,7 +250,7 @@ export default function Schedules() {
           <>
             <DevicePicker devices={devices} value={deviceId} onChange={setDeviceId} />
             {pairedCount === 0 && (
-              <span className="text-[11.5px] text-faint">还没有已配对的设备，当前显示本机</span>
+              <span className="text-[11.5px] text-faint">{t("noPairedHint")}</span>
             )}
           </>
         }

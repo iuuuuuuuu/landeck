@@ -1,5 +1,36 @@
 {
   "title": "Schedules",
   "subtitle": "Scheduled power off, restart or reminders for the selected device",
-  "count": "{{count}} tasks"
+  "count": "{{count}} tasks",
+  "noPairedHint": "No paired devices yet — showing this PC",
+  "toast": {
+    "enabled": "Task enabled",
+    "paused": "Task paused",
+    "updateFailed": "Update failed",
+    "saved": "Task saved",
+    "created": "Task created",
+    "saveFailed": "Save failed",
+    "deleted": "Task deleted",
+    "deleteFailed": "Delete failed"
+  },
+  "actions": {
+    "refresh": "Refresh",
+    "create": "New task",
+    "createFirst": "Create a schedule",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  },
+  "error": {
+    "local": "Failed to read local schedules",
+    "load": "Failed to load schedules"
+  },
+  "empty": {
+    "title": "No schedules yet",
+    "desc": "For example: power off at 23:30 daily, wake at 08:00 on weekdays, auto-mute after work."
+  },
+  "delete": {
+    "title": "Delete schedule",
+    "desc": "\"{{name}}\" will be permanently deleted; past execution records are kept."
+  }
 }
